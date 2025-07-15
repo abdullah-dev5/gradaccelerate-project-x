@@ -6,8 +6,8 @@
 | The routes file is used for defining the HTTP routes.
 |
 */
-const ProjectsController = () => import('#controllers/projects_controller')
-const NotesController = () => import('#controllers/notes_controller')
+const ProjectsController = () => import('#controllers/ProjectController')
+const NotesController = () => import('#controllers/NoteController')
 import router from '@adonisjs/core/services/router'
 
 router.resource('projects', ProjectsController)
