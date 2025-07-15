@@ -12,6 +12,7 @@ interface Note {
   content: string;
   createdAt: string;
   updatedAt: string | null;
+  pinned: boolean; // Added for pinned support
 }
 
 type ViewType = 'grid' | 'list'
@@ -20,10 +21,25 @@ export default function Index({ notes: initialNotes }: { notes: Note[] }) {
   const [notes, setNotes] = useState(initialNotes)
   const [isFormVisible, setIsFormVisible] = useState(false)
   const [viewType, setViewType] = useState<ViewType>('grid')
+  const [sortBy, setSortBy] = useState<'createdAt' | 'updatedAt'>('createdAt')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  
   const { data, setData, post, processing, reset } = useForm({
     title: '',
-    content: ''
+    content: '',
+    pinned: false // Added for pinned support
   });
+
+  // Sort notes based on current sorting preferences
+  const sortedNotes = [...notes].sort((a, b) => {
+    const dateA = new Date(a[sortBy] || a.createdAt)
+    const dateB = new Date(b[sortBy] || b.createdAt)
+    return sortOrder === 'asc' ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime()
+  })
+
+  // Separate pinned and unpinned notes
+  const pinnedNotes = sortedNotes.filter(note => note.pinned)
+  const unpinnedNotes = sortedNotes.filter(note => !note.pinned)
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +49,8 @@ export default function Index({ notes: initialNotes }: { notes: Note[] }) {
       title: data.title,
       content: data.content,
       createdAt: new Date().toISOString(),
-      updatedAt: null
+      updatedAt: null,
+      pinned: data.pinned
     }
     
     setNotes([newNote, ...notes])
@@ -51,6 +68,25 @@ export default function Index({ notes: initialNotes }: { notes: Note[] }) {
       submit(e as any);
     }
   };
+
+  const togglePin = async (id: number) => {
+    try {
+      const response = await fetch(`/notes/${id}/toggle-pin`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      
+      if (response.ok) {
+        setNotes(notes.map(note => 
+          note.id === id ? { ...note, pinned: !note.pinned } : note
+        ))
+      }
+    } catch (error) {
+      console.error('Error toggling pin:', error)
+    }
+  }
 
   return (
     <>
@@ -82,7 +118,14 @@ export default function Index({ notes: initialNotes }: { notes: Note[] }) {
               <h1 className="text-3xl font-bold">Notes</h1>
             </div>
             <div className="flex items-center gap-3">
-              <ViewSwitcher currentView={viewType} onChange={setViewType} />
+              <ViewSwitcher 
+                currentView={viewType} 
+                onChange={setViewType}
+                sortBy={sortBy}
+                setSortBy={setSortBy}
+                sortOrder={sortOrder}
+                setSortOrder={setSortOrder}
+              />
               <motion.button
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setIsFormVisible(!isFormVisible)}
@@ -125,35 +168,85 @@ export default function Index({ notes: initialNotes }: { notes: Note[] }) {
             )}
           </AnimatePresence>
 
+          {/* Pinned Notes Section */}
+          {pinnedNotes.length > 0 && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="mb-8"
+            >
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <span className="text-yellow-400">📌</span> Pinned Notes
+              </h2>
+              <div className={viewType === 'grid' 
+                ? "grid grid-cols-1 md:grid-cols-2 gap-4"
+                : "flex flex-col gap-3"
+              }>
+                <AnimatePresence>
+                  {pinnedNotes.map((note, index) => (
+                    <motion.div
+                      key={note.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ 
+                        opacity: 1, 
+                        y: 0,
+                        transition: { delay: index * 0.05 }
+                      }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      className={viewType === 'list' ? 'w-full' : ''}
+                    >
+                      <NoteCard 
+                        note={note} 
+                        viewType={viewType} 
+                        onPinToggle={togglePin}
+                      />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+            </motion.div>
+          )}
+
+          {/* All Notes Section */}
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
-            className={viewType === 'grid' 
-              ? "grid grid-cols-1 md:grid-cols-2 gap-4"
-              : "flex flex-col gap-3"
-            }
           >
-            <AnimatePresence>
-              {notes.map((note, index) => (
-                <motion.div
-                  key={note.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ 
-                    opacity: 1, 
-                    y: 0,
-                    transition: { delay: index * 0.05 }
-                  }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  className={viewType === 'list' ? 'w-full' : ''}
-                >
-                  <NoteCard note={note} viewType={viewType} />
-                </motion.div>
-              ))}
-            </AnimatePresence>
+            <h2 className="text-xl font-semibold mb-4">All Notes</h2>
+            {unpinnedNotes.length === 0 ? (
+              <p className="text-gray-400">No notes yet</p>
+            ) : (
+              <div className={viewType === 'grid' 
+                ? "grid grid-cols-1 md:grid-cols-2 gap-4"
+                : "flex flex-col gap-3"
+              }>
+                <AnimatePresence>
+                  {unpinnedNotes.map((note, index) => (
+                    <motion.div
+                      key={note.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ 
+                        opacity: 1, 
+                        y: 0,
+                        transition: { delay: index * 0.05 }
+                      }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      className={viewType === 'list' ? 'w-full' : ''}
+                    >
+                      <NoteCard 
+                        note={note} 
+                        viewType={viewType} 
+                        onPinToggle={togglePin}
+                      />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+            )}
           </motion.div>
         </div>
       </div>
     </>
   )
-} 
+}
