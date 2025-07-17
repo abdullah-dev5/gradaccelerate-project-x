@@ -1,8 +1,8 @@
 import Note from '#models/note'
 import { test } from '@japa/runner'
-import { afterEach, beforeEach } from 'node:test'
+import { afterEach } from 'node:test'
 
-test.group('Notes Show', (group) => {
+test.group('Notes Show', () => {
   let createdNote: Note | null
   afterEach(async () => {
     if (createdNote) {

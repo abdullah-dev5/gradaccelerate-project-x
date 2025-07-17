@@ -28,7 +28,7 @@ export default class Todo extends BaseModel {
 
   @manyToMany(() => Label, {
     pivotTable: 'label_todo',
-    pivotTimestamps: true,
+    pivotTimestamps: true, // ✅ captures created_at/updated_at in pivot
   })
   declare labels: ManyToMany<typeof Label>
 
