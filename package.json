@@ -82,6 +82,7 @@
     "@types/marked": "^6.0.0",
     "@vinejs/vine": "^3.0.0",
     "better-sqlite3": "^11.8.1",
+    "cloudinary": "^2.7.0",
     "date-fns": "^4.1.0",
     "edge.js": "^6.2.1",
     "framer-motion": "^12.23.6",

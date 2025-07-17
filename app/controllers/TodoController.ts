@@ -1,58 +1,108 @@
 import { HttpContext } from '@adonisjs/core/http'
 import Todo from '#models/todo'
 import { DateTime } from 'luxon'
+import { createTodoValidator, updateTodoValidator } from '#validators/todos/todos_validator'
 
 export default class TodosController {
-    // Get all todos
-    public async index({ }: HttpContext) {
-        return await Todo.query()
-            .whereNull('deleted_at')
-            .preload('labels')
-    }
+    // GET /todos
+    public async index({ response }: HttpContext) {
+        try {
+            const todos = await Todo.query()
+                .whereNull('deleted_at')
+                .preload('labels')
 
-    // Get single todo
-    public async show({ params, response }: HttpContext) {
-        const todo = await Todo.query()
-            .where('id', params.id)
-            .whereNull('deleted_at')
-            .preload('labels')
-            .first()
-
-        if (!todo) {
-            return response.notFound({ message: 'Todo not found' })
+            return response.ok(todos)
+        } catch (error) {
+            return response.internalServerError({ message: 'Failed to fetch todos', error: error.message })
         }
-
-        return todo
     }
 
-    // Create a todo
-    public async store({ request }: HttpContext) {
-        const { labelIds, ...data } = request.only(['title', 'description', 'isCompleted', 'labelIds'])
-        const todo = await Todo.create(data)
+    // GET /todos/:id
+    public async show({ params, response }: HttpContext) {
+        try {
+            const todo = await Todo.query()
+                .where('id', params.id)
+                .whereNull('deleted_at')
+                .preload('labels')
+                .first()
 
-        if (labelIds) await todo.related('labels').attach(labelIds)
-        await todo.load('labels')
-        return todo
+            if (!todo) {
+                return response.notFound({ message: 'Todo not found' })
+            }
+
+            return response.ok(todo)
+        } catch (error) {
+            return response.internalServerError({ message: 'Failed to fetch todo', error: error.message })
+        }
     }
 
-    // Update a todo
-    public async update({ params, request }: HttpContext) {
-        const todo = await Todo.findOrFail(params.id)
-        const { labelIds, ...data } = request.only(['title', 'description', 'isCompleted', 'labelIds'])
+    // POST /todos
+    public async store({ request, response }: HttpContext) {
+        try {
+            const payload = await request.validateUsing(createTodoValidator)
 
-        todo.merge(data)
-        await todo.save()
+            const { labelIds = [], ...todoData } = payload
 
-        if (labelIds) await todo.related('labels').sync(labelIds)
-        await todo.load('labels')
-        return todo
+            const todo = await Todo.create(todoData)
+
+            if (labelIds.length > 0) {
+                await todo.related('labels').attach(labelIds)
+            }
+
+            await todo.load('labels')
+            return response.created(todo)
+        } catch (error) {
+            if ('messages' in error) {
+                return response.unprocessableEntity({ errors: error.messages })
+            }
+            return response.internalServerError({ message: 'Failed to create todo', error: error.message })
+        }
     }
 
-    // Soft delete
+    // PUT /todos/:id
+    public async update({ params, request, response }: HttpContext) {
+        try {
+            const todo = await Todo.find(params.id)
+
+            if (!todo || todo.deletedAt) {
+                return response.notFound({ message: 'Todo not found or deleted' })
+            }
+
+            const payload = await request.validateUsing(updateTodoValidator)
+            const { labelIds = [], ...updateData } = payload
+
+            todo.merge(updateData)
+            await todo.save()
+
+            if (labelIds.length > 0) {
+                await todo.related('labels').sync(labelIds)
+            }
+
+            await todo.load('labels')
+            return response.ok(todo)
+        } catch (error) {
+            if ('messages' in error) {
+                return response.unprocessableEntity({ errors: error.messages })
+            }
+            return response.internalServerError({ message: 'Failed to update todo', error: error.message })
+        }
+    }
+
+    // DELETE /todos/:id
     public async destroy({ params, response }: HttpContext) {
-        const todo = await Todo.findOrFail(params.id)
-        todo.deletedAt = DateTime.now()
-        await todo.save()
-        return response.noContent()
+        try {
+            const todo = await Todo.find(params.id)
+
+            if (!todo || todo.deletedAt) {
+                return response.notFound({ message: 'Todo not found or already deleted' })
+            }
+
+            todo.deletedAt = DateTime.now()
+            await todo.save()
+
+            return response.noContent()
+        } catch (error) {
+            return response.internalServerError({ message: 'Failed to delete todo', error: error.message })
+        }
     }
 }

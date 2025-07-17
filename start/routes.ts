@@ -1,55 +1,85 @@
-/*
-|--------------------------------------------------------------------------
-| Routes file
-|--------------------------------------------------------------------------
-|
-| The routes file is used for defining the HTTP routes.
-|
-*/
-
-
-import ProjectsController from '#controllers/ProjectController'
-import NotesController from '#controllers/NoteController'
-import TodosController from '#controllers/TodoController'
-import LabelsController from '#controllers/LabelController'
-
+// start/routes.ts
 import router from '@adonisjs/core/services/router'
 
+import LabelsController from '#controllers/LabelController'
+
+// Controllers
+import NotesController from '#controllers/NoteController'
+
+import TodosController from '#controllers/TodoController'
+
+// Middleware
+const authMiddleware = () => import('#middleware/auth_middleware')
 
 // ========================
-// Inertia Routes (Frontend)
+// Inertia Route (Frontend)
 // ========================
 router.get('/', ({ inertia }) => inertia.render('home'))
 
 // ========================
-// API Routes (Backend)
+// API Routes
 // ========================
-// Projects (keep existing)
-router.get('/projects', [ProjectsController, 'index'])
-router.get('/projects/create', [ProjectsController, 'create'])
-router.post('/projects', [ProjectsController, 'store'])
-router.get('/projects/:id', [ProjectsController, 'show'])
-router.get('/projects/:id/edit', [ProjectsController, 'edit'])
-router.put('/projects/:id', [ProjectsController, 'update'])
-router.patch('/projects/:id/status', [ProjectsController, 'updateStatus'])
-router.delete('/projects/:id', [ProjectsController, 'destroy'])
 
-// Notes (expanded)
-router.get('/notes', [NotesController, 'index'])
-router.post('/notes', [NotesController, 'store'])
-router.get('/notes/:id', [NotesController, 'show'])
-router.put('/notes/:id', [NotesController, 'update'])
-router.delete('/notes/:id', [NotesController, 'destroy'])
-router.patch('/notes/:id/pin', [NotesController, 'togglePin'])
+// Public route to view shared note (TODO: implement viewSharedNote method)
+router.get('/notes/shared/:uuid', [NotesController, 'viewSharedNote'])
 
-// Todos (new)
-router.get('/todos/api', [TodosController, 'index']) // API endpoint for todos
-router.post('/todos/api', [TodosController, 'store'])
-router.get('/todos/api/:id', [TodosController, 'show'])
-router.put('/todos/api/:id', [TodosController, 'update'])
-router.delete('/todos/api/:id', [TodosController, 'destroy'])
+// Auth-protected notes routes
+router
+  .group(() => {
+    router.get('/', [NotesController, 'index'])
+    router.post('/', [NotesController, 'store'])
+    router.post('/upload', [NotesController, 'uploadImage'])
 
-// Labels (new)
-router.get('/labels', [LabelsController, 'index'])
-router.post('/labels', [LabelsController, 'store'])
-router.delete('/labels/:id', [LabelsController, 'destroy'])
+    router.get('/:note_id', [NotesController, 'show'])
+    router.put('/:note_id', [NotesController, 'update'])
+    router.delete('/:note_id', [NotesController, 'destroy'])
+    router.patch('/:note_id/pin', [NotesController, 'togglePin'])
+    router.patch('/:note_id/restore', [NotesController, 'restore'])
+    router.post('/:note_id/share', [NotesController, 'generateShareLink'])
+  })
+  .prefix('/notes')
+  .use(authMiddleware) // 🔐 protect all notes-related routes
+
+// ========== Modules Below Will Be Enabled Later ==========
+
+// 🔹 Projects
+/*
+import ProjectsController from '#controllers/ProjectController'
+import { projectIdValidator } from '#validators/projects/project_id_validator'
+
+router.group(() => {
+  router.get('/', [ProjectsController, 'index'])
+  router.get('/create', [ProjectsController, 'create'])
+  router.post('/', [ProjectsController, 'store'])
+
+  router.get('/:id', [ProjectsController, 'show']).use(projectIdValidator)
+  router.get('/:id/edit', [ProjectsController, 'edit']).use(projectIdValidator)
+  router.put('/:id', [ProjectsController, 'update']).use(projectIdValidator)
+  router.patch('/:id/status', [ProjectsController, 'updateStatus']).use(projectIdValidator)
+  router.delete('/:id', [ProjectsController, 'destroy']).use(projectIdValidator)
+}).prefix('/projects')
+*/
+
+// 🔹 Todos
+
+// Enable Todos Routes
+router
+  .group(() => {
+    router.get('/', [TodosController, 'index'])         // GET /todos
+    router.post('/', [TodosController, 'store'])        // POST /todos
+    router.get('/:id', [TodosController, 'show'])       // GET /todos/:id
+    router.put('/:id', [TodosController, 'update'])     // PUT /todos/:id
+    router.delete('/:id', [TodosController, 'destroy']) // DELETE /todos/:id
+  })
+  .prefix('/todos')
+  .use(authMiddleware)
+
+// 🔹 Labels
+router
+  .group(() => {
+    router.get('/', [LabelsController, 'index'])
+    router.post('/', [LabelsController, 'store'])
+    router.delete('/:id', [LabelsController, 'destroy'])
+  })
+  .prefix('/labels')
+  .use(authMiddleware)
