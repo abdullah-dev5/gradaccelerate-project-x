@@ -100,7 +100,8 @@ export default class TodosController {
             todo.deletedAt = DateTime.now()
             await todo.save()
 
-            return response.noContent()
+            return response.ok({ message: 'Todo soft-deleted successfully' })
+
         } catch (error) {
             return response.internalServerError({ message: 'Failed to delete todo', error: error.message })
         }
