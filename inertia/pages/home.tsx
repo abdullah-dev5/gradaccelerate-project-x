@@ -39,6 +39,16 @@ export default function Home() {
                   <p className="text-gray-400">Keep track of your tasks and stay organized</p>
                 </div>
               </Link>
+<<<<<<< HEAD
+=======
+              {/* Projects Card */}
+              <Link href="/projects" className="block">
+                <div className="bg-[#2C2C2E] p-6 rounded-xl hover:bg-[#3C3C3E] transition-colors duration-200">
+                  <h2 className="text-2xl font-semibold mb-3">Projects</h2>
+                  <p className="text-gray-400">Manage your projects and track progress</p>
+                </div>
+              </Link>
+>>>>>>> 613a4b0 (feat: complete frontend UI with advanced features and components)
             </div>
           </div>
         </div>

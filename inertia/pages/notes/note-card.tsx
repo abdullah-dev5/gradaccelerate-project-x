@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { formatDistanceToNow } from 'date-fns'
+<<<<<<< HEAD
 
 interface Note {
   id: number;
@@ -7,11 +8,34 @@ interface Note {
   content: string;
   createdAt: string;
   updatedAt: string | null;
+=======
+import ReactMarkdown from 'react-markdown'
+import { Pin, Image as ImageIcon, Tag, Trash2 } from 'lucide-react'
+import remarkGfm from 'remark-gfm'
+import rehypeHighlight from 'rehype-highlight'
+import 'highlight.js/styles/atom-one-dark.css'
+import { Link } from '@inertiajs/react'
+
+interface Note {
+  id: number
+  title: string
+  content: string
+  createdAt: string
+  updatedAt: string | null
+  pinned: boolean
+  imageUrl: string | null
+  labels?: Array<{
+    id: number
+    name: string
+    color: string | null
+  }>
+>>>>>>> 613a4b0 (feat: complete frontend UI with advanced features and components)
 }
 
 interface NoteCardProps {
   note: Note
   viewType: 'grid' | 'list'
+<<<<<<< HEAD
 }
 
 export default function NoteCard({ note, viewType }: NoteCardProps) {
@@ -45,5 +69,270 @@ export default function NoteCard({ note, viewType }: NoteCardProps) {
         <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#2C2C2E] to-transparent" />
       )}
     </motion.div>
+=======
+  onPinToggle?: (id: number) => void
+  onDelete?: (id: number) => void
+}
+
+export default function NoteCard({ note, viewType, onPinToggle, onDelete }: NoteCardProps) {
+  const timeAgo = formatDistanceToNow(new Date(note.updatedAt || note.createdAt), {
+    addSuffix: true
+  })
+
+  const handlePinClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
+    if (onPinToggle) onPinToggle(note.id)
+  }
+
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
+    if (onDelete) onDelete(note.id)
+  }
+
+  const hasImage = note.imageUrl !== null
+  const hasLabels = note.labels && Array.isArray(note.labels) && note.labels.length > 0
+
+  return (
+    <Link href={`/notes/${note.id}`}>
+      <motion.div
+        className={`group relative overflow-hidden backdrop-blur-sm bg-[#2C2C2E]/80 border ${
+          note.pinned ? 'border-yellow-400/30' : 'border-[#3A3A3C]'
+        } ${viewType === 'grid' ? 'rounded-xl' : 'rounded-lg'} cursor-pointer`}
+        style={{
+          boxShadow: '0 4px 30px rgba(0, 0, 0, 0.1)'
+        }}
+        whileHover={{ y: -2, scale: 1.01 }}
+        whileTap={{ scale: 0.98 }}
+        transition={{ duration: 0.2 }}
+      >
+        <button
+          onClick={handlePinClick}
+          className={`absolute top-3 right-10 z-10 p-1 rounded-full ${
+            note.pinned
+              ? 'text-yellow-400 bg-yellow-400/10 hover:bg-yellow-400/20'
+              : 'text-[#98989D] hover:text-yellow-400 hover:bg-yellow-400/10'
+          } transition-colors`}
+          aria-label={note.pinned ? 'Unpin note' : 'Pin note'}
+        >
+          <Pin size={16} className={note.pinned ? '' : 'opacity-60'} />
+        </button>
+
+        {onDelete && (
+          <button
+            onClick={handleDeleteClick}
+            className="absolute top-3 right-2 z-10 p-1 rounded-full text-[#98989D] hover:text-red-400 hover:bg-red-400/10 transition-all duration-200 opacity-0 group-hover:opacity-100"
+            aria-label="Delete note"
+            title="Delete note"
+          >
+            <Trash2 size={16} />
+          </button>
+        )}
+
+        {hasImage && viewType === 'grid' && (
+          <div className="relative h-40 w-full overflow-hidden">
+            <img
+              src={note.imageUrl || undefined}
+              alt="Note attachment"
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#2C2C2E]/80 to-transparent" />
+          </div>
+        )}
+
+        <div className={`p-8 ${viewType === 'list' ? 'flex items-center gap-4' : ''}`}>
+          {hasImage && viewType === 'list' && (
+            <div className="relative flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden">
+              <img
+                src={note.imageUrl || undefined}
+                alt="Note attachment"
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            </div>
+          )}
+
+          <div className={viewType === 'list' ? 'flex-1' : ''}>
+            <div className="flex justify-between items-start mb-2 py-2">
+              <h2 className="text-lg font-medium text-white">{note.title}</h2>
+              <span className="text-xs text-[#98989D]">{timeAgo}</span>
+            </div>
+
+            <div
+              className={`text-[#98989D] text-sm ${
+                viewType === 'grid' ? 'line-clamp-3' : 'line-clamp-1'
+              }`}
+            >
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeHighlight]}
+                components={{
+                  // Text formatting
+                  strong: ({ node, ...props }) => (
+                    <strong className="font-semibold text-white/90" {...props} />
+                  ),
+                  em: ({ node, ...props }) => (
+                    <em className="italic text-white/85" {...props} />
+                  ),
+                  del: ({ node, ...props }) => (
+                    <del className="line-through text-[#98989D]/60" {...props} />
+                  ),
+
+                  // Headings
+                  h1: ({ node, ...props }) => (
+                    <h1 className="text-2xl font-bold mt-6 mb-3 text-white" {...props} />
+                  ),
+                  h2: ({ node, ...props }) => (
+                    <h2 className="text-xl font-semibold mt-5 mb-2.5 text-white" {...props} />
+                  ),
+                  h3: ({ node, ...props }) => (
+                    <h3 className="text-lg font-medium mt-4 mb-2 text-white" {...props} />
+                  ),
+
+                  // Paragraphs and blocks
+                  p: ({ node, ...props }) => (
+                    <p className="mb-3 last:mb-0 leading-relaxed" {...props} />
+                  ),
+                  blockquote: ({ node, ...props }) => (
+                    <blockquote
+                      className="border-l-4 border-yellow-400/50 pl-4 italic my-3 text-white/80"
+                      {...props}
+                    />
+                  ),
+
+                  // Lists
+                  ul: ({ node, ...props }) => (
+                    <ul className="list-disc pl-5 my-2 space-y-1" {...props} />
+                  ),
+                  ol: ({ node, ...props }) => (
+                    <ol className="list-decimal pl-5 my-2 space-y-1" {...props} />
+                  ),
+                  li: ({ node, ...props }) => (
+                    <li className="mb-1 pl-1" {...props} />
+                  ),
+
+                  // Code
+                  code: ({ node, className, children, ...props }) => {
+                    // @ts-expect-error: 'inline' is not in the official types, but react-markdown passes it
+                    const isInline = props.inline;
+                    if (isInline) {
+                      return (
+                        <code
+                          className="bg-[#3A3A3C] rounded px-1.5 py-0.5 text-sm font-mono text-yellow-300"
+                          {...props}
+                        >
+                          {children}
+                        </code>
+                      );
+                    }
+                    return (
+                      <code
+                        className={`${className} bg-[#1C1C1E] block p-3 rounded-md my-2 text-sm font-mono overflow-x-auto`}
+                        {...props}
+                      >
+                        {children}
+                      </code>
+                    );
+                  },
+                  pre: ({ node, ...props }) => (
+                    <pre
+                      className="bg-[#1C1C1E] p-3 rounded-md overflow-x-auto my-3"
+                      {...props}
+                    />
+                  ),
+
+                  // Links
+                  a: ({ node, ...props }) => (
+                    <a
+                      className="text-blue-400 hover:text-blue-300 hover:underline transition-colors"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      {...props}
+                    />
+                  ),
+
+                  // Horizontal rule
+                  hr: ({ node, ...props }) => (
+                    <hr className="my-4 border-[#3A3A3C]/50" {...props} />
+                  ),
+
+                  // Images
+                  img: ({ node, ...props }) => (
+                    <img
+                      className="rounded-lg my-3 max-w-full h-auto border border-[#3A3A3C]/50"
+                      loading="lazy"
+                      {...props}
+                    />
+                  ),
+
+                  // Tables
+                  table: ({ node, ...props }) => (
+                    <div className="overflow-x-auto my-3">
+                      <table className="w-full border-collapse" {...props} />
+                    </div>
+                  ),
+                  th: ({ node, ...props }) => (
+                    <th
+                      className="border border-[#3A3A3C] px-4 py-2 text-left bg-[#3A3A3C]/50 font-semibold"
+                      {...props}
+                    />
+                  ),
+                  td: ({ node, ...props }) => (
+                    <td
+                      className="border border-[#3A3A3C] px-4 py-2"
+                      {...props}
+                    />
+                  )
+                }}
+              >
+                {note.content}
+              </ReactMarkdown>
+            </div>
+
+            {(hasImage || hasLabels) && viewType === 'grid' && (
+              <div className="mt-3 pt-3 border-t border-[#3A3A3C]/30 flex items-center gap-3">
+                {hasImage && (
+                  <span className="flex items-center text-xs text-[#98989D]">
+                    <ImageIcon size={14} className="mr-1" />
+                    Image
+                  </span>
+                )}
+                {hasLabels && (
+                  <span className="flex items-center text-xs text-[#98989D]">
+                    <Tag size={14} className="mr-1" />
+                    {note.labels?.length || 0} label{(note.labels?.length || 0) !== 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {hasLabels && viewType === 'list' && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {note.labels?.map((label) => (
+                  <span
+                    key={label.id}
+                    className="text-xs px-2 py-1 rounded-full"
+                    style={{
+                      backgroundColor: label.color ? `${label.color}20` : '#3A3A3C',
+                      color: label.color || '#98989D',
+                      border: label.color ? `1px solid ${label.color}30` : '1px solid #3A3A3C'
+                    }}
+                  >
+                    {label.name}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {viewType === 'grid' && !hasImage && (
+          <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#2C2C2E] to-transparent" />
+        )}
+      </motion.div>
+    </Link>
+>>>>>>> 613a4b0 (feat: complete frontend UI with advanced features and components)
   )
 } 

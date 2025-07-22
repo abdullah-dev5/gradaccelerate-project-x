@@ -1,0 +1,9 @@
+one thing i have to clear about the relation between label and users.
+
+added some extra methods in NoteController that shared Note feature.
+
+label modelcontroller needda validations
+
+label creation methods will implement later now just use default labels
+
+todo file pagination and notes renderina fetch issues
