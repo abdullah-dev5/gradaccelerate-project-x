@@ -1,19 +1,13 @@
-// inertia/pages/projects/Edit.tsx
 import { usePage } from '@inertiajs/react'
 import ProjectForm from './ProjectForm'
+import { Project } from '../../types/project'
 
-// Define the expected props structure
 type PageProps = {
-  project: {
-    id: number
-    title: string
-    description: string
-    status: 'pending' | 'in_progress' | 'completed'
-  }
+  project: Project
+  statusOptions?: string[]
 }
 
 export default function ProjectEdit() {
-  // Type the usePage hook with PageProps
   const { project } = usePage<PageProps>().props
   
   return <ProjectForm project={project} />

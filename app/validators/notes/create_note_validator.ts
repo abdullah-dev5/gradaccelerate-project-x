@@ -8,8 +8,9 @@ export const createNoteValidator = vine.compile(
         pinned: vine.boolean().optional(),
         image: vine.file({
             size: '2mb',
-            extnames: ['jpg', 'jpeg', 'png', 'webp'], // ← Allowed types
+            extnames: ['jpg', 'jpeg', 'png', 'webp'],
         }).optional(),
+        imageUrl: vine.string().optional(), // For existing images
         labelIds: vine.array(vine.number()).optional()
     })
 )

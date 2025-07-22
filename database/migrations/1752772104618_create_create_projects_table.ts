@@ -6,7 +6,7 @@ export default class Projects extends BaseSchema {
     this.schema.createTable(this.tableName, (table) => {
       table.increments('id')
       table.string('title').notNullable()
-      table.text('description').notNullable()
+      table.text('description').nullable()
       table
         .enu('status', ['pending', 'in_progress', 'completed'])
         .notNullable()

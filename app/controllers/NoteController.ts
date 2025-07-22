@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto'
 import app from '@adonisjs/core/services/app'
 import cloudinary from '#config/cloudinary'
 import { DateTime } from 'luxon'
-//import fs from 'fs-extra'// used for store method only in developement purpose
+import fs from 'fs' // Import Node.js file system module
 import logger from '@adonisjs/core/services/logger'
 import { createNoteValidator } from '#validators/notes/create_note_validator'
 import { updateNoteValidator } from '#validators/notes/update_note_validator'
@@ -76,77 +76,31 @@ export default class NotesController {
     }
   }
 
+  async edit({ params, request, response, inertia }: HttpContext) {
+    try {
+      const { note_id } = await request.validateUsing(noteIdValidator, { data: params })
+      const note = await Note.query()
+        .where('id', note_id)
+        .whereNull('deleted_at')
+        .preload('labels')
+        .firstOrFail()
+
+      // Fetch all available labels for the form
+      const labels = await Label.query().orderBy('name', 'asc')
+
+      return this.isInertiaRequest(request)
+        ? inertia.render('notes/edit', {
+          note: note.serialize(),
+          labels: labels.map(label => label.serialize())
+        })
+        : { note: note.serialize(), labels: labels.map(label => label.serialize()) }
+    } catch (error) {
+      return response.status(404).send({ message: 'Note not found', error: error.message })
+    }
+  }
 
 
-  //developement purpose only later will be removed
-  // async store({ request, response }: HttpContext) {
-  //   try {
-  //     const payload = await request.validateUsing(createNoteValidator)
-  //     console.log('Received payload:', payload)
 
-  //     // Debug: Log all files received
-  //     console.log('All files:', request.allFiles())
-
-  //     const noteData: Partial<Note> = {
-  //       title: payload.title,
-  //       content: payload.content ? await marked.parse(payload.content) : undefined,
-  //       pinned: payload.pinned ?? false,
-  //     }
-
-  //     // Handle image upload if present
-  //     if (payload.image) {
-  //       console.log('Processing image upload...')
-
-  //       // Ensure uploads directory exists
-  //       await fs.ensureDir(app.tmpPath('uploads'))
-
-  //       const fileName = `${randomUUID()}_${payload.image.clientName}`
-  //       const filePath = app.tmpPath('uploads', fileName)
-
-  //       // Debug: Log before file move
-  //       console.log('Moving file to:', filePath)
-
-  //       await payload.image.move(app.tmpPath('uploads'), {
-  //         name: fileName,
-  //         overwrite: true
-  //       })
-
-  //       // Debug: Verify file exists after move
-  //       console.log('File exists after move?', await fs.exists(filePath))
-
-  //       const result = await cloudinary.uploader.upload(filePath, {
-  //         folder: 'notes',
-  //         public_id: `note_${Date.now()}`,
-  //         resource_type: 'auto',
-  //       })
-
-  //       console.log('Cloudinary upload result:', result)
-
-  //       noteData.imageUrl = result.secure_url
-  //       noteData.imagePublicId = result.public_id
-  //     }
-
-  //     const note = await Note.create(noteData)
-
-  //     if (payload.labelIds?.length) {
-  //       await note.related('labels').attach(payload.labelIds)
-  //     }
-
-  //     return this.isInertiaRequest(request)
-  //       ? response.redirect().back()
-  //       : response.created({ message: 'Note created successfully', note })
-  //   } catch (error) {
-  //     console.error('Full error:', error)
-  //     return response.status(400).send({
-  //       message: 'Note creation failed',
-  //       error: error.message,
-  //       stack: error.stack // Only for development
-  //     })
-  //   }
-  // }
-
-
-  //this is prod ready 
   async store({ request, response }: HttpContext) {
     try {
       const payload = await request.validateUsing(createNoteValidator)
@@ -159,51 +113,96 @@ export default class NotesController {
         imagePublicId: null
       }
 
-      // Handle image upload
+      // Handle image upload with cleanup on failure
       if (payload.image) {
-        const uploadResult = await this.uploadToCloudinary(payload.image)
-        noteData.imageUrl = uploadResult.secure_url
-        noteData.imagePublicId = uploadResult.public_id
+        try {
+          const uploadResult = await this.uploadToCloudinary(payload.image)
+          noteData.imageUrl = uploadResult.secure_url
+          noteData.imagePublicId = uploadResult.public_id
+          logger.info('Image uploaded successfully', { url: noteData.imageUrl })
+        } catch (uploadError) {
+          logger.error('Image upload failed', uploadError)
+          throw new Error('Failed to process image upload')
+        }
       }
 
       const note = await Note.create(noteData)
 
-      // Handle labels transactionally
-      if (payload.labelIds?.length) {
-        await this.safeAttachLabels(note, payload.labelIds)
+      // Handle labels with transaction - updated to handle both array and single value
+      if (payload.labelIds) {
+        try {
+          const labelIds = Array.isArray(payload.labelIds)
+            ? payload.labelIds
+            : [payload.labelIds]
+
+          await this.safeAttachLabels(note, labelIds)
+        } catch (labelError) {
+          // Rollback note creation if label attachment fails
+          await note.delete()
+          throw labelError
+        }
       }
 
-      return response.created({
-        message: 'Note created successfully',
-        note: await note.load('labels')
-      })
+      if (this.isInertiaRequest(request)) {
+        // For Inertia requests, redirect to notes index
+        return response.redirect().toRoute('notes.index')
+      } else {
+        // For API requests, return JSON
+        return response.created({
+          message: 'Note created successfully',
+          note: await note.load('labels')
+        })
+      }
 
     } catch (error) {
-      logger.error(error, 'Note creation failed')
-      return response.status(400).json({
-        message: 'Note creation failed',
-        error: error.message
+      logger.error('Note creation failed', {
+        error: error.message,
+        stack: error.stack
       })
+
+      if (this.isInertiaRequest(request)) {
+        // For Inertia requests, redirect back 
+        return response.redirect().back()
+      } else {
+        // For API requests, return JSON error
+        return response.status(400).json({
+          message: 'Note creation failed',
+          error: error.messages?.messages || error.message
+        })
+      }
     }
   }
 
+  // Keep the existing uploadToCloudinary method exactly as is
   private async uploadToCloudinary(image: MultipartFile) {
-    const fileName = `${cuid()}_${image.clientName}`
+    const fileName = `${cuid()}.${image.extname}` // Use extname instead of clientName
     const uploadPath = app.tmpPath('uploads', fileName)
+
+    // Validate file size before processing
+    if (image.size > 5 * 1024 * 1024) { // 5MB
+      throw new Error('File size exceeds 5MB limit')
+    }
 
     await image.move(app.tmpPath('uploads'), {
       name: fileName,
-      overwrite: false // Prevent overwrite attacks
+      overwrite: false
     })
 
-    return cloudinary.uploader.upload(uploadPath, {
-      folder: process.env.CLOUDINARY_FOLDER || 'notes',
-      public_id: `note_${Date.now()}`,
-      resource_type: 'auto',
-      allowed_formats: ['jpg', 'jpeg', 'png', 'webp'] // Explicit allowlist
-    })
+    try {
+      return await cloudinary.uploader.upload(uploadPath, {
+        folder: process.env.CLOUDINARY_FOLDER || 'notes',
+        public_id: `note_${Date.now()}`,
+        resource_type: 'auto',
+        allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
+        timeout: 30000 // 30 second timeout
+      })
+    } finally {
+      // Cleanup temp file after upload
+      await fs.promises.unlink(uploadPath).catch(() => { })
+    }
   }
 
+  // Keep the existing safeAttachLabels method exactly as is
   private async safeAttachLabels(note: Note, labelIds: number[]) {
     try {
       // Verify labels exist first
@@ -292,7 +291,7 @@ export default class NotesController {
       }
 
       return this.isInertiaRequest(request)
-        ? response.redirect().back()
+        ? response.redirect(`/notes/${note.id}`)
         : response.ok({
           message: 'Note updated successfully',
           note: await note.load('labels')
@@ -323,7 +322,7 @@ export default class NotesController {
 
       return this.isInertiaRequest(request)
         ? response.redirect().toRoute('notes.index')
-        : response.ok({ message: 'Note moved to trash' })
+        : response.ok({ message: 'Note moved to trash', success: true })
     } catch (error) {
       return response.status(400).send({ message: 'Failed to delete note', error: error.message })
     }
@@ -389,31 +388,35 @@ export default class NotesController {
     }
   }
 
-  async generateShareLink({ params, request, response }: HttpContext) {
-    try {
-      const { note_id } = await request.validateUsing(noteIdValidator, { data: params })
-      const note = await Note.findOrFail(note_id)
 
-      note.shareUuid = randomUUID()
-      await note.save()
 
-      return response.ok({ message: 'Share link generated', url: `/notes/shared/${note.shareUuid}` })
-    } catch (error) {
-      return response.status(400).send({ message: 'Failed to generate share link', error: error.message })
-    }
-  }
+  // future feature to generate share link for notes
+  // This method generates a unique share link for a note 
+  // async generateShareLink({ params, request, response }: HttpContext) {
+  //   try {
+  //     const { note_id } = await request.validateUsing(noteIdValidator, { data: params })
+  //     const note = await Note.findOrFail(note_id)
 
-  async viewSharedNote({ params, response }: HttpContext) {
-    try {
-      const note = await Note.query()
-        .where('share_uuid', params.uuid)
-        .whereNull('deleted_at')
-        .preload('labels')
-        .firstOrFail()
+  //     note.shareUuid = randomUUID()
+  //     await note.save()
 
-      return response.ok(note)
-    } catch (error) {
-      return response.status(404).send({ message: 'Shared note not found', error: error.message })
-    }
-  }
+  //     return response.ok({ message: 'Share link generated', url: `/notes/shared/${note.shareUuid}` })
+  //   } catch (error) {
+  //     return response.status(400).send({ message: 'Failed to generate share link', error: error.message })
+  //   }
+  // }
+  // // This method retrieves a shared note by its UUID
+  // async viewSharedNote({ params, response }: HttpContext) {
+  //   try {
+  //     const note = await Note.query()
+  //       .where('share_uuid', params.uuid)
+  //       .whereNull('deleted_at')
+  //       .preload('labels')
+  //       .firstOrFail()
+
+  //     return response.ok(note)
+  //   } catch (error) {
+  //     return response.status(404).send({ message: 'Shared note not found', error: error.message })
+  //   }
+  // }
 }

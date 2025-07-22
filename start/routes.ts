@@ -19,20 +19,21 @@ router.get('/', ({ inertia }) => inertia.render('home'))
 // ========================
 
 // Public route to view shared note
-router.get('/notes/shared/:uuid', [NotesController, 'viewSharedNote'])
+//router.get('/notes/shared/:uuid', [NotesController, 'viewSharedNote'])
 
 // Auth-protected notes routes
 router
   .group(() => {
     router.get('/', [NotesController, 'index'])
     router.post('/', [NotesController, 'store'])
-    router.post('/upload', [NotesController, 'uploadImage'])
+    router.post('/upload-image', [NotesController, 'uploadImage'])
     router.get('/:note_id', [NotesController, 'show'])
-    router.put('/:note_id', [NotesController, 'update'])
+    router.get('/:note_id/edit', [NotesController, 'edit'])
+    router.put('/:note_id/edit', [NotesController, 'update'])
     router.delete('/:note_id', [NotesController, 'destroy'])
-    router.patch('/:note_id/pin', [NotesController, 'togglePin'])
+    router.patch('/:note_id/toggle-pin', [NotesController, 'togglePin'])
     router.patch('/:note_id/restore', [NotesController, 'restore'])
-    router.post('/:note_id/share', [NotesController, 'generateShareLink'])
+    // router.post('/:note_id/share', [NotesController, 'generateShareLink'])
   })
   .prefix('/notes')
 //.use(authMiddleware)
@@ -59,6 +60,7 @@ router
     router.post('/', [TodosController, 'store'])
     router.get('/:id', [TodosController, 'show'])
     router.put('/:id', [TodosController, 'update'])
+    router.patch('/:id/toggle-status', [TodosController, 'toggleStatus'])
     router.delete('/:id', [TodosController, 'destroy'])
   })
   .prefix('/todos')

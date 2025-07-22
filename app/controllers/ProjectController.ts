@@ -7,26 +7,70 @@ export default class ProjectsController {
   /**
    * List all projects with pagination
    */
-  async index({ inertia, request /*, auth */ }: HttpContext) {
-    const page = request.input('page', 1)
-    const status = request.input('status')
+  // async index({ inertia, request }: HttpContext) {
+  //   const page = request.input('page', 1)
+  //   const status = request.input('status')
+  //   const search = request.input('search')
 
-    // const user = auth.user
+  //   const query = Project.query().orderBy('createdAt', 'desc')
 
-    const projects = await Project.query()
-      // .where('user_id', user.id) // ← Uncomment when auth integrated
+  //   if (status) {
+  //     query.where('status', status)
+  //   }
+
+  //   if (search) {
+  //     query.where((builder) => {
+  //       builder
+  //         .where('title', 'ILIKE', `%${search}%`)
+  //         .orWhere('description', 'ILIKE', `%${search}%`)
+  //     })
+  //   }
+
+  //   const projects = await query.paginate(page, 10)
+
+  //   return inertia.render('projects/index', {
+  //     projects, // Let Inertia handle serialization
+  //     filters: { status, search },
+  //   })
+  // }
+
+  async index({ inertia, request }: HttpContext) {
+    const page = request.input('page', 1);
+    const status = request.input('status');
+    const search = request.input('search');
+
+    const query = Project.query()
       .orderBy('createdAt', 'desc')
       .if(status, (query) => query.where('status', status))
-      .paginate(page, 10)
+      .if(search, (query) =>
+        query.where((builder) => {
+          builder
+            .where('title', 'ILIKE', `%${search}%`)
+            .orWhere('description', 'ILIKE', `%${search}%`)
+        })
+      );
 
+    const projects = await query.paginate(page, 10);
+
+    // Explicitly structure the response for Inertia
     return inertia.render('projects/index', {
       projects: {
-        data: projects.toJSON().data,
-        meta: projects.toJSON().meta,
+        data: projects.all(),
+        meta: {
+          total: projects.total,
+          per_page: projects.perPage,
+          current_page: projects.currentPage,
+          last_page: projects.lastPage,
+          first_page: 1,
+          first_page_url: null, // Can be generated if needed
+          last_page_url: null,  // Can be generated if needed
+          next_page_url: projects.getNextPageUrl(),
+          previous_page_url: projects.getPreviousPageUrl()
+        }
       },
-    })
+      filters: { status, search }
+    });
   }
-
   /**
    * Show project creation form
    */
@@ -39,19 +83,19 @@ export default class ProjectsController {
   /**
    * Store new project
    */
-  async store({ request, response /*, auth */ }: HttpContext) {
+  async store({ request, response, session /*, auth */ }: HttpContext) {
     try {
       const payload = await request.validateUsing(projectValidator)
 
       // payload.userId = auth.user?.id!
 
       await Project.create(payload)
+
+      session.flash('success', 'Project created successfully!')
       return response.redirect('/projects')
     } catch (error) {
-      if ('messages' in error) {
-        return response.badRequest({ errors: error.messages })
-      }
-      return response.internalServerError({ message: 'Failed to create project', error: error.message })
+      session.flash('error', 'Failed to create project!')
+      return response.redirect().back()
     }
   }
 
@@ -85,7 +129,7 @@ export default class ProjectsController {
   /**
    * Update project
    */
-  async update({ params, request, response /*, auth */ }: HttpContext) {
+  async update({ params, request, response, session /*, auth */ }: HttpContext) {
     try {
       const project = await Project.findOrFail(params.id)
 
@@ -98,19 +142,18 @@ export default class ProjectsController {
       project.merge(payload)
       await project.save()
 
+      session.flash('success', 'Project updated successfully!')
       return response.redirect('/projects')
     } catch (error) {
-      if ('messages' in error) {
-        return response.badRequest({ errors: error.messages })
-      }
-      return response.internalServerError({ message: 'Failed to update project', error: error.message })
+      session.flash('error', 'Failed to update project!')
+      return response.redirect().back()
     }
   }
 
   /**
    * Delete project
    */
-  async destroy({ params, response /*, auth */ }: HttpContext) {
+  async destroy({ params, response, session /*, auth */ }: HttpContext) {
     try {
       const project = await Project.findOrFail(params.id)
 
@@ -119,16 +162,19 @@ export default class ProjectsController {
       // }
 
       await project.delete()
-      return response.redirect().toRoute('projects.index')
+
+      session.flash('success', 'Project deleted successfully!')
+      return response.redirect('/projects')
     } catch (error) {
-      return response.internalServerError({ message: 'Failed to delete project', error: error.message })
+      session.flash('error', 'Failed to delete project!')
+      return response.redirect().back()
     }
   }
 
   /**
    * Update project status
    */
-  async updateStatus({ params, request, response /*, auth */ }: HttpContext) {
+  async updateStatus({ params, request, response, session /*, auth */ }: HttpContext) {
     try {
       const project = await Project.findOrFail(params.id)
 
@@ -141,12 +187,11 @@ export default class ProjectsController {
       project.status = status
       await project.save()
 
+      session.flash('success', 'Project status updated successfully!')
       return response.redirect().back()
     } catch (error) {
-      if ('messages' in error) {
-        return response.badRequest({ errors: error.messages })
-      }
-      return response.internalServerError({ message: 'Failed to update status', error: error.message })
+      session.flash('error', 'Failed to update project status!')
+      return response.redirect().back()
     }
   }
 }

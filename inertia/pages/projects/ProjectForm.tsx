@@ -1,18 +1,14 @@
 import { useState, useEffect } from 'react'
-import { useForm, Link } from '@inertiajs/react'
+import { useForm, Link, usePage, router } from '@inertiajs/react'
 import { motion } from 'framer-motion'
 import { Save, X, ArrowLeft } from 'lucide-react'
-
-type Project = {
-  id?: number
-  title: string
-  description: string
-  status: 'pending' | 'in_progress' | 'completed'
-}
+import { Project, ProjectFormData, StatusLabels } from '../../types/project'
+import { useToast } from '../../hooks/useToast'
+import { ToastContainer } from '../../components/Toast'
 
 type Props = {
   project?: Partial<Project>
-  errors?: Partial<Record<keyof Project, string>>
+  errors?: Partial<Record<keyof ProjectFormData, string>>
 }
 
 const formVariants = {
@@ -20,9 +16,12 @@ const formVariants = {
   visible: { opacity: 1, y: 0 }
 }
 
-export default function ProjectForm({ project, errors }: Props) {
+export default function ProjectForm({ project }: Props) {
   const [isMounted, setIsMounted] = useState(false)
-  const { data, setData, post, put, processing, reset } = useForm<Project>({
+  const { errors } = usePage().props as { errors?: Partial<Record<keyof ProjectFormData, string>> }
+  const { toasts, removeToast, success, error } = useToast()
+  
+  const { data, setData, post, put, processing, reset, clearErrors } = useForm({
     title: project?.title || '',
     description: project?.description || '',
     status: project?.status || 'pending'
@@ -30,19 +29,42 @@ export default function ProjectForm({ project, errors }: Props) {
 
   useEffect(() => {
     setIsMounted(true)
+    clearErrors()
   }, [])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    project?.id 
-      ? put(`/projects/${project.id}`, {
-          onSuccess: () => reset(),
-          preserveScroll: true
-        })
-      : post('/projects', {
-          onSuccess: () => reset(),
-          preserveScroll: true
-        })
+    
+    if (project?.id) {
+      put(`/projects/${project.id}`, {
+        onSuccess: () => {
+          success('Project Updated', 'Your project has been successfully updated.')
+          // Auto redirect to projects list after successful update
+          setTimeout(() => {
+            router.visit('/projects', { preserveState: false })
+          }, 1500)
+        },
+        preserveScroll: false,
+        onError: () => {
+          error('Update Failed', 'Failed to update the project. Please check your input and try again.')
+        }
+      })
+    } else {
+      post('/projects', {
+        onSuccess: () => {
+          success('Project Created', 'Your project has been successfully created.')
+          reset()
+          // Auto redirect to projects list after successful creation
+          setTimeout(() => {
+            router.visit('/projects', { preserveState: false })
+          }, 1500)
+        },
+        preserveScroll: false,
+        onError: () => {
+          error('Creation Failed', 'Failed to create the project. Please check your input and try again.')
+        }
+      })
+    }
   }
 
   if (!isMounted) {
@@ -89,7 +111,7 @@ export default function ProjectForm({ project, errors }: Props) {
       
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
-          <label htmlFor="name" className="block mb-2 font-medium text-[#98989D]">
+          <label htmlFor="title" className="block mb-2 font-medium text-[#98989D]">
             Project Name *
           </label>
           <motion.input
@@ -100,7 +122,6 @@ export default function ProjectForm({ project, errors }: Props) {
             value={data.title}
             onChange={e => setData('title', e.target.value)}
             className="w-full p-3 bg-[#2C2C2E] border border-[#3A3A3C] text-white rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent"
-            required
             autoFocus
           />
           {errors?.title && (
@@ -141,11 +162,12 @@ export default function ProjectForm({ project, errors }: Props) {
             value={data.status}
             onChange={e => setData('status', e.target.value as Project['status'])}
             className="w-full p-3 bg-[#2C2C2E] border border-[#3A3A3C] text-white rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent"
-            required
           >
-            <option value="pending" className="bg-[#2C2C2E]">Pending</option>
-            <option value="in_progress" className="bg-[#2C2C2E]">In Progress</option>
-            <option value="completed" className="bg-[#2C2C2E]">Completed</option>
+            {Object.entries(StatusLabels).map(([value, label]) => (
+              <option key={value} value={value} className="bg-[#2C2C2E]">
+                {label}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -170,6 +192,8 @@ export default function ProjectForm({ project, errors }: Props) {
           </Link>
         </div>
       </form>
+
+      <ToastContainer toasts={toasts} onClose={removeToast} />
     </motion.div>
   )
 }
