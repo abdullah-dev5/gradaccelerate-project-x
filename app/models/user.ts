@@ -1,10 +1,14 @@
 import { DateTime } from 'luxon'
 import hash from '@adonisjs/core/services/hash'
 import { compose } from '@adonisjs/core/helpers'
-import { BaseModel, column } from '@adonisjs/lucid/orm'
+import { BaseModel, column, manyToMany } from '@adonisjs/lucid/orm'
 import { withAuthFinder } from '@adonisjs/auth/mixins/lucid'
+import { AccessToken } from '@adonisjs/auth/access_tokens'
+import { DbAccessTokensProvider } from '@adonisjs/auth/access_tokens'
+import type { ManyToMany } from '@adonisjs/lucid/types/relations'
+import Role from './role.js'
 
-const AuthFinder = withAuthFinder(() => hash.use('scrypt'), {
+const AuthFinder = withAuthFinder(() => hash.use('bcrypt'), {
   uids: ['email'],
   passwordColumnName: 'password',
 })
@@ -27,4 +31,36 @@ export default class User extends compose(BaseModel, AuthFinder) {
 
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
+
+  currentAccessToken?: AccessToken
+
+  @manyToMany(() => Role, {
+    pivotTable: 'user_roles',
+    pivotTimestamps: true,
+  })
+  declare roles: ManyToMany<typeof Role>
+
+  static accessTokens = DbAccessTokensProvider.forModel(User, {
+    expiresIn: '30 days',
+    prefix: 'oat_',
+    table: 'auth_access_tokens',
+    type: 'auth_token' as const,
+    tokenSecretLength: 40,
+  })
+
+  // Helper methods for RBAC (simplified)
+  async hasRole(roleSlug: string): Promise<boolean> {
+    const Role = (await import('./role.js')).default
+    const userRole = await Role.query()
+      .whereHas('users', (usersQuery) => {
+        usersQuery.where('users.id', this.id)
+      })
+      .where('slug', roleSlug)
+      .first()
+    return !!userRole
+  }
+
+  async isAdmin(): Promise<boolean> {
+    return this.hasRole('admin')
+  }
 }

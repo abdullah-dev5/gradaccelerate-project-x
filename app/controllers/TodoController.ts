@@ -12,6 +12,11 @@ export default class TodosController {
         return request.header('x-inertia') === 'true'
     }
 
+    // Alias method for backward compatibility - redirect to index
+    async indexPage(context: HttpContext) {
+        return this.index(context);
+    }
+
     /**
      * Display all todos with pagination and filtering
      * GET /todos
@@ -93,11 +98,14 @@ export default class TodosController {
     //     }
     // }
 
-    public async index({ request, inertia, response }: HttpContext) {
+    public async index({ request, inertia, response, auth }: HttpContext) {
         try {
+            await auth.authenticate() // Authenticate first
+            const user = auth.getUserOrFail()
             const { page = 1, limit = 10, status, search = '' } = request.qs()
 
             const query = Todo.query()
+                .where('userId', user.id) // Filter by authenticated user
                 .whereNull('deleted_at')
                 .preload('labels')
 
@@ -157,6 +165,10 @@ export default class TodosController {
             logger.error('Failed to fetch todos', { error })
 
             if (this.isInertiaRequest(request)) {
+                // Handle authentication errors properly for Inertia requests
+                if (error.message.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
+                    return response.redirect('/login')
+                }
                 return inertia.render('todos/index', {
                     todos: {
                         data: [],
@@ -188,15 +200,17 @@ export default class TodosController {
      * Create a new todo
      * POST /todos
      */
-    public async store({ request, response, session }: HttpContext) {
+    public async store({ request, response, session, auth }: HttpContext) {
         try {
+            await auth.authenticate() // Authenticate first
+            const user = auth.getUserOrFail()
             const payload = await request.validateUsing(createTodoValidator)
             const { labelIds = [], ...todoData } = payload
 
-            // TODO: Add userId from authenticated user when auth is implemented
-            // todoData.userId = auth.user!.id
-
-            const todo = await Todo.create(todoData)
+            const todo = await Todo.create({
+                ...todoData,
+                userId: user.id // Set the authenticated user as owner
+            })
 
             // Attach labels if provided
             if (labelIds.length > 0) {
@@ -257,13 +271,16 @@ export default class TodosController {
      * Display a specific todo
      * GET /todos/:id
      */
-    public async show({ params, request, inertia, response }: HttpContext) {
+    public async show({ params, request, inertia, response, auth }: HttpContext) {
         try {
+            await auth.authenticate() // Authenticate first
+            const user = auth.getUserOrFail()
             // Validate the ID parameter
             await request.validateUsing(todoIdValidator, { data: { id: Number(params.id) } })
 
             const todo = await Todo.query()
                 .where('id', params.id)
+                .where('userId', user.id) // Ensure user owns the todo
                 .whereNull('deleted_at')
                 .preload('labels')
                 .first()
@@ -325,12 +342,17 @@ export default class TodosController {
      * Update a specific todo
      * PUT /todos/:id
      */
-    public async update({ params, request, response, session }: HttpContext) {
+    public async update({ params, request, response, session, auth }: HttpContext) {
         try {
+            await auth.authenticate() // Authenticate first
+            const user = auth.getUserOrFail()
             // Validate the ID parameter
             await request.validateUsing(todoIdValidator, { data: { id: Number(params.id) } })
 
-            const todo = await Todo.find(params.id)
+            const todo = await Todo.query()
+                .where('id', params.id)
+                .where('userId', user.id) // Ensure user owns the todo
+                .first()
 
             if (!todo || todo.deletedAt) {
                 const message = 'Todo not found or has been deleted'
@@ -417,12 +439,17 @@ export default class TodosController {
      * Toggle todo completion status
      * PATCH /todos/:id/toggle-status
      */
-    public async toggleStatus({ params, request, response }: HttpContext) {
+    public async toggleStatus({ params, request, response, auth }: HttpContext) {
         try {
+            await auth.authenticate() // Authenticate first
+            const user = auth.getUserOrFail()
             // Validate the ID parameter
             await request.validateUsing(todoIdValidator, { data: { id: Number(params.id) } })
 
-            const todo = await Todo.find(params.id)
+            const todo = await Todo.query()
+                .where('id', params.id)
+                .where('userId', user.id) // Ensure user owns the todo
+                .first()
 
             if (!todo || todo.deletedAt) {
                 return response.status(404).json({
@@ -474,12 +501,17 @@ export default class TodosController {
      * Soft delete a todo
      * DELETE /todos/:id
      */
-    public async destroy({ params, request, response, session, inertia }: HttpContext) {
+    public async destroy({ params, request, response, session, inertia, auth }: HttpContext) {
         try {
+            await auth.authenticate() // Authenticate first
+            const user = auth.getUserOrFail()
             // Validate the ID parameter
             await request.validateUsing(todoIdValidator, { data: { id: Number(params.id) } })
 
-            const todo = await Todo.find(params.id)
+            const todo = await Todo.query()
+                .where('id', params.id)
+                .where('userId', user.id) // Ensure user owns the todo
+                .first()
 
             if (!todo || todo.deletedAt) {
                 const message = 'Todo not found or has already been deleted'

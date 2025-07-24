@@ -89,8 +89,8 @@ export default function ProjectShow() {
     <div className="p-4 max-w-6xl mx-auto bg-[#1C1C1E] min-h-screen">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-[#98989D] mb-6">
-        <Link href="/" className="hover:text-white transition-colors">
-          Home
+        <Link href="/dashboard" className="hover:text-white transition-colors">
+          Dashboard
         </Link>
         <span>/</span>
         <Link href="/projects" className="hover:text-white transition-colors">

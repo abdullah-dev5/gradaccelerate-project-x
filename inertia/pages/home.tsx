@@ -1,7 +1,9 @@
-import { Head } from '@inertiajs/react'
-import { Link } from '@inertiajs/react'
+import { Head, Link } from '@inertiajs/react'
+import { useAuth } from '../contexts/AuthContext'
 
 export default function Home() {
+  const { isAuthenticated, user } = useAuth()
+
   return (
     <>
       <Head title="Race Track" />
@@ -22,10 +24,43 @@ export default function Home() {
 
             <h1 className="text-4xl font-bold mb-12">Welcome to Race Track</h1>
 
-            {/* Cards Container */}
+            {/* Show authentication buttons for non-authenticated users */}
+            {!isAuthenticated ? (
+              <div className="flex flex-col items-center gap-6 mb-8">
+                <p className="text-gray-400 text-lg text-center max-w-2xl">
+                  Your all-in-one productivity platform for managing projects, notes, and tasks. 
+                  Sign in to get started or create a new account.
+                </p>
+                <div className="flex gap-4">
+                  <Link href="/login">
+                    <button className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-8 py-3 rounded-lg font-medium hover:from-orange-600 hover:to-red-600 transition-colors duration-200">
+                      Sign In
+                    </button>
+                  </Link>
+                  <Link href="/register">
+                    <button className="border border-orange-500 text-orange-500 px-8 py-3 rounded-lg font-medium hover:bg-orange-500 hover:text-white transition-colors duration-200">
+                      Sign Up
+                    </button>
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-6 mb-8">
+                <p className="text-gray-400 text-lg text-center">
+                  Welcome back, {user?.fullName}! Ready to be productive?
+                </p>
+                <Link href="/dashboard">
+                  <button className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-8 py-3 rounded-lg font-medium hover:from-orange-600 hover:to-red-600 transition-colors duration-200">
+                    Go to Dashboard
+                  </button>
+                </Link>
+              </div>
+            )}
+
+            {/* Cards Container - Always show for demo purposes */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl w-full">
               {/* Notes Card */}
-              <Link href="/notes" className="block">
+              <Link href={isAuthenticated ? "/notes" : "/login"} className="block">
                 <div className="bg-[#2C2C2E] p-6 rounded-xl hover:bg-[#3C3C3E] transition-colors duration-200">
                   <h2 className="text-2xl font-semibold mb-3">Notes</h2>
                   <p className="text-gray-400">Manage your notes and thoughts in one place</p>
@@ -33,7 +68,7 @@ export default function Home() {
               </Link>
 
               {/* Todos Card */}
-              <Link href="/todos" className="block">
+              <Link href={isAuthenticated ? "/todos" : "/login"} className="block">
                 <div className="bg-[#2C2C2E] p-6 rounded-xl hover:bg-[#3C3C3E] transition-colors duration-200">
                   <h2 className="text-2xl font-semibold mb-3">Todos</h2>
                   <p className="text-gray-400">Keep track of your tasks and stay organized</p>
@@ -42,7 +77,7 @@ export default function Home() {
 <<<<<<< HEAD
 =======
               {/* Projects Card */}
-              <Link href="/projects" className="block">
+              <Link href={isAuthenticated ? "/projects" : "/login"} className="block">
                 <div className="bg-[#2C2C2E] p-6 rounded-xl hover:bg-[#3C3C3E] transition-colors duration-200">
                   <h2 className="text-2xl font-semibold mb-3">Projects</h2>
                   <p className="text-gray-400">Manage your projects and track progress</p>

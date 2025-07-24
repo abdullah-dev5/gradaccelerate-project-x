@@ -131,7 +131,7 @@ export default function ProjectIndex() {
       <div className="p-4 max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-4">
-            <Link href="/" className="text-[#98989D] hover:text-white transition-colors">
+            <Link href="/dashboard" className="text-[#98989D] hover:text-white transition-colors">
               <Home size={20} />
             </Link>
             <h1 className="text-2xl font-bold text-white">Projects</h1>
@@ -153,7 +153,7 @@ export default function ProjectIndex() {
       <div className="p-4 max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-4">
-            <Link href="/" className="text-[#98989D] hover:text-white transition-colors">
+            <Link href="/dashboard" className="text-[#98989D] hover:text-white transition-colors">
               <Home size={20} />
             </Link>
             <h1 className="text-2xl font-bold text-white">Projects</h1>
@@ -251,9 +251,9 @@ export default function ProjectIndex() {
         <div className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-4">
             <Link 
-              href="/" 
+              href="/dashboard" 
               className="text-[#98989D] hover:text-white transition-colors p-4 hover:bg-[#3A3A3C] rounded-xl"
-              title="Back to Home"
+              title="Back to Dashboard"
             >
               <ArrowLeft size={24} />
             </Link>

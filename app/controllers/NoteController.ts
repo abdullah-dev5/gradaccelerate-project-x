@@ -11,6 +11,7 @@ import { createNoteValidator } from '#validators/notes/create_note_validator'
 import { updateNoteValidator } from '#validators/notes/update_note_validator'
 import { noteIdValidator } from '#validators/notes/note_id_validator'
 import { uploadImageValidator } from '#validators/notes/upload_image_validator'
+import { shareTokenValidator } from '#validators/notes/share_token_validator'
 import { cuid } from '@adonisjs/core/helpers'
 import type { MultipartFile } from '@adonisjs/core/types/bodyparser' // Import MultipartFile type
 import Label from '#models/label' // Import Label model
@@ -20,11 +21,19 @@ export default class NotesController {
     return request.header('x-inertia') === 'true'
   }
 
-  async index({ request, inertia, response }: HttpContext) {
+  // Alias method for backward compatibility - redirect to index
+  async indexPage(context: HttpContext) {
+    return this.index(context);
+  }
+
+  async index({ request, inertia, response, auth }: HttpContext) {
     try {
+      await auth.authenticate() // Authenticate first
+      const user = auth.getUserOrFail()
       const { sort = 'created_at', order = 'desc', search = '', page = 1, limit = 10, pinned, label_id } = request.qs()
 
       const query = Note.query()
+        .where('userId', user.id) // Filter by authenticated user
         .whereNull('deleted_at')
         .preload('labels')
         .orderBy('pinned', 'desc')
@@ -55,15 +64,33 @@ export default class NotesController {
 
       return notes
     } catch (error) {
+      // Handle authentication errors properly for Inertia requests
+      if (this.isInertiaRequest(request)) {
+        // For authentication errors, redirect to login
+        if (error.message.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
+          return response.redirect('/login')
+        }
+        // For other errors, redirect back with error message
+        return inertia.render('notes/index', {
+          notes: [],
+          meta: { total: 0, currentPage: 1, lastPage: 1, perPage: 10 },
+          sortOptions: { currentSort: 'created_at', currentOrder: 'desc', searchQuery: '' },
+          error: 'Failed to fetch notes'
+        })
+      }
+      // For API requests, return JSON error
       return response.status(500).send({ message: 'Failed to fetch notes', error: error.message })
     }
   }
 
-  async show({ params, request, response, inertia }: HttpContext) {
+  async show({ params, request, response, inertia, auth }: HttpContext) {
     try {
+      await auth.authenticate() // Authenticate first
+      const user = auth.getUserOrFail()
       const { note_id } = await request.validateUsing(noteIdValidator, { data: params })
       const note = await Note.query()
         .where('id', note_id)
+        .where('userId', user.id) // Ensure user owns the note
         .whereNull('deleted_at')
         .preload('labels')
         .firstOrFail()
@@ -76,11 +103,14 @@ export default class NotesController {
     }
   }
 
-  async edit({ params, request, response, inertia }: HttpContext) {
+  async edit({ params, request, response, inertia, auth }: HttpContext) {
     try {
+      await auth.authenticate() // Authenticate first
+      const user = auth.getUserOrFail()
       const { note_id } = await request.validateUsing(noteIdValidator, { data: params })
       const note = await Note.query()
         .where('id', note_id)
+        .where('userId', user.id) // Ensure user owns the note
         .whereNull('deleted_at')
         .preload('labels')
         .firstOrFail()
@@ -101,14 +131,17 @@ export default class NotesController {
 
 
 
-  async store({ request, response }: HttpContext) {
+  async store({ request, response, auth }: HttpContext) {
     try {
+      await auth.authenticate() // Authenticate first
+      const user = auth.getUserOrFail()
       const payload = await request.validateUsing(createNoteValidator)
 
       const noteData: Partial<Note> = {
         title: payload.title,
         content: payload.content ? await marked.parse(payload.content) : '',
         pinned: payload.pinned ?? false,
+        userId: user.id, // Set the authenticated user as owner
         imageUrl: null,
         imagePublicId: null
       }
@@ -229,11 +262,16 @@ export default class NotesController {
 
 
 
-  async update({ request, response, params }: HttpContext) {
+  async update({ request, response, params, auth }: HttpContext) {
     try {
+      await auth.authenticate() // Authenticate first
+      const user = auth.getUserOrFail()
       const { note_id } = await request.validateUsing(noteIdValidator, { data: params })
       const payload = await request.validateUsing(updateNoteValidator)
-      const note = await Note.findOrFail(note_id)
+      const note = await Note.query()
+        .where('id', note_id)
+        .where('userId', user.id) // Ensure user owns the note
+        .firstOrFail()
 
       // Prepare update data object (unchanged)
       const updateData: Partial<Note> = {
@@ -312,10 +350,15 @@ export default class NotesController {
 
 
 
-  async destroy({ request, params, response }: HttpContext) {
+  async destroy({ request, params, response, auth }: HttpContext) {
     try {
+      await auth.authenticate() // Authenticate first
+      const user = auth.getUserOrFail()
       const { note_id } = await request.validateUsing(noteIdValidator, { data: params })
-      const note = await Note.findOrFail(note_id)
+      const note = await Note.query()
+        .where('id', note_id)
+        .where('userId', user.id) // Ensure user owns the note
+        .firstOrFail()
 
       note.deletedAt = DateTime.now()
       await note.save()
@@ -328,10 +371,15 @@ export default class NotesController {
     }
   }
 
-  async restore({ request, params, response }: HttpContext) {
+  async restore({ request, params, response, auth }: HttpContext) {
     try {
+      await auth.authenticate() // Authenticate first
+      const user = auth.getUserOrFail()
       const { note_id } = await request.validateUsing(noteIdValidator, { data: params })
-      const note = await Note.findOrFail(note_id)
+      const note = await Note.query()
+        .where('id', note_id)
+        .where('userId', user.id) // Ensure user owns the note
+        .firstOrFail()
 
       note.deletedAt = null
       await note.save()
@@ -342,10 +390,15 @@ export default class NotesController {
     }
   }
 
-  async togglePin({ request, response, params }: HttpContext) {
+  async togglePin({ request, response, params, auth }: HttpContext) {
     try {
+      await auth.authenticate() // Authenticate first
+      const user = auth.getUserOrFail()
       const { note_id } = await request.validateUsing(noteIdValidator, { data: params })
-      const note = await Note.findOrFail(note_id)
+      const note = await Note.query()
+        .where('id', note_id)
+        .where('userId', user.id) // Ensure user owns the note
+        .firstOrFail()
 
       note.pinned = !note.pinned
       await note.save()
@@ -390,33 +443,209 @@ export default class NotesController {
 
 
 
-  // future feature to generate share link for notes
-  // This method generates a unique share link for a note 
-  // async generateShareLink({ params, request, response }: HttpContext) {
-  //   try {
-  //     const { note_id } = await request.validateUsing(noteIdValidator, { data: params })
-  //     const note = await Note.findOrFail(note_id)
+  /**
+   * Generate a unique share link for a note
+   * Creates a UUID token that allows public access to the note
+   */
+  async generateShareLink({ params, request, response, auth }: HttpContext) {
+    try {
+      await auth.authenticate() // Ensure user is authenticated
+      const user = auth.getUserOrFail()
+      const { note_id } = await request.validateUsing(noteIdValidator, { data: params })
 
-  //     note.shareUuid = randomUUID()
-  //     await note.save()
+      // Find note and ensure user owns it
+      const note = await Note.query()
+        .where('id', note_id)
+        .where('userId', user.id)
+        .whereNull('deleted_at')
+        .firstOrFail()
 
-  //     return response.ok({ message: 'Share link generated', url: `/notes/shared/${note.shareUuid}` })
-  //   } catch (error) {
-  //     return response.status(400).send({ message: 'Failed to generate share link', error: error.message })
-  //   }
-  // }
-  // // This method retrieves a shared note by its UUID
-  // async viewSharedNote({ params, response }: HttpContext) {
-  //   try {
-  //     const note = await Note.query()
-  //       .where('share_uuid', params.uuid)
-  //       .whereNull('deleted_at')
-  //       .preload('labels')
-  //       .firstOrFail()
+      // Generate unique UUID for sharing
+      note.shareUuid = randomUUID()
+      await note.save()
 
-  //     return response.ok(note)
-  //   } catch (error) {
-  //     return response.status(404).send({ message: 'Shared note not found', error: error.message })
-  //   }
-  // }
+      const shareUrl = `/notes/shared/${note.shareUuid}`
+
+      if (this.isInertiaRequest(request)) {
+        return response.ok({
+          message: 'Share link generated successfully',
+          shareUrl,
+          shareUuid: note.shareUuid
+        })
+      }
+
+      return response.ok({
+        message: 'Share link generated successfully',
+        url: shareUrl,
+        shareUuid: note.shareUuid
+      })
+    } catch (error) {
+      logger.error('Failed to generate share link:', error)
+
+      if (this.isInertiaRequest(request)) {
+        return response.status(400).send({
+          message: 'Failed to generate share link',
+          error: error.message
+        })
+      }
+
+      return response.status(400).send({
+        message: 'Failed to generate share link',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * View a shared note by its UUID token
+   * This endpoint is publicly accessible and does not require authentication
+   */
+  async viewSharedNote({ params, request, response, inertia }: HttpContext) {
+    try {
+      const { token } = await request.validateUsing(shareTokenValidator, { data: params })
+
+      // Find note by share UUID, ensure it's not deleted
+      const note = await Note.query()
+        .where('shareUuid', token)
+        .whereNull('deleted_at')
+        .preload('labels')
+        .preload('user', (userQuery) => {
+          userQuery.select('id', 'fullName', 'email') // Use fullName instead of username
+        })
+        .firstOrFail()
+
+      // Process content if it's markdown
+      const processedContent = marked(note.content || '')
+
+      // Prepare note data for sharing (remove sensitive information)
+      const sharedNoteData = {
+        id: note.id,
+        title: note.title,
+        content: note.content,
+        processedContent,
+        imageUrl: note.imageUrl,
+        createdAt: note.createdAt,
+        updatedAt: note.updatedAt,
+        labels: note.labels,
+        user: {
+          fullName: note.user.fullName,
+          email: note.user.email
+        },
+        isShared: true, // Flag to indicate this is a shared view
+        shareUuid: note.shareUuid
+      }
+
+      // Always render the Inertia page for browser requests
+      // Only return JSON for explicit API requests (with Accept: application/json header)
+      const acceptsJson = request.header('accept')?.includes('application/json')
+      const isApiRequest = request.header('x-requested-with') === 'XMLHttpRequest' && acceptsJson
+
+      if (isApiRequest) {
+        return response.ok({
+          note: sharedNoteData,
+          isReadOnly: true
+        })
+      }
+
+      // Default to Inertia rendering for all browser requests
+      return inertia.render('notes/shared', {
+        note: sharedNoteData,
+        isReadOnly: true // Ensure frontend knows this is read-only
+      })
+    } catch (error) {
+      logger.error('Failed to retrieve shared note:', error)
+
+      // For browser requests, show custom 404 page
+      const acceptsJson = request.header('accept')?.includes('application/json')
+      const isApiRequest = request.header('x-requested-with') === 'XMLHttpRequest' && acceptsJson
+
+      if (isApiRequest) {
+        return response.status(404).send({
+          message: 'Shared note not found or has been removed',
+          error: error.message
+        })
+      }
+
+      return inertia.render('errors/404', {
+        message: 'Shared note not found or has been removed'
+      })
+    }
+  }
+
+  /**
+   * Revoke sharing for a note by removing the share UUID
+   */
+  async revokeShareLink({ params, request, response, auth }: HttpContext) {
+    try {
+      await auth.authenticate()
+      const user = auth.getUserOrFail()
+      const { note_id } = await request.validateUsing(noteIdValidator, { data: params })
+
+      // Find note and ensure user owns it
+      const note = await Note.query()
+        .where('id', note_id)
+        .where('userId', user.id)
+        .whereNull('deleted_at')
+        .firstOrFail()
+
+      // Remove share UUID
+      note.shareUuid = null
+      await note.save()
+
+      if (this.isInertiaRequest(request)) {
+        return response.ok({
+          message: 'Share link revoked successfully'
+        })
+      }
+
+      return response.ok({
+        message: 'Share link revoked successfully',
+        note: note.serialize()
+      })
+    } catch (error) {
+      logger.error('Failed to revoke share link:', error)
+
+      return response.status(400).send({
+        message: 'Failed to revoke share link',
+        error: error.message
+      })
+    }
+  }
+
+  /**
+   * Get the current share status and URL for a note
+   */
+  async getShareStatus({ params, request, response, auth }: HttpContext) {
+    try {
+      await auth.authenticate()
+      const user = auth.getUserOrFail()
+      const { note_id } = await request.validateUsing(noteIdValidator, { data: params })
+
+      // Find note and ensure user owns it
+      const note = await Note.query()
+        .where('id', note_id)
+        .where('userId', user.id)
+        .whereNull('deleted_at')
+        .firstOrFail()
+
+      const shareData = {
+        isShared: !!note.shareUuid,
+        shareUrl: note.shareUuid ? `/notes/shared/${note.shareUuid}` : null,
+        shareUuid: note.shareUuid
+      }
+
+      if (this.isInertiaRequest(request)) {
+        return response.ok(shareData)
+      }
+
+      return response.ok(shareData)
+    } catch (error) {
+      logger.error('Failed to get share status:', error)
+
+      return response.status(400).send({
+        message: 'Failed to get share status',
+        error: error.message
+      })
+    }
+  }
 }

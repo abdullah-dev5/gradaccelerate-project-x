@@ -115,7 +115,5 @@ export default class ProjectSeeder extends BaseSeeder {
         status: 'completed'
       }
     ])
-
-    console.log('Seeded 22 sample projects')
   }
 }
