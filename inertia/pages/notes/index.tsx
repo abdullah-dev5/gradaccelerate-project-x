@@ -234,7 +234,7 @@ export default function Index({
           >
             <div className="flex items-center gap-3">
               <Link 
-                href="/" 
+                href="/dashboard" 
                 className="p-2 hover:bg-[#2C2C2E] rounded-full transition-colors duration-200"
               >
                 <ArrowLeft size={24} />

@@ -4,20 +4,50 @@ import Label from '#models/label'
 import { createLabelValidator } from '#validators/labels/create_label_validator'
 
 export default class LabelsController {
+    // Alias method for backward compatibility - redirect to index
+    async indexPage(context: HttpContext) {
+        return this.index(context);
+    }
+
     // GET /labels - List all labels for the authenticated user
-    public async index({ response }: HttpContext) {
+    public async index({ response, auth, request, inertia }: HttpContext) {
         try {
-            // await auth.check()
-            // const user = auth.user!
-            // return await Label.query().where('userId', user.id)
+            await auth.authenticate() // Authenticate first
+            const user = auth.getUserOrFail()
             const labels = await Label.query()
+                .where('userId', user.id) // Filter by authenticated user
+
+            // Check if this is an Inertia request
+            const isInertiaRequest = request.header('x-inertia') === 'true'
+
+            if (isInertiaRequest) {
+                return inertia.render('labels/index', {
+                    labels: labels.map(label => label.serialize()),
+                    success: true,
+                    message: 'Labels retrieved successfully'
+                })
+            }
+
             return response.ok({
                 success: true,
                 data: labels,
                 message: 'Labels retrieved successfully'
             })
         } catch (error) {
-            console.error('Error fetching labels:', error)
+            // Check if this is an Inertia request
+            const isInertiaRequest = request.header('x-inertia') === 'true'
+
+            if (isInertiaRequest) {
+                // Handle authentication errors properly for Inertia requests
+                if (error.message.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
+                    return response.redirect('/login')
+                }
+                return inertia.render('labels/index', {
+                    labels: [],
+                    error: 'Failed to retrieve labels'
+                })
+            }
+
             return response.internalServerError({
                 success: false,
                 message: 'Failed to retrieve labels',
@@ -27,18 +57,17 @@ export default class LabelsController {
     }
 
     // POST /labels - Create a label
-    public async store({ request, response }: HttpContext) {
+    public async store({ request, response, auth }: HttpContext) {
         try {
-            // await auth.check()
-            // const user = auth.user!
-
+            await auth.authenticate() // Authenticate first
+            const user = auth.getUserOrFail()
             // Validate request data using Vine.js
             const payload = await request.validateUsing(createLabelValidator)
 
-            // Create label with temporary hardcoded userId
+            // Create label
             const label = await Label.create({
                 ...payload,
-                userId: 1 // Temporary hardcoded userId
+                userId: user.id // Set the authenticated user as owner
             })
 
             return response.created({
@@ -57,7 +86,6 @@ export default class LabelsController {
             }
 
             // Handle other errors
-            console.error('Error creating label:', error)
             return response.internalServerError({
                 success: false,
                 message: 'Failed to create label',
@@ -67,11 +95,10 @@ export default class LabelsController {
     }
 
     // DELETE /labels/:id - Delete a label
-    public async destroy({ params, response }: HttpContext) {
+    public async destroy({ params, response, auth }: HttpContext) {
         try {
-            // await auth.check()
-            // const user = auth.user!
-
+            await auth.authenticate() // Authenticate first
+            const user = auth.getUserOrFail()
             // Validate that id is provided and is a valid number
             const labelId = parseInt(params.id)
             if (isNaN(labelId)) {
@@ -81,21 +108,17 @@ export default class LabelsController {
                 })
             }
 
-            const label = await Label.find(labelId)
+            const label = await Label.query()
+                .where('id', labelId)
+                .where('userId', user.id) // Ensure user owns the label
+                .first()
 
             if (!label) {
                 return response.notFound({
                     success: false,
-                    message: 'Label not found'
+                    message: 'Label not found or you do not have permission to delete it'
                 })
             }
-
-            // if (label.userId !== user.id) {
-            //     return response.unauthorized({ 
-            //         success: false,
-            //         message: 'Not allowed to delete this label' 
-            //     })
-            // }
 
             await label.delete()
 
@@ -104,7 +127,6 @@ export default class LabelsController {
                 message: 'Label deleted successfully'
             })
         } catch (error) {
-            console.error('Error deleting label:', error)
             return response.internalServerError({
                 success: false,
                 message: 'Failed to delete label',

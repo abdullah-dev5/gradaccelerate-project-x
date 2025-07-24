@@ -10,7 +10,6 @@ export default class LabelNoteSeeder extends BaseSeeder {
         const labels = await db.from('labels').select('id')
 
         if (!notes.length || !labels.length) {
-            console.warn('⚠️ No notes or labels found. Skipping label_note seeding.')
             return
         }
 
@@ -34,8 +33,6 @@ export default class LabelNoteSeeder extends BaseSeeder {
 
         if (pivotData.length > 0) {
             await db.table('label_note').multiInsert(pivotData)
-        } else {
-            console.warn('⚠️ No label-note relationships created. Skipping insert.')
         }
     }
 }
