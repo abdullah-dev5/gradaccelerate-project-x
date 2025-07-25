@@ -17,6 +17,10 @@ router.get('/dashboard', ({ inertia }) => inertia.render('dashboard'))
 router.post('/api/auth/login', '#controllers/AuthController.login')
 router.post('/api/auth/register', '#controllers/AuthController.register')
 
+// OAuth Routes
+router.get('/auth/google/redirect', '#controllers/AuthController.googleRedirect')
+router.get('/google/callback', '#controllers/AuthController.googleCallback')
+
 // Protected auth routes (require API token)
 router.group(() => {
   router.get('/me', '#controllers/AuthController.me')
