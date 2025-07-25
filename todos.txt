@@ -33,12 +33,7 @@ temporary token is saved in LocalStorage. will change into cookies.
 OAuth is remaining to implemented. 
 Admin Controller and Migrations are created.
 
-✅ COMPLETED: Note Sharing via Protected URLs
-- ✅ Implemented unique UUID token generation for shared notes
-- ✅ Created publicly accessible endpoint /notes/shared/:token  
-- ✅ Ensured shared notes cannot be edited (read-only)
-- ✅ Added share/revoke functionality in NoteController
-- ✅ Created frontend share modal and shared note view
-- ✅ Added security features: UUIDs, revocation, auth protection
 
+dupilcate signUp is remainng
+same emails  
 

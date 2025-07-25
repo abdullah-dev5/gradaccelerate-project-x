@@ -1,8 +1,42 @@
 import { Head, Link } from '@inertiajs/react'
 import { useAuth } from '../contexts/AuthContext'
+import { useEffect } from 'react'
 
 export default function Dashboard() {
-  const { user, logout } = useAuth()
+  const { user, logout, setUser } = useAuth()
+
+  // Handle OAuth token from URL parameters
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search)
+      const token = urlParams.get('token')
+      
+      if (token) {
+        // Store the token
+        localStorage.setItem('auth_token', token)
+        
+        // Fetch user data with the token
+        fetch('/api/auth/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.user) {
+            setUser(data.user)
+          }
+        })
+        .catch(error => {
+          console.error('Error fetching user data:', error)
+        })
+        
+        // Clean up URL
+        window.history.replaceState({}, '', '/dashboard')
+      }
+    }
+  }, [])
 
   return (
     <>
