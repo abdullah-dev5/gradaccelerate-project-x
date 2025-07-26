@@ -1,6 +1,8 @@
 import { Head, Link } from '@inertiajs/react'
+
 import { useAuth } from '../contexts/AuthContext'
 import { useEffect } from 'react'
+
 
 export default function Dashboard() {
   const { user, logout, setUser } = useAuth()
@@ -77,6 +79,7 @@ export default function Dashboard() {
 
         {/* Main Content */}
         <main className="max-w-7xl mx-auto p-6">
+
           <div className="mb-8">
             <h2 className="text-3xl font-bold mb-2">Dashboard</h2>
             <p className="text-gray-400">Manage your projects, notes, and tasks</p>

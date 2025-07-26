@@ -1,5 +1,7 @@
 import { Head, Link } from '@inertiajs/react'
+
 import { useAuth } from '../contexts/AuthContext'
+import WeatherCard from '../components/WeatherCard'
 
 export default function Home() {
   const { isAuthenticated, user } = useAuth()
@@ -56,6 +58,11 @@ export default function Home() {
                 </Link>
               </div>
             )}
+
+            {/* Weather Widget */}
+            <div className="mb-8 w-full flex justify-center">
+              <WeatherCard />
+            </div>
 
             {/* Cards Container - Always show for demo purposes */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl w-full">

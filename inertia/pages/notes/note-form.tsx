@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import KlipyGifPicker from './KlipyGifPicker'
 import { router } from '@inertiajs/react'
 import { motion } from 'framer-motion'
 import { FileText, Eye, Pin, Image as ImageIcon, Tag, X } from 'lucide-react'
@@ -42,9 +43,16 @@ export default function NoteForm({
     content: initialData.content,
     pinned: initialData.pinned,
     imageUrl: initialData.imageUrl || null,
-    labelIds: initialData.labels?.map(l => l.id) || []
+    labelIds: initialData.labels?.map(l => l.id) || [],
+    gifUrl: null as string | null,
+    gifSlug: null as string | null
   })
   const [removeImageFlag, setRemoveImageFlag] = useState(false)
+
+  // Klipy GIF picker state
+  const [showGifPicker, setShowGifPicker] = useState(false)
+  const [klipyQuery, setKlipyQuery] = useState('')
+  const [klipyPage, setKlipyPage] = useState(1)
 
   const [imagePreview, setImagePreview] = useState(initialData.imageUrl || null)
   const [isUploading, setIsUploading] = useState(false)
@@ -54,6 +62,15 @@ export default function NoteForm({
 
   const handleChange = (field: string, value: any) => {
     setData(prev => ({ ...prev, [field]: value }))
+    // Only check for /klipy in content field
+    if (field === 'content') {
+      const match = value.match(/\/klipy\s+(\w+)/i)
+      if (match) {
+        setKlipyQuery(match[1])
+        setKlipyPage(1)
+        setShowGifPicker(true)
+      }
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -80,6 +97,14 @@ export default function NoteForm({
       formData.append('imageUrl', data.imageUrl)
     }
 
+    // Handle GIF fields
+    if (data.gifUrl) {
+      formData.append('gif_url', data.gifUrl)
+    }
+    if (data.gifSlug) {
+      formData.append('gif_slug', data.gifSlug)
+    }
+
     // Handle image removal for existing notes
     if (removeImageFlag && initialData.id) {
       formData.append('removeImage', 'true')
@@ -97,6 +122,8 @@ export default function NoteForm({
       onError: (errors: any) => {
         console.error('Validation errors:', errors)
         setError(Object.values(errors)[0] as string || 'Failed to save note')
+        // TEMP: Show full error details in alert for debugging
+        alert('DEBUG ERROR: ' + JSON.stringify(errors))
         setIsSubmitting(false)
       },
       onFinish: () => {
@@ -149,11 +176,51 @@ export default function NoteForm({
     )
   }
 
+  // Insert GIF markdown at cursor position and store gifUrl/gifSlug
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  // Accepts gifUrl and gifSlug
+  const handleGifSelect = (gifUrl: string, gifSlug?: string) => {
+    setShowGifPicker(false)
+    setKlipyQuery('')
+    setKlipyPage(1)
+    // Remove /klipy command from content
+    const klipyCmdRegex = /\n?\/klipy\s+\w+\n?/i;
+    let cleanedContent = data.content.replace(klipyCmdRegex, '\n');
+    // Insert ![gif](url) at cursor
+    if (textareaRef.current) {
+      const textarea = textareaRef.current
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const before = cleanedContent.slice(0, start)
+      const after = cleanedContent.slice(end)
+      const newContent = `${before}\n![gif](${gifUrl})\n${after}`
+      setData(prev => ({ ...prev, content: newContent, gifUrl, gifSlug: gifSlug || null }))
+      setTimeout(() => {
+        textarea.focus()
+        textarea.selectionStart = textarea.selectionEnd = start + (`\n![gif](${gifUrl})\n`).length
+      }, 0)
+    } else {
+      setData(prev => ({ ...prev, content: cleanedContent + `\n![gif](${gifUrl})\n`, gifUrl, gifSlug: gifSlug || null }))
+    }
+  }
+
   return (
     <motion.div
       className="bg-[#2C2C2E] rounded-xl p-6 backdrop-blur-lg border border-[#3A3A3C]"
       style={{ boxShadow: "0 10px 30px rgba(0, 0, 0, 0.25)" }}
     >
+      {showGifPicker && klipyQuery && (
+        <KlipyGifPicker
+          query={klipyQuery}
+          page={klipyPage}
+          limit={8}
+          noteId={initialData.id ? initialData.id : undefined}
+          onSelect={(gifUrl: string, gifSlug?: string) => handleGifSelect(gifUrl, gifSlug)}
+          onClose={() => setShowGifPicker(false)}
+          onNextPage={() => setKlipyPage(p => p + 1)}
+          onPrevPage={() => setKlipyPage(p => Math.max(1, p - 1))}
+        />
+      )}
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold text-white">
           {initialData.id ? 'Edit Note' : 'New Note'}
@@ -254,6 +321,7 @@ export default function NoteForm({
             </motion.div>
           ) : (
             <motion.textarea
+              ref={textareaRef}
               whileFocus={{ scale: 1.01 }}
               transition={{ duration: 0.2 }}
               value={data.content}

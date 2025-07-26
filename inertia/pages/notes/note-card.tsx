@@ -15,6 +15,8 @@ interface Note {
   updatedAt: string | null
   pinned: boolean
   imageUrl: string | null
+  gif_url?: string | null
+  gif_slug?: string | null
   labels?: Array<{
     id: number
     name: string
@@ -114,6 +116,19 @@ export default function NoteCard({ note, viewType, onPinToggle, onDelete }: Note
               <h2 className="text-lg font-medium text-white">{note.title}</h2>
               <span className="text-xs text-[#98989D]">{timeAgo}</span>
             </div>
+
+            {/* Render GIF if present */}
+            {note.gif_url && (
+              <div className="mb-2 flex justify-center">
+                <img
+                  src={note.gif_url}
+                  alt="GIF"
+                  className="rounded-lg max-h-40 border border-[#3A3A3C]/50"
+                  loading="lazy"
+                  style={{ maxWidth: '100%' }}
+                />
+              </div>
+            )}
 
             <div
               className={`text-[#98989D] text-sm ${

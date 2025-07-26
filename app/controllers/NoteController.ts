@@ -15,6 +15,10 @@ import { shareTokenValidator } from '#validators/notes/share_token_validator'
 import { cuid } from '@adonisjs/core/helpers'
 import type { MultipartFile } from '@adonisjs/core/types/bodyparser' // Import MultipartFile type
 import Label from '#models/label' // Import Label model
+import env from '#start/env'
+import axios from 'axios'
+
+
 
 export default class NotesController {
   private isInertiaRequest(request: HttpContext['request']) {
@@ -130,21 +134,24 @@ export default class NotesController {
   }
 
 
-
   async store({ request, response, auth }: HttpContext) {
     try {
-      await auth.authenticate() // Authenticate first
+      await auth.authenticate()
       const user = auth.getUserOrFail()
       const payload = await request.validateUsing(createNoteValidator)
+
 
       const noteData: Partial<Note> = {
         title: payload.title,
         content: payload.content ? await marked.parse(payload.content) : '',
         pinned: payload.pinned ?? false,
-        userId: user.id, // Set the authenticated user as owner
+        userId: user.id,
         imageUrl: null,
-        imagePublicId: null
+        imagePublicId: null,
+        gif_url: payload.gif_url || null, // DB column is gif_url
+        gif_slug: payload.gif_slug || null // DB column is gif_slug
       }
+
 
       // Handle image upload with cleanup on failure
       if (payload.image) {
@@ -159,7 +166,26 @@ export default class NotesController {
         }
       }
 
-      const note = await Note.create(noteData)
+      // Handle GIF tracking if provided
+      if (payload.gif_slug) {
+        try {
+          await axios.post(
+            `https://api.klipy.com/api/v1/${env.get('KLIPY_API_KEY')}/gifs/view/${payload.gif_slug}`,
+            { customer_id: user.id }
+          )
+        } catch (trackError) {
+          logger.warn('GIF view tracking failed', trackError)
+        }
+      }
+
+      let note = null
+      try {
+        note = await Note.create(noteData)
+      } catch (err) {
+        logger.error('ERROR CREATING NOTE', { err })
+        throw err
+      }
+
 
       // Handle labels with transaction - updated to handle both array and single value
       if (payload.labelIds) {
@@ -170,17 +196,15 @@ export default class NotesController {
 
           await this.safeAttachLabels(note, labelIds)
         } catch (labelError) {
-          // Rollback note creation if label attachment fails
           await note.delete()
+          logger.error('Label attach failed', { labelError })
           throw labelError
         }
       }
 
       if (this.isInertiaRequest(request)) {
-        // For Inertia requests, redirect to notes index
         return response.redirect().toRoute('notes.index')
       } else {
-        // For API requests, return JSON
         return response.created({
           message: 'Note created successfully',
           note: await note.load('labels')
@@ -190,21 +214,23 @@ export default class NotesController {
     } catch (error) {
       logger.error('Note creation failed', {
         error: error.message,
-        stack: error.stack
+        stack: error.stack,
+        full: error
       })
 
+      // Send error details in response for frontend
       if (this.isInertiaRequest(request)) {
-        // For Inertia requests, redirect back 
         return response.redirect().back()
       } else {
-        // For API requests, return JSON error
         return response.status(400).json({
           message: 'Note creation failed',
-          error: error.messages?.messages || error.message
+          error: error.messages?.messages || error.message,
+          debug: error
         })
       }
     }
   }
+
 
   // Keep the existing uploadToCloudinary method exactly as is
   private async uploadToCloudinary(image: MultipartFile) {
@@ -259,28 +285,38 @@ export default class NotesController {
 
 
 
-
-
-
   async update({ request, response, params, auth }: HttpContext) {
     try {
-      await auth.authenticate() // Authenticate first
+      await auth.authenticate()
       const user = auth.getUserOrFail()
       const { note_id } = await request.validateUsing(noteIdValidator, { data: params })
       const payload = await request.validateUsing(updateNoteValidator)
       const note = await Note.query()
         .where('id', note_id)
-        .where('userId', user.id) // Ensure user owns the note
+        .where('userId', user.id)
         .firstOrFail()
 
-      // Prepare update data object (unchanged)
       const updateData: Partial<Note> = {
         title: payload.title ?? note.title,
         content: payload.content ? await marked.parse(payload.content) : note.content,
         pinned: payload.pinned ?? note.pinned,
+        gif_url: payload.gif_url ?? note.gif_url,
+        gif_slug: payload.gif_slug ?? note.gif_slug
       }
 
-      // Handle image changes (unchanged)
+      // Handle GIF tracking if new GIF is provided
+      if (payload.gif_slug && payload.gif_slug !== note.gif_slug) {
+        try {
+          await axios.post(
+            `https://api.klipy.com/api/v1/${env.get('KLIPY_API_KEY')}/gifs/view/${payload.gif_slug}`,
+            { customer_id: user.id }
+          )
+        } catch (trackError) {
+          logger.warn('GIF view tracking failed', trackError)
+        }
+      }
+
+      // Handle image changes (existing unchanged code)
       if (payload.image) {
         const fileName = `${randomUUID()}_${payload.image.clientName}`
         await payload.image.move(app.tmpPath('uploads'), { name: fileName })
@@ -317,14 +353,22 @@ export default class NotesController {
       note.merge(updateData)
       await note.save()
 
-      // Handle labels if provided - now with proper TypeScript support
-      if (payload.labelIds) {
-        // First detach all existing labels
-        await note.related('labels').detach()
+      // Handle labels if provided
+      if (payload.labelIds || payload.removeLabelIds) {
+        const currentLabels = await note.related('labels').query().select('id')
+        const currentLabelIds = currentLabels.map(label => label.id)
 
-        // Then attach new ones if any exist
-        if (payload.labelIds.length > 0) {
-          await note.related('labels').attach(payload.labelIds)
+        // Remove labels if specified
+        if (payload.removeLabelIds) {
+          await note.related('labels').detach(payload.removeLabelIds)
+        }
+
+        // Add new labels if specified
+        if (payload.labelIds) {
+          const newLabels = payload.labelIds.filter(id => !currentLabelIds.includes(id))
+          if (newLabels.length > 0) {
+            await note.related('labels').attach(newLabels)
+          }
         }
       }
 
@@ -648,4 +692,180 @@ export default class NotesController {
       })
     }
   }
+
+
+
+
+
+
+
+
+
+
+
+  public async searchGifs({ request, response, auth }: HttpContext) {
+    try {
+      logger.info('[GIF SEARCH] Start', { q: request.input('q'), page: request.input('page', 1), limit: request.input('limit', 5) });
+      // Try to get user, but don't require authentication
+      let customerId: string | undefined = undefined;
+      try {
+        await auth.check()
+        logger.info('[GIF SEARCH] auth.check() success', { user: auth.user?.id });
+        if (auth.user) {
+          customerId = String(auth.user.id)
+        }
+      } catch (authErr) {
+        logger.info('[GIF SEARCH] Not authenticated', { error: authErr?.message });
+      }
+
+      const apiKey = env.get('KLIPY_API_KEY')
+      logger.info('[GIF SEARCH] Using Klipy API key', { hasKey: !!apiKey });
+      const params: any = {
+        q: request.input('q'),
+        page: request.input('page', 1),
+        per_page: request.input('limit', 5),
+        content_filter: 'high',
+      }
+      if (customerId) {
+        params.customer_id = customerId
+        logger.info('[GIF SEARCH] Using customer_id', { customerId });
+      }
+
+      logger.info('[GIF SEARCH] About to call Klipy API', { url: `https://api.klipy.com/api/v1/${apiKey}/gifs/search`, params });
+      const { data } = await axios.get(
+        `https://api.klipy.com/api/v1/${apiKey}/gifs/search`,
+        { params }
+      )
+      logger.info('[GIF SEARCH] Klipy API response', { data: data?.result, count: data?.data?.data?.length });
+
+      if (data?.result && Array.isArray(data?.data?.data)) {
+        logger.info('[GIF SEARCH] Returning GIFs', { count: data.data.data.length });
+        return response.ok({
+          data: data.data.data.map((gif: any) => ({
+            id: gif.id,
+            slug: gif.slug,
+            url: gif.file?.md?.gif?.url || gif.file?.hd?.gif?.url || '',
+            preview: gif.blur_preview || gif.file?.sm?.gif?.url || '',
+            title: gif.title,
+            width: gif.file?.md?.gif?.width || 300,
+            height: gif.file?.md?.gif?.height || 200
+          }))
+        })
+      }
+
+      logger.warn('[GIF SEARCH] Unexpected Klipy API response', { raw: data });
+      return response.status(502).json({
+        message: 'Unexpected Klipy API response',
+        raw: data
+      })
+
+    } catch (error) {
+      // Log error as JSON string for full visibility
+      logger.error('[GIF SEARCH] Klipy API failed: ' + JSON.stringify({
+        message: error.message,
+        responseData: error.response?.data,
+        responseStatus: error.response?.status,
+        requestUrl: error.config?.url,
+        requestParams: error.config?.params,
+        stack: error.stack
+      }));
+
+      // Handle Klipy API rate limit (HTTP 429)
+      if (error.response?.status === 429) {
+        return response.status(429).json({
+          message: 'GIF search rate limit exceeded. Please try again later.',
+          error: error.response?.data?.message || error.message,
+          debug: {
+            responseData: error.response?.data,
+            responseStatus: error.response?.status,
+            requestUrl: error.config?.url,
+            requestParams: error.config?.params
+          }
+        })
+      }
+
+      return response.status(error.response?.status || 500).json({
+        message: 'Failed to search GIFs',
+        error: error.response?.data?.message || error.message,
+        debug: {
+          responseData: error.response?.data,
+          responseStatus: error.response?.status,
+          requestUrl: error.config?.url,
+          requestParams: error.config?.params
+        }
+      })
+    }
+  }
+
+  /**
+   * Attach GIF to note
+   */
+  public async attachGif({ params, request, response, auth }: HttpContext) {
+    try {
+      await auth.authenticate()
+      const user = auth.getUserOrFail()
+
+      const { gif_url, gif_slug } = request.only(['gif_url', 'gif_slug'])
+
+      const note = await Note.query()
+        .where('id', params.id)
+        .where('userId', user.id)
+        .firstOrFail()
+
+      note.gif_url = gif_url
+      note.gif_slug = gif_slug
+      await note.save()
+
+      // Track view in Klipy
+      try {
+        await axios.post(
+          `https://api.klipy.com/api/v1/${env.get('KLIPY_API_KEY')}/gifs/view/${gif_slug}`,
+          { customer_id: user.id }
+        )
+      } catch (trackError) {
+        logger.warn('GIF view tracking failed', trackError)
+      }
+
+      return response.ok(await note.load('labels'))
+
+    } catch (error) {
+      logger.error('GIF attachment failed', error)
+      return response.status(error.response?.status || 500).json({
+        message: 'Failed to attach GIF',
+        error: error.response?.data?.message || error.message
+      })
+    }
+  }
+
+  /**
+   * Remove GIF from note
+   */
+  public async removeGif({ params, response, auth }: HttpContext) {
+    try {
+      await auth.authenticate()
+      const user = auth.getUserOrFail()
+
+      const note = await Note.query()
+        .where('id', params.id)
+        .where('userId', user.id)
+        .firstOrFail()
+
+      note.gif_url = null
+      note.gif_slug = null
+      await note.save()
+
+      return response.ok(await note.load('labels'))
+
+    } catch (error) {
+      logger.error('GIF removal failed', error)
+      return response.status(500).json({
+        message: 'Failed to remove GIF',
+        error: error.message
+      })
+    }
+  }
+
+
+
+
 }

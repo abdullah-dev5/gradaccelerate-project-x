@@ -11,6 +11,11 @@ export const createNoteValidator = vine.compile(
             extnames: ['jpg', 'jpeg', 'png', 'webp'],
         }).optional(),
         imageUrl: vine.string().optional(), // For existing images
+        gif_url: vine
+            .string()
+            .url()  // Validate as proper URL
+            .optional(),
+        gif_slug: vine.string().optional(),
         labelIds: vine.array(vine.number()).optional()
     })
 )

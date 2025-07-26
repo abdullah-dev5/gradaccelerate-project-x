@@ -23,6 +23,12 @@ export default class Note extends BaseModel {
   declare pinned: boolean
 
   @column()
+  declare gif_url: string | null
+
+  @column()
+  declare gif_slug: string | null // Added for tracking
+
+  @column()
   declare imageUrl: string | null
 
   @column()
@@ -32,7 +38,7 @@ export default class Note extends BaseModel {
   declare shareUuid: string | null
 
   @column.dateTime()
-  declare deletedAt: DateTime | null // ✅ Soft delete support
+  declare deletedAt: DateTime | null
 
   @belongsTo(() => User)
   declare user: BelongsTo<typeof User>
@@ -66,10 +72,33 @@ export default class Note extends BaseModel {
   serialize() {
     return {
       ...super.serialize(),
+      gif_url: this.gif_url,
+      gif_slug: this.gif_slug,
+      gifDimensions: this.getGifDimensions(), // Added for frontend display
       labels: this.labels?.map((label) => label.serialize()) || [],
       isShared: !!this.shareUuid,
       hasImage: !!this.imageUrl,
+      hasGif: !!this.gif_url, // Added for frontend checks
     }
+  }
+
+  /**
+   * Get GIF dimensions for proper display
+   */
+  private getGifDimensions() {
+    if (!this.gif_url) return null
+
+    // Extract dimensions from URL if available (example implementation)
+    const match = this.gif_url.match(/_(\d+)x(\d+)\.gif$/i)
+    if (match) {
+      return {
+        width: parseInt(match[1]),
+        height: parseInt(match[2])
+      }
+    }
+
+    // Default dimensions if not detectable from URL
+    return { width: 300, height: 200 }
   }
 
   generateShareUrl(baseUrl: string): string | null {

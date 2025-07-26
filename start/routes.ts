@@ -1,7 +1,7 @@
 // start/routes.ts
 import router from '@adonisjs/core/services/router'
 import { middleware } from '#start/kernel'
-
+import NotesControllers from '#controllers/NoteController'
 // ========================
 // Inertia Routes (Frontend)
 // ========================
@@ -9,6 +9,14 @@ router.get('/', ({ inertia }) => inertia.render('home'))
 router.get('/login', ({ inertia }) => inertia.render('auth/login'))
 router.get('/register', ({ inertia }) => inertia.render('auth/register'))
 router.get('/dashboard', ({ inertia }) => inertia.render('dashboard'))
+
+
+
+// ========================
+// Public API Routes
+// ========================
+import WeatherController from '#controllers/weathers_controller'
+router.get('/weather', [WeatherController, 'get'])
 
 // ========================
 // Authentication API Routes
@@ -54,6 +62,10 @@ router
     router.patch('/:note_id/toggle-pin', '#controllers/NoteController.togglePin')
     router.patch('/:note_id/restore', '#controllers/NoteController.restore')
 
+    router.patch('/notes/:id/gif', '#controllers/NoteController.attachGif')
+    router.get('/notes/:id/gifs/search', [NotesControllers, 'searchGifs'])
+    router.delete('/notes/:id/gif', '#controllers/NoteController.removeGif')
+
     // Share management routes (protected)
     router.post('/:note_id/share', '#controllers/NoteController.generateShareLink')
     router.delete('/:note_id/share', '#controllers/NoteController.revokeShareLink')
@@ -63,8 +75,8 @@ router
   .use(middleware.auth({ guards: ['web', 'api'] }))
 
 // Public shared notes route (no authentication required)
+router.get('/notes/gifs/search', [NotesControllers, 'searchGifs'])
 router.get('/notes/shared/:token', '#controllers/NoteController.viewSharedNote')
-
 // Projects Routes (Protected)
 router
   .group(() => {

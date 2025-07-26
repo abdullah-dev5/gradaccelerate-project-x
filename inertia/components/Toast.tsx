@@ -75,13 +75,17 @@ export function Toast({ id, type, title, message, duration = 5000, onClose }: To
   )
 }
 
+
+interface ToastContainerToast {
+  id: string
+  type: ToastType
+  title: string
+  message?: string
+  duration?: number
+}
+
 interface ToastContainerProps {
-  toasts: Array<{
-    id: string
-    type: ToastType
-    title: string
-    message?: string
-  }>
+  toasts: ToastContainerToast[]
   onClose: (id: string) => void
 }
 
@@ -96,6 +100,7 @@ export function ToastContainer({ toasts, onClose }: ToastContainerProps) {
             type={toast.type}
             title={toast.title}
             message={toast.message}
+            duration={toast.duration}
             onClose={onClose}
           />
         ))}

@@ -6,7 +6,9 @@ interface Toast {
     type: ToastType
     title: string
     message?: string
+    duration?: number
 }
+
 
 export function useToast() {
     const [toasts, setToasts] = useState<Toast[]>([])
@@ -14,9 +16,7 @@ export function useToast() {
     const addToast = useCallback((toast: Omit<Toast, 'id'>) => {
         const id = Math.random().toString(36).substring(2, 9)
         const newToast = { ...toast, id }
-
         setToasts(prev => [...prev, newToast])
-
         return id
     }, [])
 
@@ -24,20 +24,20 @@ export function useToast() {
         setToasts(prev => prev.filter(toast => toast.id !== id))
     }, [])
 
-    const success = useCallback((title: string, message?: string) => {
-        return addToast({ type: 'success', title, message })
+    const success = useCallback((title: string, message?: string, duration?: number) => {
+        return addToast({ type: 'success', title, message, duration })
     }, [addToast])
 
-    const error = useCallback((title: string, message?: string) => {
-        return addToast({ type: 'error', title, message })
+    const error = useCallback((title: string, message?: string, duration?: number) => {
+        return addToast({ type: 'error', title, message, duration })
     }, [addToast])
 
-    const warning = useCallback((title: string, message?: string) => {
-        return addToast({ type: 'warning', title, message })
+    const warning = useCallback((title: string, message?: string, duration?: number) => {
+        return addToast({ type: 'warning', title, message, duration })
     }, [addToast])
 
-    const info = useCallback((title: string, message?: string) => {
-        return addToast({ type: 'info', title, message })
+    const info = useCallback((title: string, message?: string, duration?: number) => {
+        return addToast({ type: 'info', title, message, duration })
     }, [addToast])
 
     return {
