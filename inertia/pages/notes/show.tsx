@@ -12,11 +12,6 @@ interface Note {
   pinned?: boolean
   imageUrl: string | null
   shareUuid?: string | null
-  labels?: Array<{
-    id: number
-    name: string
-    color: string | null
-  }>
 }
 
 export default function Show({ note }: { note: Note }) {
@@ -94,13 +89,18 @@ export default function Show({ note }: { note: Note }) {
     }
   }
 
+
   const copyToClipboard = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(window.location.origin + text)
-      alert('Link copied to clipboard!')
-    } catch (error) {
-      console.error('Error copying to clipboard:', error)
-      alert('Failed to copy link')
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(window.location.origin + text)
+        alert('Link copied to clipboard!')
+      } catch (error) {
+        console.error('Error copying to clipboard:', error)
+        alert('Failed to copy link')
+      }
+    } else {
+      alert('Clipboard not supported in this environment.')
     }
   }
 
@@ -197,24 +197,7 @@ export default function Show({ note }: { note: Note }) {
             transition={{ delay: 0.1 }}
             className="bg-[#2C2C2E] rounded-xl p-6"
           >
-            {/* Labels */}
-            {note.labels && note.labels.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-4">
-                {note.labels.map((label) => (
-                  <span
-                    key={label.id}
-                    className="px-3 py-1 text-xs rounded-full border"
-                    style={{
-                      backgroundColor: label.color || '#374151',
-                      borderColor: label.color || '#6B7280',
-                      color: '#ffffff'
-                    }}
-                  >
-                    {label.name}
-                  </span>
-                ))}
-              </div>
-            )}
+
 
             {/* Title */}
             <h2 className="text-2xl font-bold mb-4 text-white">

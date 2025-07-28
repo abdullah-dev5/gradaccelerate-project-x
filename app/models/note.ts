@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, manyToMany, belongsTo, beforeDelete } from '@adonisjs/lucid/orm'
-import type { ManyToMany, BelongsTo } from '@adonisjs/lucid/types/relations'
-import Label from './label.js'
+import { BaseModel, column, belongsTo, beforeDelete } from '@adonisjs/lucid/orm'
+import type { BelongsTo } from '@adonisjs/lucid/types/relations'
+// label logic removed
 import User from './user.js'
 import cloudinary from '#config/cloudinary'
 import { Exception } from '@adonisjs/core/exceptions'
@@ -43,11 +43,13 @@ export default class Note extends BaseModel {
   @belongsTo(() => User)
   declare user: BelongsTo<typeof User>
 
-  @manyToMany(() => Label, {
-    pivotTable: 'label_note',
-    pivotTimestamps: true,
+
+  @column({
+    consume: (value) => (typeof value === 'string' ? JSON.parse(value) : value),
+    prepare: (value) => (value ? JSON.stringify(value) : null),
+    serialize: (value) => value,
   })
-  declare labels: ManyToMany<typeof Label>
+  declare labels: { id: number; name: string; color?: string }[] | null;
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -75,7 +77,7 @@ export default class Note extends BaseModel {
       gif_url: this.gif_url,
       gif_slug: this.gif_slug,
       gifDimensions: this.getGifDimensions(), // Added for frontend display
-      labels: this.labels?.map((label) => label.serialize()) || [],
+      // label logic removed
       isShared: !!this.shareUuid,
       hasImage: !!this.imageUrl,
       hasGif: !!this.gif_url, // Added for frontend checks

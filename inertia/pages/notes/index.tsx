@@ -14,11 +14,6 @@ interface Note {
   updatedAt: string | null
   pinned: boolean
   imageUrl: string | null
-  labels?: Array<{
-    id: number
-    name: string
-    color: string | null
-  }>
 }
 
 interface Meta {
@@ -41,7 +36,6 @@ interface SortOptions {
 
 interface Filters {
   searchQuery: string
-  selectedLabel: number | null
   sortBy: 'createdAt' | 'updatedAt' | 'title'
   sortOrder: 'asc' | 'desc'
   currentPage: number
@@ -50,7 +44,6 @@ interface Filters {
 // Default filter values
 const DEFAULT_FILTERS: Filters = {
   searchQuery: '',
-  selectedLabel: null,
   sortBy: 'createdAt',
   sortOrder: 'desc',
   currentPage: 1
@@ -69,11 +62,7 @@ export default function Index({
   const [meta, setMeta] = useState(initialMeta)
   const [isFormVisible, setIsFormVisible] = useState(false)
   const [viewType, setViewType] = useState<'grid' | 'list'>('grid')
-  const [labels, setLabels] = useState<Array<{
-    id: number
-    name: string
-    color: string | null
-  }>>([])
+
 
   // Consolidated filters state with default values
   const [filters, setFilters] = useState<Filters>({
@@ -89,34 +78,7 @@ export default function Index({
     setFilters(prev => ({ ...prev, [key]: value }))
   }
 
-  // Fetch labels when component mounts
-  useEffect(() => {
-    const fetchLabels = async () => {
-      try {
-        const response = await fetch('/labels')
-        
-        if (response.ok) {
-          const labelsData = await response.json()
-          
-          // Handle both formats: direct array or wrapped in success response
-          if (labelsData.success && labelsData.data) {
-            setLabels(labelsData.data)
-          } else if (Array.isArray(labelsData)) {
-            setLabels(labelsData)
-          } else {
-            console.error('Unexpected labels response format:', labelsData)
-          }
-        } else {
-          const errorText = await response.text()
-          console.error('Failed to fetch labels - Status:', response.status, 'Error:', errorText)
-        }
-      } catch (error) {
-        console.error('Failed to fetch labels:', error)
-      }
-    }
-    
-    fetchLabels()
-  }, [])
+
 
   // Fetch notes when sorting/filtering changes
   useEffect(() => {
@@ -125,7 +87,7 @@ export default function Index({
         sort: filters.sortBy,
         order: filters.sortOrder,
         search: filters.searchQuery,
-        label_id: filters.selectedLabel,
+
         page: 1 // Reset to first page when filters change
       }, {
         preserveState: true,
@@ -142,7 +104,7 @@ export default function Index({
     }, 300)
 
     return () => clearTimeout(timer)
-  }, [filters.sortBy, filters.sortOrder, filters.searchQuery, filters.selectedLabel])
+  }, [filters.sortBy, filters.sortOrder, filters.searchQuery])
 
   // Separate pinned and unpinned notes
   const pinnedNotes = notes.filter(note => note && note.pinned)
@@ -208,7 +170,7 @@ export default function Index({
         sort: filters.sortBy,
         order: filters.sortOrder,
         search: filters.searchQuery,
-        label_id: filters.selectedLabel,
+
         page: page
       }, {
         preserveState: true,
@@ -261,9 +223,6 @@ export default function Index({
                 setSortOrder={(value) => updateFilter('sortOrder', value)}
                 searchQuery={filters.searchQuery}
                 setSearchQuery={(value) => updateFilter('searchQuery', value)}
-                selectedLabel={filters.selectedLabel}
-                setSelectedLabel={(value) => updateFilter('selectedLabel', value)}
-                labels={labels}
               />
               <motion.button
                 whileTap={{ scale: 0.95 }}
@@ -299,7 +258,6 @@ export default function Index({
                 <NoteForm 
                   onSuccess={handleCreateSuccess}
                   onCancel={() => setIsFormVisible(false)}
-                  labels={labels}
                 />
               </motion.div>
             )}

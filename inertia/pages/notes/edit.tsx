@@ -11,20 +11,11 @@ interface Note {
   updatedAt: string | null
   pinned: boolean
   imageUrl: string | null
-  labels?: Array<{
-    id: number
-    name: string
-    color: string | null
-  }>
 }
 
-interface Label {
-  id: number
-  name: string
-  color: string | null
-}
 
-export default function Edit({ note, labels }: { note: Note; labels: Label[] }) {
+
+export default function Edit({ note }: { note: Note }) {
   const handleUpdateSuccess = () => {
     // Redirect back to the note show page after successful update
     router.visit(`/notes/${note.id}`)
@@ -77,12 +68,10 @@ export default function Edit({ note, labels }: { note: Note; labels: Label[] }) 
                 title: note.title,
                 content: note.content,
                 pinned: note.pinned,
-                imageUrl: note.imageUrl,
-                labels: note.labels
+                imageUrl: note.imageUrl
               }}
               onSuccess={handleUpdateSuccess}
               onCancel={handleCancel}
-              labels={labels}
             />
           </motion.div>
         </div>

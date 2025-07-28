@@ -41,14 +41,14 @@ export default class ProjectsController {
 
   async index({ inertia, request, auth, response }: HttpContext) {
     try {
-      await auth.authenticate() // Authenticate first
+      await auth.authenticate()
       const user = auth.getUserOrFail()
       const page = request.input('page', 1);
       const status = request.input('status');
       const search = request.input('search');
 
       const query = Project.query()
-        .where('userId', user.id) // Filter by authenticated user
+        .where('userId', user.id)
         .orderBy('createdAt', 'desc')
         .if(status, (query) => query.where('status', status))
         .if(search, (query) =>
@@ -61,43 +61,59 @@ export default class ProjectsController {
 
       const projects = await query.paginate(page, 10);
 
-      // Explicitly structure the response for Inertia
-      return inertia.render('projects/index', {
-        projects: {
-          data: projects.all(),
-          meta: {
-            total: projects.total,
-            per_page: projects.perPage,
-            current_page: projects.currentPage,
-            last_page: projects.lastPage,
-            first_page: 1,
-            first_page_url: null, // Can be generated if needed
-            last_page_url: null,  // Can be generated if needed
-            next_page_url: projects.getNextPageUrl(),
-            previous_page_url: projects.getPreviousPageUrl()
-          }
+      if (request.header('x-inertia') === 'true' || request.header('accept')?.includes('text/html')) {
+        return inertia.render('projects/index', {
+          projects: {
+            data: projects.all(),
+            meta: {
+              total: projects.total,
+              per_page: projects.perPage,
+              current_page: projects.currentPage,
+              last_page: projects.lastPage,
+              first_page: 1,
+              first_page_url: null,
+              last_page_url: null,
+              next_page_url: projects.getNextPageUrl(),
+              previous_page_url: projects.getPreviousPageUrl()
+            }
+          },
+          filters: { status, search }
+        });
+      }
+      // API/JSON response
+      return response.ok({
+        projects: projects.all(),
+        meta: {
+          total: projects.total,
+          per_page: projects.perPage,
+          current_page: projects.currentPage,
+          last_page: projects.lastPage
         },
         filters: { status, search }
-      });
+      })
     } catch (error) {
-      // Handle authentication errors properly for Inertia requests
-      if (error.message.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
-        return response.redirect('/login')
+      if (request.header('x-inertia') === 'true' || request.header('accept')?.includes('text/html')) {
+        if (error.message.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
+          return response.redirect('/login')
+        }
+        return inertia.render('projects/index', {
+          projects: { data: [], meta: { total: 0, per_page: 10, current_page: 1, last_page: 1, first_page: 1 } },
+          filters: { status: null, search: null },
+          error: 'Failed to fetch projects'
+        });
       }
-      // For other errors, render with empty data and error message
-      return inertia.render('projects/index', {
-        projects: { data: [], meta: { total: 0, per_page: 10, current_page: 1, last_page: 1, first_page: 1 } },
-        filters: { status: null, search: null },
-        error: 'Failed to fetch projects'
-      });
+      return response.status(500).json({
+        message: 'Failed to fetch projects',
+        error: error.message
+      })
     }
   }
   /**
    * Show project creation form
    */
   async create({ inertia, auth }: HttpContext) {
-    await auth.authenticate() // Authenticate first
-    auth.getUserOrFail() // Ensure user is authenticated
+    await auth.authenticate()
+    auth.getUserOrFail()
     const statusOptions = ['pending', 'in_progress', 'completed']
     return inertia.render('projects/create', { statusOptions })
   }
@@ -128,29 +144,37 @@ export default class ProjectsController {
    * Show single project
    */
   async show({ params, inertia, auth }: HttpContext) {
-    await auth.authenticate() // Authenticate first
+    await auth.authenticate()
     const user = auth.getUserOrFail()
     const project = await Project.query()
       .where('id', params.id)
-      .where('userId', user.id) // Ensure user owns the project
+      .where('userId', user.id)
       .firstOrFail()
 
-    return inertia.render('projects/show', { project })
+    // SSR/Browser/SPA
+    if (typeof inertia !== 'undefined') {
+      return inertia.render('projects/show', { project })
+    }
+    // API/JSON
+    return { project }
   }
 
   /**
    * Show project edit form
    */
   async edit({ params, inertia, auth }: HttpContext) {
-    await auth.authenticate() // Authenticate first
+    await auth.authenticate()
     const user = auth.getUserOrFail()
     const project = await Project.query()
       .where('id', params.id)
-      .where('userId', user.id) // Ensure user owns the project
+      .where('userId', user.id)
       .firstOrFail()
 
     const statusOptions = ['pending', 'in_progress', 'completed']
-    return inertia.render('projects/edit', { project, statusOptions })
+    if (typeof inertia !== 'undefined') {
+      return inertia.render('projects/edit', { project, statusOptions })
+    }
+    return { project, statusOptions }
   }
 
   /**

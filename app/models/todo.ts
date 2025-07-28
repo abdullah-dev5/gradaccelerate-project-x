@@ -2,10 +2,15 @@ import { BaseModel, column, belongsTo, manyToMany } from '@adonisjs/lucid/orm'
 import type { BelongsTo, ManyToMany } from '@adonisjs/lucid/types/relations'
 
 import User from './user.js'
-import Label from './label.js'
 import { DateTime } from 'luxon'
 
 export default class Todo extends BaseModel {
+  @column({
+    consume: (value) => (typeof value === 'string' ? JSON.parse(value) : value),
+    prepare: (value) => (value ? JSON.stringify(value) : null),
+    serialize: (value) => value,
+  })
+  declare labels: { id: number; name: string; color?: string }[] | null;
   public static softDelete = true
 
   @column({ isPrimary: true })
@@ -26,11 +31,6 @@ export default class Todo extends BaseModel {
   @belongsTo(() => User)
   declare user: BelongsTo<typeof User>
 
-  @manyToMany(() => Label, {
-    pivotTable: 'label_todo',
-    pivotTimestamps: true, // ✅ captures created_at/updated_at in pivot
-  })
-  declare labels: ManyToMany<typeof Label>
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime

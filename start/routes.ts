@@ -105,12 +105,3 @@ router
   .prefix('/todos')
   .use(middleware.auth({ guards: ['web', 'api'] }))
 
-// Labels Routes (Protected)
-router
-  .group(() => {
-    router.get('/', '#controllers/LabelController.index')
-    router.post('/', '#controllers/LabelController.store')
-    router.delete('/:id', '#controllers/LabelController.destroy')
-  })
-  .prefix('/labels')
-  .use(middleware.auth({ guards: ['web', 'api'] }))

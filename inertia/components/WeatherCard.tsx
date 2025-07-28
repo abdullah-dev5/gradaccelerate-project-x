@@ -51,7 +51,7 @@ const Weather: React.FC = () => {
       }
     };
 
-    if (navigator.geolocation) {
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
       setToast('Requesting your location for weather updates...');
       navigator.geolocation.getCurrentPosition(
         (pos) => {

@@ -107,7 +107,6 @@ export default class TodosController {
             const query = Todo.query()
                 .where('userId', user.id) // Filter by authenticated user
                 .whereNull('deleted_at')
-                .preload('labels')
 
             // Filtering logic remains the same
             if (status === 'completed') query.where('is_completed', true)
@@ -135,7 +134,7 @@ export default class TodosController {
             const buildUrl = (page: number) =>
                 `${basePath}?page=${page}${queryParams.toString() ? `&${queryParams.toString()}` : ''}`
 
-            if (this.isInertiaRequest(request)) {
+            if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
                 return inertia.render('todos/index', {
                     todos: {
                         data: paginatedTodos.all(),
@@ -164,8 +163,8 @@ export default class TodosController {
         } catch (error) {
             logger.error('Failed to fetch todos', { error })
 
-            if (this.isInertiaRequest(request)) {
-                // Handle authentication errors properly for Inertia requests
+            if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
+                // Handle authentication errors properly for Inertia/browser requests
                 if (error.message.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
                     return response.redirect('/login')
                 }
@@ -205,17 +204,14 @@ export default class TodosController {
             await auth.authenticate() // Authenticate first
             const user = auth.getUserOrFail()
             const payload = await request.validateUsing(createTodoValidator)
-            const { labelIds = [], ...todoData } = payload
+
+            const { labels = [], ...todoData } = payload
 
             const todo = await Todo.create({
                 ...todoData,
+                labels,
                 userId: user.id // Set the authenticated user as owner
             })
-
-            // Attach labels if provided
-            if (labelIds.length > 0) {
-                await todo.related('labels').attach(labelIds)
-            }
 
             logger.info('Todo created successfully', { todoId: todo.id, title: todo.title })
 
@@ -227,8 +223,6 @@ export default class TodosController {
                 return response.redirect('/todos')
             }
 
-            // Load the todo with labels for API response
-            await todo.load('labels')
             return response.status(201).json({
                 message: 'Todo created successfully',
                 data: todo
@@ -282,11 +276,10 @@ export default class TodosController {
                 .where('id', params.id)
                 .where('userId', user.id) // Ensure user owns the todo
                 .whereNull('deleted_at')
-                .preload('labels')
                 .first()
 
             if (!todo) {
-                if (this.isInertiaRequest(request)) {
+                if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
                     return inertia.render('errors/404', {
                         message: 'Todo not found'
                     })
@@ -296,7 +289,7 @@ export default class TodosController {
                 })
             }
 
-            if (this.isInertiaRequest(request)) {
+            if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
                 return inertia.render('todos/show', {
                     todo: todo.serialize()
                 })
@@ -357,7 +350,7 @@ export default class TodosController {
             if (!todo || todo.deletedAt) {
                 const message = 'Todo not found or has been deleted'
 
-                if (this.isInertiaRequest(request)) {
+                if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
                     session.flash('notification', {
                         type: 'error',
                         message
@@ -369,16 +362,12 @@ export default class TodosController {
             }
 
             const payload = await request.validateUsing(updateTodoValidator)
-            const { labelIds, ...updateData } = payload
+
+            const { labels = [], ...updateData } = payload
 
             // Update todo fields
-            todo.merge(updateData)
+            todo.merge({ ...updateData, labels })
             await todo.save()
-
-            // Sync labels if labelIds is provided (even if empty array)
-            if (labelIds !== undefined) {
-                await todo.related('labels').sync(labelIds)
-            }
 
             logger.info('Todo updated successfully', {
                 todoId: todo.id,
@@ -386,7 +375,7 @@ export default class TodosController {
                 updatedFields: Object.keys(updateData)
             })
 
-            if (this.isInertiaRequest(request)) {
+            if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
                 session.flash('notification', {
                     type: 'success',
                     message: 'Todo updated successfully!'
@@ -394,8 +383,6 @@ export default class TodosController {
                 return response.redirect('/todos')
             }
 
-            // Load updated todo with labels for API response
-            await todo.load('labels')
             return response.ok({
                 message: 'Todo updated successfully',
                 data: todo.serialize()
@@ -410,7 +397,7 @@ export default class TodosController {
             })
 
             if (error.status === 422) {
-                if (this.isInertiaRequest(request)) {
+                if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
                     session.flash('errors', error.messages)
                     return response.redirect().back()
                 }
@@ -420,7 +407,7 @@ export default class TodosController {
                 })
             }
 
-            if (this.isInertiaRequest(request)) {
+            if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
                 session.flash('notification', {
                     type: 'error',
                     message: 'Failed to update todo. Please try again.'
@@ -516,7 +503,7 @@ export default class TodosController {
             if (!todo || todo.deletedAt) {
                 const message = 'Todo not found or has already been deleted'
 
-                if (this.isInertiaRequest(request)) {
+                if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
                     session.flash('notification', {
                         type: 'error',
                         message
@@ -537,7 +524,7 @@ export default class TodosController {
                 deletedAt: todo.deletedAt
             })
 
-            if (this.isInertiaRequest(request)) {
+            if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
                 session.flash('notification', {
                     type: 'success',
                     message: 'Todo deleted successfully!'
@@ -555,7 +542,7 @@ export default class TodosController {
 
         } catch (error) {
             if (error.status === 422) {
-                if (this.isInertiaRequest(request)) {
+                if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
                     return inertia.render('errors/404', {
                         message: 'Invalid todo ID'
                     })
@@ -572,7 +559,7 @@ export default class TodosController {
                 stack: error.stack
             })
 
-            if (this.isInertiaRequest(request)) {
+            if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
                 session.flash('notification', {
                     type: 'error',
                     message: 'Failed to delete todo. Please try again.'

@@ -2,34 +2,27 @@ import { Head, Link, useForm } from '@inertiajs/react'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Save } from 'lucide-react'
 
-interface Label {
-  id: number
-  name: string
-  color: string
-}
+
 
 interface Todo {
-  id: number
-  title: string
-  description: string | null
-  isCompleted: boolean
-  userId: number
-  createdAt: string
-  updatedAt: string
-  labels: Label[]
+  id: number;
+  title: string;
+  description: string | null;
+  isCompleted: boolean;
+  userId: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface EditTodoProps {
-  todo: Todo
-  labels: Label[]
+  todo: Todo;
 }
 
-export default function EditTodo({ todo, labels }: EditTodoProps) {
+export default function EditTodo({ todo }: EditTodoProps) {
   const { data, setData, put, processing, errors } = useForm({
     title: todo.title,
     description: todo.description || '',
     isCompleted: todo.isCompleted,
-    labelIds: todo.labels.map(label => label.id),
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -37,18 +30,7 @@ export default function EditTodo({ todo, labels }: EditTodoProps) {
     put(`/todos/${todo.id}`)
   }
 
-  const handleLabelToggle = (labelId: number) => {
-    const currentLabelIds = [...data.labelIds]
-    const index = currentLabelIds.indexOf(labelId)
-    
-    if (index > -1) {
-      currentLabelIds.splice(index, 1)
-    } else {
-      currentLabelIds.push(labelId)
-    }
-    
-    setData('labelIds', currentLabelIds)
-  }
+
 
   return (
     <>
@@ -126,37 +108,7 @@ export default function EditTodo({ todo, labels }: EditTodoProps) {
                 </label>
               </div>
 
-              {labels.length > 0 && (
-                <div>
-                  <label className="block text-sm font-medium mb-3">
-                    Labels
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {labels.map((label) => (
-                      <button
-                        key={label.id}
-                        type="button"
-                        onClick={() => handleLabelToggle(label.id)}
-                        className={`px-3 py-1 text-sm rounded-full transition-all duration-200 ${
-                          data.labelIds.includes(label.id)
-                            ? 'opacity-100 ring-2 ring-offset-2 ring-offset-[#2C2C2E]'
-                            : 'opacity-60 hover:opacity-80'
-                        }`}
-                        style={{ 
-                          backgroundColor: `${label.color}20`, 
-                          color: label.color,
-                          border: `1px solid ${label.color}40`,
-                          ...(data.labelIds.includes(label.id) && {
-                            ringColor: label.color
-                          })
-                        }}
-                      >
-                        {label.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+
 
               <div className="flex gap-3 pt-4">
                 <button

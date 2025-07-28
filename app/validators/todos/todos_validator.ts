@@ -12,14 +12,18 @@ export const createTodoValidator = vine.compile(
             .maxLength(255),
         description: vine
             .string()
-            .nullable()
+            .nullable(),
+        labels: vine
+            .array(
+                vine.object({
+                    id: vine.number().positive().withoutDecimals(),
+                    name: vine.string().trim().minLength(1).maxLength(255),
+                    color: vine.string().optional(),
+                })
+            )
             .optional(),
         isCompleted: vine
-            .boolean()
-            .optional(),
-        labelIds: vine
-            .array(vine.number().positive().withoutDecimals())
-            .optional(),
+            .boolean(),
     })
 )
 
@@ -41,8 +45,14 @@ export const updateTodoValidator = vine.compile(
         isCompleted: vine
             .boolean()
             .optional(),
-        labelIds: vine
-            .array(vine.number().positive().withoutDecimals())
+        labels: vine
+            .array(
+                vine.object({
+                    id: vine.number().positive().withoutDecimals(),
+                    name: vine.string().trim().minLength(1).maxLength(255),
+                    color: vine.string().optional(),
+                })
+            )
             .optional(),
     })
 )

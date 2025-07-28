@@ -1,27 +1,25 @@
 import { motion } from 'framer-motion'
 import { formatDistanceToNow } from 'date-fns'
 import ReactMarkdown from 'react-markdown'
-import { Pin, Image as ImageIcon, Tag, Trash2 } from 'lucide-react'
+import { Pin, Trash2 } from 'lucide-react'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
 import 'highlight.js/styles/atom-one-dark.css'
 import { Link } from '@inertiajs/react'
 
+import { Label } from '../../components/Label';
+
 interface Note {
-  id: number
-  title: string
-  content: string
-  createdAt: string
-  updatedAt: string | null
-  pinned: boolean
-  imageUrl: string | null
-  gif_url?: string | null
-  gif_slug?: string | null
-  labels?: Array<{
-    id: number
-    name: string
-    color: string | null
-  }>
+  id: number;
+  title: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string | null;
+  pinned: boolean;
+  imageUrl: string | null;
+  gif_url?: string | null;
+  gif_slug?: string | null;
+  labels?: { id: number; name: string; color?: string }[];
 }
 
 interface NoteCardProps {
@@ -49,7 +47,7 @@ export default function NoteCard({ note, viewType, onPinToggle, onDelete }: Note
   }
 
   const hasImage = note.imageUrl !== null
-  const hasLabels = note.labels && Array.isArray(note.labels) && note.labels.length > 0
+  // labels removed
 
   return (
     <Link href={`/notes/${note.id}`}>
@@ -112,6 +110,13 @@ export default function NoteCard({ note, viewType, onPinToggle, onDelete }: Note
           )}
 
           <div className={viewType === 'list' ? 'flex-1' : ''}>
+            {note.labels && note.labels.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {note.labels.map(label => (
+                  <Label key={label.id} name={label.name} color={label.color} />
+                ))}
+              </div>
+            )}
             <div className="flex justify-between items-start mb-2 py-2">
               <h2 className="text-lg font-medium text-white">{note.title}</h2>
               <span className="text-xs text-[#98989D]">{timeAgo}</span>
@@ -261,40 +266,9 @@ export default function NoteCard({ note, viewType, onPinToggle, onDelete }: Note
               </ReactMarkdown>
             </div>
 
-            {(hasImage || hasLabels) && viewType === 'grid' && (
-              <div className="mt-3 pt-3 border-t border-[#3A3A3C]/30 flex items-center gap-3">
-                {hasImage && (
-                  <span className="flex items-center text-xs text-[#98989D]">
-                    <ImageIcon size={14} className="mr-1" />
-                    Image
-                  </span>
-                )}
-                {hasLabels && (
-                  <span className="flex items-center text-xs text-[#98989D]">
-                    <Tag size={14} className="mr-1" />
-                    {note.labels?.length || 0} label{(note.labels?.length || 0) !== 1 ? 's' : ''}
-                  </span>
-                )}
-              </div>
-            )}
 
-            {hasLabels && viewType === 'list' && (
-              <div className="mt-2 flex flex-wrap gap-2">
-                {note.labels?.map((label) => (
-                  <span
-                    key={label.id}
-                    className="text-xs px-2 py-1 rounded-full"
-                    style={{
-                      backgroundColor: label.color ? `${label.color}20` : '#3A3A3C',
-                      color: label.color || '#98989D',
-                      border: label.color ? `1px solid ${label.color}30` : '1px solid #3A3A3C'
-                    }}
-                  >
-                    {label.name}
-                  </span>
-                ))}
-              </div>
-            )}
+
+
           </div>
         </div>
 

@@ -53,7 +53,7 @@ const Weather: React.FC = () => {
     };
 
     // Try browser geolocation first
-    if (navigator.geolocation) {
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const { latitude, longitude } = pos.coords;

@@ -148,6 +148,63 @@ export default function ProjectIndex() {
     )
   }
 
+
+  // Always show search and filter UI
+  const renderSearchAndFilter = () => (
+    <div className="mb-8 bg-[#2C2C2E]/50 backdrop-blur-sm border border-[#3A3A3C]/50 rounded-2xl p-6">
+      <div className="mb-6">
+        <label className="block text-sm font-medium text-[#98989D] mb-2">Search Projects</label>
+        <div className="relative max-w-md">
+          <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#98989D]" />
+          <input
+            type="text"
+            placeholder="Search by title or description..."
+            value={searchTerm}
+            onChange={(e) => handleSearch(e.target.value)}
+            className="w-full pl-10 pr-10 py-3 bg-[#1C1C1E] border border-[#3A3A3C] text-white rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-200"
+          />
+          {searchTerm && (
+            <button
+              onClick={clearSearch}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#98989D] hover:text-white transition-colors p-1 hover:bg-[#3A3A3C] rounded"
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-[#98989D] mb-2">Filter by Status</label>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => handleStatusFilter('')}
+            className={`px-4 py-2 text-sm font-medium rounded-xl border transition-all duration-200 ${
+              selectedStatus === '' 
+                ? 'bg-blue-400/20 text-blue-400 border-blue-400/40 shadow-lg shadow-blue-400/10'
+                : 'bg-[#1C1C1E] text-[#98989D] border-[#3A3A3C] hover:bg-[#3A3A3C] hover:text-white'
+            }`}
+          >
+            All Projects
+          </button>
+          {Object.entries(StatusLabels).map(([status, label]) => (
+            <button
+              key={status}
+              onClick={() => handleStatusFilter(status as ProjectStatus)}
+              className={`px-4 py-2 text-sm font-medium rounded-xl border transition-all duration-200 ${
+                selectedStatus === status 
+                  ? StatusColors[status as ProjectStatus] + ' shadow-lg'
+                  : 'bg-[#1C1C1E] text-[#98989D] border-[#3A3A3C] hover:bg-[#3A3A3C] hover:text-white'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+
+  // If no projects, show empty state but keep search/filter UI
   if (!projects?.data || projects.data.length === 0) {
     return (
       <div className="p-4 max-w-6xl mx-auto">
@@ -166,60 +223,7 @@ export default function ProjectIndex() {
             New Project
           </Link>
         </div>
-        
-        <div className="mb-8 bg-[#2C2C2E]/50 backdrop-blur-sm border border-[#3A3A3C]/50 rounded-2xl p-6">
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-[#98989D] mb-2">Search Projects</label>
-            <div className="relative max-w-md">
-              <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#98989D]" />
-              <input
-                type="text"
-                placeholder="Search by title or description..."
-                value={searchTerm}
-                onChange={(e) => handleSearch(e.target.value)}
-                className="w-full pl-10 pr-10 py-3 bg-[#1C1C1E] border border-[#3A3A3C] text-white rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-200"
-              />
-              {searchTerm && (
-                <button
-                  onClick={clearSearch}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#98989D] hover:text-white transition-colors p-1 hover:bg-[#3A3A3C] rounded"
-                >
-                  <X size={16} />
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-[#98989D] mb-2">Filter by Status</label>
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                onClick={() => handleStatusFilter('')}
-                className={`px-4 py-2 text-sm font-medium rounded-xl border transition-all duration-200 ${
-                  selectedStatus === '' 
-                    ? 'bg-blue-400/20 text-blue-400 border-blue-400/40 shadow-lg shadow-blue-400/10'
-                    : 'bg-[#1C1C1E] text-[#98989D] border-[#3A3A3C] hover:bg-[#3A3A3C] hover:text-white'
-                }`}
-              >
-                All Projects
-              </button>
-              {Object.entries(StatusLabels).map(([status, label]) => (
-                <button
-                  key={status}
-                  onClick={() => handleStatusFilter(status as ProjectStatus)}
-                  className={`px-4 py-2 text-sm font-medium rounded-xl border transition-all duration-200 ${
-                    selectedStatus === status 
-                      ? StatusColors[status as ProjectStatus] + ' shadow-lg'
-                      : 'bg-[#1C1C1E] text-[#98989D] border-[#3A3A3C] hover:bg-[#3A3A3C] hover:text-white'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
+        {renderSearchAndFilter()}
         <div className="text-center py-16">
           <div className="max-w-md mx-auto">
             <div className="w-24 h-24 bg-[#2C2C2E] rounded-full flex items-center justify-center mx-auto mb-6">
@@ -271,34 +275,7 @@ export default function ProjectIndex() {
           </Link>
         </div>
 
-        <div className="mb-6">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[#98989D] text-sm">Filter by status:</span>
-            <button
-              onClick={() => handleStatusFilter('')}
-              className={`px-3 py-1 text-xs rounded-full border transition-colors ${
-                selectedStatus === '' 
-                  ? 'bg-blue-400/20 text-blue-400 border-blue-400/40'
-                  : 'bg-[#2C2C2E] text-[#98989D] border-[#3A3A3C] hover:bg-[#3A3A3C]'
-              }`}
-            >
-              All
-            </button>
-            {Object.entries(StatusLabels).map(([status, label]) => (
-              <button
-                key={status}
-                onClick={() => handleStatusFilter(status as ProjectStatus)}
-                className={`px-3 py-1 text-xs rounded-full border transition-colors ${
-                  selectedStatus === status 
-                    ? StatusColors[status as ProjectStatus]
-                    : 'bg-[#2C2C2E] text-[#98989D] border-[#3A3A3C] hover:bg-[#3A3A3C]'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
+        {renderSearchAndFilter()}
 
         <motion.div
           key="projects-container"
@@ -329,7 +306,6 @@ export default function ProjectIndex() {
                 <span className="font-semibold text-white">{projects.meta.total}</span>
                 <span>total projects</span>
               </div>
-              
               <div className="flex items-center gap-2 flex-wrap justify-center">
                 {/* Previous Button */}
                 <button
@@ -344,7 +320,6 @@ export default function ProjectIndex() {
                   <ChevronLeft size={16} />
                   <span>Previous</span>
                 </button>
-
                 {/* Page Numbers */}
                 {Array.from({ length: Math.min(5, projects.meta.last_page) }, (_, i) => {
                   let page;
@@ -357,7 +332,6 @@ export default function ProjectIndex() {
                   } else {
                     page = projects.meta.current_page - 2 + i;
                   }
-                  
                   return (
                     <button
                       key={page}
@@ -372,7 +346,6 @@ export default function ProjectIndex() {
                     </button>
                   );
                 })}
-
                 {/* Next Button */}
                 <button
                   onClick={() => goToPage(projects.meta.current_page + 1)}
@@ -390,7 +363,6 @@ export default function ProjectIndex() {
             </div>
           </div>
         )}
-        
         <ToastContainer toasts={toasts} onClose={removeToast} />
       </div>
     </div>

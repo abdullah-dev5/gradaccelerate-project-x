@@ -1,6 +1,6 @@
 import { BaseSeeder } from '@adonisjs/lucid/seeders'
 import Note from '#models/note'
-import Label from '#models/label'
+// ...label logic removed...
 import { DateTime } from 'luxon'
 
 export default class NoteSeeder extends BaseSeeder {
@@ -78,14 +78,6 @@ export default class NoteSeeder extends BaseSeeder {
       },
     ])
 
-    // 2. Attach 1–2 random labels to each note
-    const notes = await Note.all()
-    const labels = await Label.all()
-
-    for (const note of notes) {
-      const shuffled = [...labels].sort(() => 0.5 - Math.random())
-      const labelIds = shuffled.slice(0, Math.floor(Math.random() * 2) + 1).map(label => label.id)
-      await note.related('labels').attach(labelIds)
-    }
+    // ...label logic removed...
   }
 }

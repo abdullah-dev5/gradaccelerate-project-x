@@ -15,7 +15,19 @@ export const updateNoteValidator = vine.compile(
         removeImage: vine.boolean().optional(),
         gif_url: vine.string().url().optional().nullable(),  // For GIF URL
         gif_slug: vine.string().optional().nullable(),       // For GIF tracking
-        labelIds: vine.array(vine.number()).optional(),
-        removeLabelIds: vine.array(vine.number()).optional()
+        labels: vine.any()
+            .transform((value) => {
+                if (typeof value === 'string') {
+                    try {
+                        const arr = JSON.parse(value)
+                        return Array.isArray(arr) ? arr : []
+                    } catch {
+                        return []
+                    }
+                }
+                return value ?? []
+            })
+            .optional()
+            .nullable(),
     })
 )

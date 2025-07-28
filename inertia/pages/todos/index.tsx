@@ -1,16 +1,13 @@
 import { Head, Link, router, useForm } from '@inertiajs/react'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Plus, CheckCircle, Circle, Clock, Edit, Trash2, Save, X, ChevronLeft, ChevronRight, AlertCircle, Tag } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { ArrowLeft, Plus, Clock, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react'
+import { useState } from 'react'
 import React from 'react'
+import { TodoCard } from './TodoCard'
+import { TodoForm } from './TodoForm'
 import { useToast } from '../../hooks/useToast'
 import { ToastContainer } from '../../components/Toast'
 
-interface Label {
-  id: number
-  name: string
-  color: string
-}
 
 interface Todo {
   id: number
@@ -20,7 +17,7 @@ interface Todo {
   userId: number
   createdAt: string
   updatedAt: string
-  labels: Label[]
+  labels?: { id: number; name: string; color?: string }[]
 }
 
 // Update your interface to match exactly what the backend sends
@@ -51,66 +48,17 @@ interface TodosProps {
   error?: string
 }
 
+import { allLabels } from '../../components/Label';
+
 export default function Todos({ todos, error }: TodosProps) {
   const [isCreating, setIsCreating] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
-  const [labels, setLabels] = useState<Label[]>([])
   const { toasts, removeToast, success, error: toastError } = useToast()
 
   // Extract the actual todos array from paginated data
   const todosList = todos?.data || []
 
-  const { data: createData, setData: setCreateData, post, processing: createProcessing, errors: createErrors, reset: resetCreate } = useForm({
-    title: '',
-    description: '',
-    isCompleted: false as boolean,
-    labelIds: [] as number[],
-  })
-
-  const { data: editData, setData: setEditData, put, processing: editProcessing, errors: editErrors, reset: resetEdit } = useForm({
-    title: '',
-    description: '',
-    isCompleted: false as boolean,
-    labelIds: [] as number[],
-  })
-
-  // Fetch labels when component mounts
-  useEffect(() => {
-    const fetchLabels = async () => {
-      try {
-        const response = await fetch('/labels', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            // Explicitly NOT including 'X-Inertia' header to get JSON response
-          },
-        })
-        
-        if (response.ok) {
-          const labelsData = await response.json()
-          
-          // Handle both formats: direct array or wrapped in success response
-          if (labelsData.success && labelsData.data) {
-            setLabels(labelsData.data)
-          } else if (Array.isArray(labelsData)) {
-            setLabels(labelsData)
-          } else {
-            console.error('Unexpected labels response format:', labelsData)
-          }
-        } else {
-          const errorText = await response.text()
-          console.error('Failed to fetch labels - Status:', response.status, 'Error:', errorText)
-          toastError('Failed to load labels', 'Could not fetch available labels')
-        }
-      } catch (error) {
-        console.error('Failed to fetch labels:', error)
-        toastError('Failed to load labels', 'An unexpected error occurred')
-      }
-    }
-    
-    fetchLabels()
-  }, [])
+  // Remove all useForm and form state for create/edit
 
   const handleToggleStatus = async (todoId: number) => {
     try {
@@ -124,7 +72,7 @@ export default function Todos({ todos, error }: TodosProps) {
       })
       
       if (response.ok) {
-        const result = await response.json()
+        await response.json()
         success('Todo status updated', 'Todo status has been successfully changed')
         // Reload the page to get updated data
         router.reload({ only: ['todos'] })
@@ -151,67 +99,12 @@ export default function Todos({ todos, error }: TodosProps) {
     }
   }
 
-  const handleCreateSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    post('/todos', {
-      onSuccess: () => {
-        resetCreate()
-        setIsCreating(false)
-        success('Todo created', 'New todo has been successfully created')
-      },
-      onError: (errors: any) => {
-        console.error('Failed to create todo:', errors)
-        toastError('Failed to create todo', 'Could not create the new todo item')
-      }
-    })
-  }
-
+  // Remove all form change/submit/cancel handlers for create/edit
   const handleEditStart = (todo: Todo) => {
-    setEditData({
-      title: todo.title,
-      description: todo.description || '',
-      isCompleted: todo.isCompleted,
-      labelIds: todo.labels?.map(l => l.id) || [],
-    })
     setEditingId(todo.id)
   }
-
-  const toggleCreateLabel = (labelId: number) => {
-    setCreateData('labelIds', 
-      createData.labelIds.includes(labelId)
-        ? createData.labelIds.filter(id => id !== labelId)
-        : [...createData.labelIds, labelId]
-    )
-  }
-
-  const toggleEditLabel = (labelId: number) => {
-    setEditData('labelIds', 
-      editData.labelIds.includes(labelId)
-        ? editData.labelIds.filter(id => id !== labelId)
-        : [...editData.labelIds, labelId]
-    )
-  }
-
-  const handleEditSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (editingId) {
-      put(`/todos/${editingId}`, {
-        onSuccess: () => {
-          resetEdit()
-          setEditingId(null)
-          success('Todo updated', 'Todo has been successfully updated')
-        },
-        onError: (errors: any) => {
-          console.error('Failed to update todo:', errors)
-          toastError('Failed to update todo', 'Could not update the todo item')
-        }
-      })
-    }
-  }
-
   const handleEditCancel = () => {
     setEditingId(null)
-    resetEdit()
   }
 
   return (
@@ -267,90 +160,15 @@ export default function Todos({ todos, error }: TodosProps) {
               animate={{ opacity: 1, y: 0 }}
               className="bg-[#2C2C2E] rounded-xl p-6 mb-6"
             >
-              <form onSubmit={handleCreateSubmit} className="space-y-4">
-                <div>
-                  <input
-                    type="text"
-                    value={createData.title}
-                    onChange={(e) => setCreateData('title', e.target.value)}
-                    className="w-full bg-[#1C1C1E] text-white px-4 py-3 rounded-lg border border-[#3A3A3C] focus:border-[#007AFF] focus:outline-none transition-colors duration-200"
-                    placeholder="Enter todo title..."
-                    required
-                  />
-                  {createErrors.title && (
-                    <p className="text-red-500 text-sm mt-1">{createErrors.title}</p>
-                  )}
-                </div>
-                <div>
-                  <textarea
-                    value={createData.description}
-                    onChange={(e) => setCreateData('description', e.target.value)}
-                    rows={3}
-                    className="w-full bg-[#1C1C1E] text-white px-4 py-3 rounded-lg border border-[#3A3A3C] focus:border-[#007AFF] focus:outline-none transition-colors duration-200 resize-none"
-                    placeholder="Enter todo description..."
-                  />
-                </div>
-                
-                {/* Labels section for create form */}
-                {labels.length > 0 && (
-                  <div>
-                    <div className="flex items-center text-[#98989D] mb-2">
-                      <Tag size={16} className="mr-2" />
-                      <span>Labels</span>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {labels.map(label => (
-                        <button
-                          key={label.id}
-                          type="button"
-                          onClick={() => toggleCreateLabel(label.id)}
-                          className={`text-xs px-3 py-1 rounded-full transition-colors ${
-                            createData.labelIds.includes(label.id) 
-                              ? 'opacity-100' 
-                              : 'opacity-60 hover:opacity-80'
-                          }`}
-                          style={{
-                            backgroundColor: label.color ? `${label.color}20` : '#3A3A3C',
-                            color: label.color || '#98989D',
-                            border: label.color ? `1px solid ${label.color}30` : '1px solid #3A3A3C'
-                          }}
-                        >
-                          {label.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={createData.isCompleted}
-                      onChange={(e) => setCreateData('isCompleted', e.target.checked)}
-                      className="w-4 h-4 text-[#007AFF] bg-[#1C1C1E] border-[#3A3A3C] rounded focus:ring-[#007AFF] focus:ring-2"
-                    />
-                    <label className="text-sm">Mark as completed</label>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="submit"
-                      disabled={createProcessing}
-                      className="bg-[#007AFF] hover:bg-[#0056CC] disabled:bg-[#3A3A3C] px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
-                    >
-                      <Save size={16} />
-                      {createProcessing ? 'Creating...' : 'Create'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsCreating(false)}
-                      className="bg-[#3A3A3C] hover:bg-[#48484A] px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
-                    >
-                      <X size={16} />
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              </form>
+              <TodoForm
+                onCancel={() => setIsCreating(false)}
+                onSuccess={() => {
+                  setIsCreating(false);
+                  success('Todo created', 'New todo has been successfully created');
+                }}
+                submitLabel="Create"
+                allLabels={allLabels}
+              />
             </motion.div>
           )}
 
@@ -386,153 +204,32 @@ export default function Todos({ todos, error }: TodosProps) {
                   transition={{ delay: index * 0.1 }}
                   className="bg-[#2C2C2E] rounded-xl p-4 hover:bg-[#3A3A3C] transition-colors duration-200"
                 >
-                  {editingId === todo.id ? (
-                    /* Edit Form */
-                    <form onSubmit={handleEditSubmit} className="space-y-4">
-                      <div>
-                        <input
-                          type="text"
-                          value={editData.title}
-                          onChange={(e) => setEditData('title', e.target.value)}
-                          className="w-full bg-[#1C1C1E] text-white px-4 py-3 rounded-lg border border-[#3A3A3C] focus:border-[#007AFF] focus:outline-none transition-colors duration-200"
-                          required
-                        />
-                        {editErrors.title && (
-                          <p className="text-red-500 text-sm mt-1">{editErrors.title}</p>
-                        )}
-                      </div>
-                      <div>
-                        <textarea
-                          value={editData.description}
-                          onChange={(e) => setEditData('description', e.target.value)}
-                          rows={3}
-                          className="w-full bg-[#1C1C1E] text-white px-4 py-3 rounded-lg border border-[#3A3A3C] focus:border-[#007AFF] focus:outline-none transition-colors duration-200 resize-none"
-                        />
-                      </div>
-                      
-                      {/* Labels section for edit form */}
-                      {labels.length > 0 && (
-                        <div>
-                          <div className="flex items-center text-[#98989D] mb-2">
-                            <Tag size={16} className="mr-2" />
-                            <span>Labels</span>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            {labels.map(label => (
-                              <button
-                                key={label.id}
-                                type="button"
-                                onClick={() => toggleEditLabel(label.id)}
-                                className={`text-xs px-3 py-1 rounded-full transition-colors ${
-                                  editData.labelIds.includes(label.id) 
-                                    ? 'opacity-100' 
-                                    : 'opacity-60 hover:opacity-80'
-                                }`}
-                                style={{
-                                  backgroundColor: label.color ? `${label.color}20` : '#3A3A3C',
-                                  color: label.color || '#98989D',
-                                  border: label.color ? `1px solid ${label.color}30` : '1px solid #3A3A3C'
-                                }}
-                              >
-                                {label.name}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
-                            checked={editData.isCompleted}
-                            onChange={(e) => setEditData('isCompleted', e.target.checked)}
-                            className="w-4 h-4 text-[#007AFF] bg-[#1C1C1E] border-[#3A3A3C] rounded focus:ring-[#007AFF] focus:ring-2"
-                          />
-                          <label className="text-sm">Mark as completed</label>
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            type="submit"
-                            disabled={editProcessing}
-                            className="bg-[#007AFF] hover:bg-[#0056CC] disabled:bg-[#3A3A3C] px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
-                          >
-                            <Save size={16} />
-                            {editProcessing ? 'Updating...' : 'Update'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleEditCancel}
-                            className="bg-[#3A3A3C] hover:bg-[#48484A] px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
-                          >
-                            <X size={16} />
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    </form>
-                  ) : (
-                    /* Display Todo */
-                    <div className="flex items-start gap-3">
-                      <button 
-                        onClick={() => handleToggleStatus(todo.id)}
-                        className="mt-1 hover:scale-110 transition-transform duration-200"
-                      >
-                        {todo.isCompleted ? (
-                          <CheckCircle size={20} className="text-green-500" />
-                        ) : (
-                          <Circle size={20} className="text-[#98989D] hover:text-green-400" />
-                        )}
-                      </button>
-                      <div className="flex-1">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <h3 className={`text-lg font-medium ${todo.isCompleted ? 'line-through text-[#98989D]' : 'text-white'}`}>
-                              {todo.title}
-                            </h3>
-                            {todo.description && (
-                              <p className={`text-sm mt-1 ${todo.isCompleted ? 'line-through text-[#6D6D70]' : 'text-[#98989D]'}`}>
-                                {todo.description}
-                              </p>
-                            )}
-                            {todo.labels.length > 0 && (
-                              <div className="flex flex-wrap gap-2 mt-3">
-                                {todo.labels.map((label) => (
-                                  <span
-                                    key={label.id}
-                                    className="px-2 py-1 text-xs rounded-full"
-                                    style={{ 
-                                      backgroundColor: `${label.color}20`, 
-                                      color: label.color,
-                                      border: `1px solid ${label.color}40`
-                                    }}
-                                  >
-                                    {label.name}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                            <p className="text-xs text-[#6D6D70] mt-2">
-                              Created {new Date(todo.createdAt).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2 ml-4">
-                            <button
-                              onClick={() => handleEditStart(todo)}
-                              className="p-2 hover:bg-[#48484A] rounded-lg transition-colors duration-200 text-[#98989D] hover:text-white"
-                            >
-                              <Edit size={16} />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(todo.id, todo.title)}
-                              className="p-2 hover:bg-[#48484A] rounded-lg transition-colors duration-200 text-[#98989D] hover:text-red-400"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  <TodoCard
+                    todo={todo}
+                    isEditing={editingId === todo.id}
+                    onEditStart={handleEditStart}
+                    onDelete={handleDelete}
+                    onToggleStatus={handleToggleStatus}
+                  >
+                    {editingId === todo.id && (
+                      <TodoForm
+                        initialData={{
+                          title: todo.title,
+                          description: todo.description || '',
+                          isCompleted: todo.isCompleted,
+                          labels: todo.labels || [],
+                        }}
+                        todoId={todo.id}
+                        onCancel={handleEditCancel}
+                        onSuccess={() => {
+                          setEditingId(null);
+                          success('Todo updated', 'Todo has been successfully updated');
+                        }}
+                        submitLabel="Update"
+                        allLabels={allLabels}
+                      />
+                    )}
+                  </TodoCard>
                 </motion.div>
               ))}
             </motion.div>

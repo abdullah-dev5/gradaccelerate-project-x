@@ -14,7 +14,7 @@ import { uploadImageValidator } from '#validators/notes/upload_image_validator'
 import { shareTokenValidator } from '#validators/notes/share_token_validator'
 import { cuid } from '@adonisjs/core/helpers'
 import type { MultipartFile } from '@adonisjs/core/types/bodyparser' // Import MultipartFile type
-import Label from '#models/label' // Import Label model
+// ...label logic removed...
 import env from '#start/env'
 import axios from 'axios'
 
@@ -32,14 +32,14 @@ export default class NotesController {
 
   async index({ request, inertia, response, auth }: HttpContext) {
     try {
-      await auth.authenticate() // Authenticate first
+      await auth.authenticate()
       const user = auth.getUserOrFail()
-      const { sort = 'created_at', order = 'desc', search = '', page = 1, limit = 10, pinned, label_id } = request.qs()
+      const { sort = 'created_at', order = 'desc', search = '', page = 1, limit = 10, pinned } = request.qs()
 
       const query = Note.query()
-        .where('userId', user.id) // Filter by authenticated user
+        .where('userId', user.id)
         .whereNull('deleted_at')
-        .preload('labels')
+        // .preload('labels') // label logic removed
         .orderBy('pinned', 'desc')
 
       if (search) {
@@ -47,88 +47,106 @@ export default class NotesController {
           q.where('title', 'LIKE', `%${search}%`).orWhere('content', 'LIKE', `%${search}%`)
         })
       }
-
       if (pinned !== undefined) {
         query.where('pinned', pinned === 'true')
       }
-
-      if (label_id) {
-        query.whereHas('labels', (subQuery) => subQuery.where('id', label_id))
-      }
+      // label logic removed
 
       const notes = await query.orderBy(sort, order).paginate(Number(page), Number(limit))
 
-      if (this.isInertiaRequest(request)) {
+      // Always render Inertia page for browser requests (even if not X-Inertia)
+      if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
         return inertia.render('notes/index', {
           notes: notes.serialize().data,
           meta: notes.getMeta(),
           sortOptions: { currentSort: sort, currentOrder: order, searchQuery: search },
         })
       }
-
-      return notes
+      return response.ok(notes)
     } catch (error) {
-      // Handle authentication errors properly for Inertia requests
-      if (this.isInertiaRequest(request)) {
-        // For authentication errors, redirect to login
-        if (error.message.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
+      // JWT or session expired, or not authenticated
+      if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
+        if (error.message?.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
           return response.redirect('/login')
         }
-        // For other errors, redirect back with error message
-        return inertia.render('notes/index', {
-          notes: [],
-          meta: { total: 0, currentPage: 1, lastPage: 1, perPage: 10 },
-          sortOptions: { currentSort: 'created_at', currentOrder: 'desc', searchQuery: '' },
-          error: 'Failed to fetch notes'
+        // Render a consistent error page for Inertia
+        return inertia.render('errors/server_error', {
+          error: error.message || 'Failed to fetch notes'
         })
       }
       // For API requests, return JSON error
+      if (error.message?.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
+        return response.unauthorized({ message: 'Unauthorized', error: error.message })
+      }
       return response.status(500).send({ message: 'Failed to fetch notes', error: error.message })
     }
   }
 
   async show({ params, request, response, inertia, auth }: HttpContext) {
     try {
-      await auth.authenticate() // Authenticate first
+      await auth.authenticate()
       const user = auth.getUserOrFail()
       const { note_id } = await request.validateUsing(noteIdValidator, { data: params })
       const note = await Note.query()
         .where('id', note_id)
-        .where('userId', user.id) // Ensure user owns the note
+        .where('userId', user.id)
         .whereNull('deleted_at')
-        .preload('labels')
+        // .preload('labels') // label logic removed
         .firstOrFail()
 
-      return this.isInertiaRequest(request)
-        ? inertia.render('notes/show', { note: note.serialize() })
-        : note
+      if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
+        return inertia.render('notes/show', { note: note.serialize() })
+      }
+      return response.ok(note)
     } catch (error) {
+      if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
+        if (error.message?.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
+          return response.redirect('/login')
+        }
+        return inertia.render('errors/not_found', {
+          error: error.message || 'Note not found'
+        })
+      }
+      if (error.message?.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
+        return response.unauthorized({ message: 'Unauthorized', error: error.message })
+      }
       return response.status(404).send({ message: 'Note not found', error: error.message })
     }
   }
 
   async edit({ params, request, response, inertia, auth }: HttpContext) {
     try {
-      await auth.authenticate() // Authenticate first
+      await auth.authenticate()
       const user = auth.getUserOrFail()
       const { note_id } = await request.validateUsing(noteIdValidator, { data: params })
       const note = await Note.query()
         .where('id', note_id)
-        .where('userId', user.id) // Ensure user owns the note
+        .where('userId', user.id)
         .whereNull('deleted_at')
-        .preload('labels')
+        // .preload('labels') // label logic removed
         .firstOrFail()
 
-      // Fetch all available labels for the form
-      const labels = await Label.query().orderBy('name', 'asc')
+      // label logic removed
 
-      return this.isInertiaRequest(request)
-        ? inertia.render('notes/edit', {
+      if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
+        return inertia.render('notes/edit', {
           note: note.serialize(),
-          labels: labels.map(label => label.serialize())
+          // label logic removed
         })
-        : { note: note.serialize(), labels: labels.map(label => label.serialize()) }
+      }
+      return response.ok({ note: note.serialize() })
     } catch (error) {
+      if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
+        if (error.message?.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
+          return response.redirect('/login')
+        }
+        return inertia.render('errors/not_found', {
+          error: error.message || 'Note not found'
+        })
+      }
+      if (error.message?.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
+        return response.unauthorized({ message: 'Unauthorized', error: error.message })
+      }
       return response.status(404).send({ message: 'Note not found', error: error.message })
     }
   }
@@ -140,6 +158,9 @@ export default class NotesController {
       const user = auth.getUserOrFail()
       const payload = await request.validateUsing(createNoteValidator)
 
+      // Debug: log incoming payload
+      logger.info('DEBUG NOTE PAYLOAD', { payload })
+      console.log('DEBUG NOTE PAYLOAD', JSON.stringify(payload))
 
       const noteData: Partial<Note> = {
         title: payload.title,
@@ -149,9 +170,13 @@ export default class NotesController {
         imageUrl: null,
         imagePublicId: null,
         gif_url: payload.gif_url || null, // DB column is gif_url
-        gif_slug: payload.gif_slug || null // DB column is gif_slug
+        gif_slug: payload.gif_slug || null, // DB column is gif_slug
+        labels: payload.labels || [],
       }
 
+      // Debug: log noteData before create
+      logger.info('DEBUG NOTE DATA', { noteData })
+      console.log('DEBUG NOTE DATA', JSON.stringify(noteData))
 
       // Handle image upload with cleanup on failure
       if (payload.image) {
@@ -181,33 +206,25 @@ export default class NotesController {
       let note = null
       try {
         note = await Note.create(noteData)
+        logger.info('DEBUG NOTE CREATED', { note })
+        console.log('DEBUG NOTE CREATED', JSON.stringify(note))
       } catch (err) {
         logger.error('ERROR CREATING NOTE', { err })
+        console.log('ERROR CREATING NOTE', err)
         throw err
       }
 
+      // Debug: log note after create
+      logger.info('DEBUG NOTE CREATED', { note })
 
-      // Handle labels with transaction - updated to handle both array and single value
-      if (payload.labelIds) {
-        try {
-          const labelIds = Array.isArray(payload.labelIds)
-            ? payload.labelIds
-            : [payload.labelIds]
 
-          await this.safeAttachLabels(note, labelIds)
-        } catch (labelError) {
-          await note.delete()
-          logger.error('Label attach failed', { labelError })
-          throw labelError
-        }
-      }
 
       if (this.isInertiaRequest(request)) {
         return response.redirect().toRoute('notes.index')
       } else {
         return response.created({
           message: 'Note created successfully',
-          note: await note.load('labels')
+          note: note.serialize()
         })
       }
 
@@ -218,7 +235,7 @@ export default class NotesController {
         full: error
       })
 
-      // Send error details in response for frontend
+      // Debug: send error details in response for frontend
       if (this.isInertiaRequest(request)) {
         return response.redirect().back()
       } else {
@@ -261,31 +278,14 @@ export default class NotesController {
     }
   }
 
-  // Keep the existing safeAttachLabels method exactly as is
-  private async safeAttachLabels(note: Note, labelIds: number[]) {
-    try {
-      // Verify labels exist first
-      const existingLabels = await Label.query()
-        .whereIn('id', labelIds)
-        .select('id')
-
-      if (existingLabels.length !== labelIds.length) {
-        throw new Error('One or more labels do not exist')
-      }
-
-      await note.related('labels').attach(labelIds)
-    } catch (error) {
-      logger.error('Label attachment failed', { noteId: note.id, labelIds })
-      throw error // Re-throw for global handler
-    }
-  }
 
 
 
 
 
 
-  async update({ request, response, params, auth }: HttpContext) {
+
+  async update({ request, response, params, auth, inertia }: HttpContext) {
     try {
       await auth.authenticate()
       const user = auth.getUserOrFail()
@@ -301,7 +301,8 @@ export default class NotesController {
         content: payload.content ? await marked.parse(payload.content) : note.content,
         pinned: payload.pinned ?? note.pinned,
         gif_url: payload.gif_url ?? note.gif_url,
-        gif_slug: payload.gif_slug ?? note.gif_slug
+        gif_slug: payload.gif_slug ?? note.gif_slug,
+        labels: payload.labels ?? note.labels,
       }
 
       // Handle GIF tracking if new GIF is provided
@@ -353,36 +354,32 @@ export default class NotesController {
       note.merge(updateData)
       await note.save()
 
-      // Handle labels if provided
-      if (payload.labelIds || payload.removeLabelIds) {
-        const currentLabels = await note.related('labels').query().select('id')
-        const currentLabelIds = currentLabels.map(label => label.id)
 
-        // Remove labels if specified
-        if (payload.removeLabelIds) {
-          await note.related('labels').detach(payload.removeLabelIds)
-        }
 
-        // Add new labels if specified
-        if (payload.labelIds) {
-          const newLabels = payload.labelIds.filter(id => !currentLabelIds.includes(id))
-          if (newLabels.length > 0) {
-            await note.related('labels').attach(newLabels)
-          }
-        }
+      if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
+        return response.redirect(`/notes/${note.id}`)
       }
-
-      return this.isInertiaRequest(request)
-        ? response.redirect(`/notes/${note.id}`)
-        : response.ok({
-          message: 'Note updated successfully',
-          note: await note.load('labels')
-        })
+      return response.ok({
+        message: 'Note updated successfully',
+        note: note.serialize()
+      })
     } catch (error) {
       logger.error(error)
+      // Always return a valid Inertia response for browser/Inertia requests
+      if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
+        // If validation error, redirect back with errors (or render error page)
+        if (error.messages?.messages) {
+          // You can customize this to render a validation error page or redirect back
+          return response.redirect().back()
+        }
+        return inertia.render('errors/server_error', {
+          error: error.message || 'Failed to update note'
+        })
+      }
+      // For API requests, return JSON error
       return response.status(400).send({
         message: 'Failed to update note',
-        error: error.message
+        error: error.messages?.messages || error.message
       })
     }
   }
@@ -552,7 +549,7 @@ export default class NotesController {
       const note = await Note.query()
         .where('shareUuid', token)
         .whereNull('deleted_at')
-        .preload('labels')
+
         .preload('user', (userQuery) => {
           userQuery.select('id', 'fullName', 'email') // Use fullName instead of username
         })
@@ -570,7 +567,7 @@ export default class NotesController {
         imageUrl: note.imageUrl,
         createdAt: note.createdAt,
         updatedAt: note.updatedAt,
-        labels: note.labels,
+
         user: {
           fullName: note.user.fullName,
           email: note.user.email
@@ -705,41 +702,24 @@ export default class NotesController {
 
   public async searchGifs({ request, response, auth }: HttpContext) {
     try {
-      logger.info('[GIF SEARCH] Start', { q: request.input('q'), page: request.input('page', 1), limit: request.input('limit', 5) });
-      // Try to get user, but don't require authentication
-      let customerId: string | undefined = undefined;
-      try {
-        await auth.check()
-        logger.info('[GIF SEARCH] auth.check() success', { user: auth.user?.id });
-        if (auth.user) {
-          customerId = String(auth.user.id)
-        }
-      } catch (authErr) {
-        logger.info('[GIF SEARCH] Not authenticated', { error: authErr?.message });
-      }
+      await auth.authenticate()
+      const user = auth.getUserOrFail()
 
       const apiKey = env.get('KLIPY_API_KEY')
-      logger.info('[GIF SEARCH] Using Klipy API key', { hasKey: !!apiKey });
-      const params: any = {
-        q: request.input('q'),
-        page: request.input('page', 1),
-        per_page: request.input('limit', 5),
-        content_filter: 'high',
-      }
-      if (customerId) {
-        params.customer_id = customerId
-        logger.info('[GIF SEARCH] Using customer_id', { customerId });
-      }
-
-      logger.info('[GIF SEARCH] About to call Klipy API', { url: `https://api.klipy.com/api/v1/${apiKey}/gifs/search`, params });
       const { data } = await axios.get(
         `https://api.klipy.com/api/v1/${apiKey}/gifs/search`,
-        { params }
+        {
+          params: {
+            q: request.input('q'),
+            page: request.input('page', 1),
+            per_page: request.input('limit', 5),
+            content_filter: 'high',
+            customer_id: user.id
+          }
+        }
       )
-      logger.info('[GIF SEARCH] Klipy API response', { data: data?.result, count: data?.data?.data?.length });
 
       if (data?.result && Array.isArray(data?.data?.data)) {
-        logger.info('[GIF SEARCH] Returning GIFs', { count: data.data.data.length });
         return response.ok({
           data: data.data.data.map((gif: any) => ({
             id: gif.id,
@@ -753,46 +733,16 @@ export default class NotesController {
         })
       }
 
-      logger.warn('[GIF SEARCH] Unexpected Klipy API response', { raw: data });
       return response.status(502).json({
         message: 'Unexpected Klipy API response',
         raw: data
       })
 
     } catch (error) {
-      // Log error as JSON string for full visibility
-      logger.error('[GIF SEARCH] Klipy API failed: ' + JSON.stringify({
-        message: error.message,
-        responseData: error.response?.data,
-        responseStatus: error.response?.status,
-        requestUrl: error.config?.url,
-        requestParams: error.config?.params,
-        stack: error.stack
-      }));
-
-      // Handle Klipy API rate limit (HTTP 429)
-      if (error.response?.status === 429) {
-        return response.status(429).json({
-          message: 'GIF search rate limit exceeded. Please try again later.',
-          error: error.response?.data?.message || error.message,
-          debug: {
-            responseData: error.response?.data,
-            responseStatus: error.response?.status,
-            requestUrl: error.config?.url,
-            requestParams: error.config?.params
-          }
-        })
-      }
-
+      logger.error('Klipy API failed', error)
       return response.status(error.response?.status || 500).json({
         message: 'Failed to search GIFs',
-        error: error.response?.data?.message || error.message,
-        debug: {
-          responseData: error.response?.data,
-          responseStatus: error.response?.status,
-          requestUrl: error.config?.url,
-          requestParams: error.config?.params
-        }
+        error: error.response?.data?.message || error.message
       })
     }
   }
@@ -826,7 +776,7 @@ export default class NotesController {
         logger.warn('GIF view tracking failed', trackError)
       }
 
-      return response.ok(await note.load('labels'))
+      return response.ok(note.serialize())
 
     } catch (error) {
       logger.error('GIF attachment failed', error)
@@ -854,7 +804,7 @@ export default class NotesController {
       note.gif_slug = null
       await note.save()
 
-      return response.ok(await note.load('labels'))
+      return response.ok(note.serialize())
 
     } catch (error) {
       logger.error('GIF removal failed', error)

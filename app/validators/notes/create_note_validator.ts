@@ -16,6 +16,20 @@ export const createNoteValidator = vine.compile(
             .url()  // Validate as proper URL
             .optional(),
         gif_slug: vine.string().optional(),
-        labelIds: vine.array(vine.number()).optional()
+        labels: vine.any()
+            .transform((value) => {
+                if (typeof value === 'string') {
+                    try {
+                        const arr = JSON.parse(value)
+                        return Array.isArray(arr) ? arr : []
+                    } catch {
+                        return []
+                    }
+                }
+                return value ?? []
+            })
+            .optional()
+            .nullable(),
     })
 )
+

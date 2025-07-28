@@ -1,41 +1,42 @@
 import { useState, useRef } from 'react'
+import { allLabels, Label } from '../../components/Label';
 import KlipyGifPicker from './KlipyGifPicker'
 import { router } from '@inertiajs/react'
 import { motion } from 'framer-motion'
-import { FileText, Eye, Pin, Image as ImageIcon, Tag, X } from 'lucide-react'
+import { FileText, Eye, Pin, Image as ImageIcon, X } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
 import 'highlight.js/styles/atom-one-dark.css'
 
-interface NoteFormProps {
-  initialData?: {
-    id?: number
-    title: string
-    content: string
-    pinned: boolean
-    imageUrl?: string | null
-    labels?: Array<{
-      id: number
-      name: string
-      color: string | null
-    }>
-  }
-  onSuccess: (note: any) => void
-  onCancel?: () => void
-  labels: Array<{ // Changed from optional to required
-    id: number
-    name: string
-    color: string | null
-  }>
+interface NoteLabelType {
+  id: number;
+  name: string;
+  color?: string;
 }
+
+interface NoteFormInitialData {
+  id?: number;
+  title: string;
+  content: string;
+  pinned: boolean;
+  imageUrl?: string | null;
+  labels?: NoteLabelType[];
+}
+
+interface NoteFormProps {
+  initialData?: NoteFormInitialData;
+  onSuccess: (note: any) => void;
+  onCancel?: () => void;
+}
+// Removed label logic from NoteFormProps
 
 export default function NoteForm({ 
   initialData = { title: '', content: '', pinned: false },
   onSuccess,
-  onCancel,
-  labels // Removed the default empty array
+  onCancel
 }: NoteFormProps) {
+// Removed label logic from function parameters
 
   const [isPreview, setIsPreview] = useState(false)
   const [data, setData] = useState({
@@ -43,10 +44,14 @@ export default function NoteForm({
     content: initialData.content,
     pinned: initialData.pinned,
     imageUrl: initialData.imageUrl || null,
-    labelIds: initialData.labels?.map(l => l.id) || [],
     gifUrl: null as string | null,
-    gifSlug: null as string | null
+    gifSlug: null as string | null,
+    labels: initialData.labels || [],
   })
+// Removed label logic from state initialization
+    // label logic removed
+    // label logic removed
+  // label logic removed
   const [removeImageFlag, setRemoveImageFlag] = useState(false)
 
   // Klipy GIF picker state
@@ -73,6 +78,15 @@ export default function NoteForm({
     }
   }
 
+  const handleLabelToggle = (label: { id: number; name: string; color?: string }) => {
+    const exists = data.labels?.some(l => l.id === label.id);
+    if (exists) {
+      setData(prev => ({ ...prev, labels: prev.labels.filter(l => l.id !== label.id) }));
+    } else {
+      setData(prev => ({ ...prev, labels: [...(prev.labels || []), label] }));
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
@@ -82,12 +96,8 @@ export default function NoteForm({
     formData.append('title', data.title)
     formData.append('content', data.content)
     formData.append('pinned', String(data.pinned))
-    
-    // Updated labelIds handling - append each ID individually
-    if (data.labelIds.length > 0) {
-      data.labelIds.forEach(id => {
-        formData.append('labelIds[]', id.toString())
-      })
+    if (data.labels && data.labels.length > 0) {
+      formData.append('labels', JSON.stringify(data.labels));
     }
 
     // Handle image upload
@@ -168,13 +178,7 @@ export default function NoteForm({
     }
   }
 
-  const toggleLabel = (labelId: number) => {
-    handleChange('labelIds', 
-      data.labelIds.includes(labelId)
-        ? data.labelIds.filter(id => id !== labelId)
-        : [...data.labelIds, labelId]
-    )
-  }
+  // label logic removed
 
   // Insert GIF markdown at cursor position and store gifUrl/gifSlug
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -279,6 +283,41 @@ export default function NoteForm({
           />
         </div>
 
+        {/* Labels UI (moved above image) */}
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-2">Labels</label>
+          <div className="flex flex-wrap gap-2 mb-2">
+            {allLabels.map(label => (
+              <button
+                key={label.id}
+                type="button"
+                onClick={() => handleLabelToggle(label)}
+                className={`transition-all ${data.labels?.some(l => l.id === label.id) ? 'opacity-100' : 'opacity-60 hover:opacity-80'}`}
+                style={{ border: 'none', background: 'none', padding: 0 }}
+              >
+                <Label
+                  name={label.name}
+                  color={label.color}
+                  onRemove={data.labels?.some(l => l.id === label.id) ? () => handleLabelToggle(label) : undefined}
+                />
+              </button>
+            ))}
+          </div>
+          {/* Show selected labels (if any) */}
+          {data.labels && data.labels.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {data.labels.map(label => (
+                <Label
+                  key={label.id}
+                  name={label.name}
+                  color={label.color}
+                  onRemove={() => handleLabelToggle(label)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
         {imagePreview && (
           <div className="mb-4 relative group">
             <img
@@ -354,36 +393,6 @@ export default function NoteForm({
             <ImageIcon size={16} className="mr-2" />
             {isUploading ? 'Uploading...' : 'Add Image'}
           </label>
-
-          {labels.length > 0 && (
-            <div className="mt-3">
-              <div className="flex items-center text-[#98989D] mb-2">
-                <Tag size={16} className="mr-2" />
-                <span>Labels</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {labels.map(label => (
-                  <button
-                    key={label.id}
-                    type="button"
-                    onClick={() => toggleLabel(label.id)}
-                    className={`text-xs px-3 py-1 rounded-full transition-colors ${
-                      data.labelIds.includes(label.id) 
-                        ? 'opacity-100' 
-                        : 'opacity-60 hover:opacity-80'
-                    }`}
-                    style={{
-                      backgroundColor: label.color ? `${label.color}20` : '#3A3A3C',
-                      color: label.color || '#98989D',
-                      border: label.color ? `1px solid ${label.color}30` : '1px solid #3A3A3C'
-                    }}
-                  >
-                    {label.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         <motion.button
@@ -405,7 +414,7 @@ export default function NoteForm({
             {isPreview ? "Markdown preview" : "Markdown supported"}
           </p>
           <p className="text-sm text-[#98989D]">
-            {navigator.platform?.includes("Mac") ? "⌘" : "Ctrl"} + Enter to save
+            {(typeof navigator !== 'undefined' && navigator.platform?.includes("Mac")) ? "⌘" : "Ctrl"} + Enter to save
           </p>
         </div>
       </form>

@@ -13,11 +13,6 @@ interface SharedNote {
   updatedAt: string | null
   shareUuid: string
   isShared: boolean
-  labels?: Array<{
-    id: number
-    name: string
-    color: string | null
-  }>
   user: {
     fullName: string
     email: string
@@ -101,20 +96,7 @@ export default function SharedNote({ note }: SharedNotePageProps) {
             <div className="mb-6">
               <h1 className="text-3xl font-bold text-gray-900 mb-2">{note.title}</h1>
               
-              {/* Labels */}
-              {note.labels && note.labels.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {note.labels.map((label) => (
-                    <span
-                      key={label.id}
-                      className="px-3 py-1 rounded-full text-xs font-medium text-white"
-                      style={{ backgroundColor: label.color || '#6366f1' }}
-                    >
-                      {label.name}
-                    </span>
-                  ))}
-                </div>
-              )}
+
             </div>
 
             {/* Note Image */}
