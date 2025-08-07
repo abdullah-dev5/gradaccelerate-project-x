@@ -7,18 +7,62 @@ import NoteForm from './note-form'
 import ViewSwitcher from './view-switcher'
 
 interface Note {
+<<<<<<< HEAD
   id: number;
   title: string;
   content: string;
   createdAt: string;
   updatedAt: string | null;
+=======
+  id: number
+  title: string
+  content: string
+  createdAt: string
+  updatedAt: string | null
+  pinned: boolean
+  imageUrl: string | null
+>>>>>>> 0a002d7 ( feat: refactor note label system and inertia responses for todos/notes)
 }
 
 type ViewType = 'grid' | 'list'
 
+<<<<<<< HEAD
 export default function Index({ notes: initialNotes }: { notes: Note[] }) {
+=======
+interface SortOptions {
+  currentSort: string
+  currentOrder: string
+  searchQuery: string
+}
+
+interface Filters {
+  searchQuery: string
+  sortBy: 'createdAt' | 'updatedAt' | 'title'
+  sortOrder: 'asc' | 'desc'
+  currentPage: number
+}
+
+// Default filter values
+const DEFAULT_FILTERS: Filters = {
+  searchQuery: '',
+  sortBy: 'createdAt',
+  sortOrder: 'desc',
+  currentPage: 1
+}
+
+export default function Index({ 
+  notes: initialNotes = [], 
+  meta: initialMeta,
+  sortOptions 
+}: { 
+  notes: Note[]
+  meta?: Meta
+  sortOptions?: SortOptions
+}) {
+>>>>>>> 0a002d7 ( feat: refactor note label system and inertia responses for todos/notes)
   const [notes, setNotes] = useState(initialNotes)
   const [isFormVisible, setIsFormVisible] = useState(false)
+<<<<<<< HEAD
   const [viewType, setViewType] = useState<ViewType>('grid')
   const { data, setData, post, processing, reset } = useForm({
     title: '',
@@ -51,6 +95,130 @@ export default function Index({ notes: initialNotes }: { notes: Note[] }) {
       submit(e as any);
     }
   };
+=======
+  const [viewType, setViewType] = useState<'grid' | 'list'>('grid')
+
+
+  // Consolidated filters state with default values
+  const [filters, setFilters] = useState<Filters>({
+    ...DEFAULT_FILTERS,
+    searchQuery: sortOptions?.searchQuery || DEFAULT_FILTERS.searchQuery,
+    sortBy: (sortOptions?.currentSort === 'title' ? 'title' : DEFAULT_FILTERS.sortBy),
+    sortOrder: (sortOptions?.currentOrder === 'asc' ? 'asc' : DEFAULT_FILTERS.sortOrder),
+    currentPage: initialMeta?.currentPage || DEFAULT_FILTERS.currentPage
+  })
+
+  // Helper function to update filters
+  const updateFilter = <K extends keyof Filters>(key: K, value: Filters[K]) => {
+    setFilters(prev => ({ ...prev, [key]: value }))
+  }
+
+
+
+  // Fetch notes when sorting/filtering changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      router.get('/notes', {
+        sort: filters.sortBy,
+        order: filters.sortOrder,
+        search: filters.searchQuery,
+
+        page: 1 // Reset to first page when filters change
+      }, {
+        preserveState: true,
+        replace: true,
+        only: ['notes', 'meta', 'sortOptions'],
+        onSuccess: (page: any) => {
+          setNotes(page.props.notes as Note[])
+          setMeta(page.props.meta as Meta)
+        },
+        onError: (errors: any) => {
+          console.error('Notes fetch error:', errors)
+        }
+      })
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [filters.sortBy, filters.sortOrder, filters.searchQuery])
+
+  // Separate pinned and unpinned notes
+  const pinnedNotes = notes.filter(note => note && note.pinned)
+  const unpinnedNotes = notes.filter(note => note && !note.pinned)
+
+  const handleCreateSuccess = () => {
+    setIsFormVisible(false)
+    // No need to manually update state - Inertia reload will handle it
+  }
+
+  const togglePin = async (id: number) => {
+    try {
+      await router.patch(`/notes/${id}/toggle-pin`, {}, {
+        preserveScroll: true,
+        onSuccess: (page: any) => {
+          setNotes(page.props.notes as Note[])
+        }
+      })
+    } catch (error) {
+      console.error('Error toggling pin:', error)
+    }
+  }
+
+  const handleDeleteNote = (noteId: number) => {
+    if (confirm('Are you sure you want to delete this note?')) {
+      // Use fetch instead of router.delete to avoid Inertia response requirement
+      fetch(`/notes/${noteId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+          // Explicitly NOT including 'X-Inertia' header to get JSON response
+        }
+      })
+      .then(response => {
+        if (response.ok) {
+          // Remove the deleted note from the local state
+          setNotes(prevNotes => prevNotes.filter(note => note.id !== noteId))
+          // Update meta total count
+          if (meta) {
+            setMeta({
+              ...meta,
+              total: meta.total - 1
+            })
+          }
+          console.log('Note deleted successfully')
+        } else {
+          throw new Error('Failed to delete note')
+        }
+      })
+      .catch(error => {
+        console.error('Error deleting note:', error)
+        alert('Failed to delete note. Please try again.')
+      })
+    }
+  }
+
+  const goToPage = (page: number) => {
+    if (meta && page >= 1 && page <= meta.lastPage && page !== meta.currentPage) {
+      updateFilter('currentPage', page)
+      
+      router.get('/notes', {
+        sort: filters.sortBy,
+        order: filters.sortOrder,
+        search: filters.searchQuery,
+
+        page: page
+      }, {
+        preserveState: true,
+        only: ['notes', 'meta'],
+        onSuccess: (response: any) => {
+          setNotes(response.props.notes as Note[])
+          setMeta(response.props.meta as Meta)
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+        }
+      })
+    }
+  }
+>>>>>>> 0a002d7 ( feat: refactor note label system and inertia responses for todos/notes)
 
   return (
     <>
@@ -82,7 +250,20 @@ export default function Index({ notes: initialNotes }: { notes: Note[] }) {
               <h1 className="text-3xl font-bold">Notes</h1>
             </div>
             <div className="flex items-center gap-3">
+<<<<<<< HEAD
               <ViewSwitcher currentView={viewType} onChange={setViewType} />
+=======
+              <ViewSwitcher 
+                currentView={viewType} 
+                onChange={setViewType}
+                sortBy={filters.sortBy}
+                setSortBy={(value) => updateFilter('sortBy', value)}
+                sortOrder={filters.sortOrder}
+                setSortOrder={(value) => updateFilter('sortOrder', value)}
+                searchQuery={filters.searchQuery}
+                setSearchQuery={(value) => updateFilter('searchQuery', value)}
+              />
+>>>>>>> 0a002d7 ( feat: refactor note label system and inertia responses for todos/notes)
               <motion.button
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setIsFormVisible(!isFormVisible)}
@@ -115,11 +296,16 @@ export default function Index({ notes: initialNotes }: { notes: Note[] }) {
                 className="overflow-hidden mb-8"
               >
                 <NoteForm 
+<<<<<<< HEAD
                   data={data}
                   setData={setData}
                   submit={submit}
                   processing={processing}
                   handleKeyDown={handleKeyDown}
+=======
+                  onSuccess={handleCreateSuccess}
+                  onCancel={() => setIsFormVisible(false)}
+>>>>>>> 0a002d7 ( feat: refactor note label system and inertia responses for todos/notes)
                 />
               </motion.div>
             )}
