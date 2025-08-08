@@ -1,24 +1,82 @@
-import { Head, useForm, Link } from '@inertiajs/react'
+import { Head, Link, router } from '@inertiajs/react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { PlusIcon, XIcon, ArrowLeft } from 'lucide-react'
 import NoteCard from './note-card'
 import NoteForm from './note-form'
 import ViewSwitcher from './view-switcher'
 
 interface Note {
+<<<<<<< HEAD
   id: number;
   title: string;
   content: string;
   createdAt: string;
   updatedAt: string | null;
+=======
+  id: number
+  title: string
+  content: string
+  createdAt: string
+  updatedAt: string | null
+  pinned: boolean
+  imageUrl: string | null
+  labels?: Array<{
+    id: number
+    name: string
+    color: string | null
+  }>
+>>>>>>> 613a4b0 (feat: complete frontend UI with advanced features and components)
 }
 
-type ViewType = 'grid' | 'list'
+interface Meta {
+  currentPage: number
+  lastPage: number
+  perPage: number
+  total: number
+  firstPage: number
+  firstPageUrl: string
+  lastPageUrl: string
+  nextPageUrl: string | null
+  previousPageUrl: string | null
+}
 
-export default function Index({ notes: initialNotes }: { notes: Note[] }) {
+interface SortOptions {
+  currentSort: string
+  currentOrder: string
+  searchQuery: string
+}
+
+interface Filters {
+  searchQuery: string
+  selectedLabel: number | null
+  sortBy: 'createdAt' | 'updatedAt' | 'title'
+  sortOrder: 'asc' | 'desc'
+  currentPage: number
+}
+
+// Default filter values
+const DEFAULT_FILTERS: Filters = {
+  searchQuery: '',
+  selectedLabel: null,
+  sortBy: 'createdAt',
+  sortOrder: 'desc',
+  currentPage: 1
+}
+
+export default function Index({ 
+  notes: initialNotes = [], 
+  meta: initialMeta,
+  sortOptions 
+}: { 
+  notes: Note[]
+  meta?: Meta
+  sortOptions?: SortOptions
+}) {
   const [notes, setNotes] = useState(initialNotes)
+  const [meta, setMeta] = useState(initialMeta)
   const [isFormVisible, setIsFormVisible] = useState(false)
+<<<<<<< HEAD
   const [viewType, setViewType] = useState<ViewType>('grid')
   const { data, setData, post, processing, reset } = useForm({
     title: '',
@@ -42,16 +100,165 @@ export default function Index({ notes: initialNotes }: { notes: Note[] }) {
       onSuccess: () => {
         reset()
         setIsFormVisible(false)
+=======
+  const [viewType, setViewType] = useState<'grid' | 'list'>('grid')
+  const [labels, setLabels] = useState<Array<{
+    id: number
+    name: string
+    color: string | null
+  }>>([])
+
+  // Consolidated filters state with default values
+  const [filters, setFilters] = useState<Filters>({
+    ...DEFAULT_FILTERS,
+    searchQuery: sortOptions?.searchQuery || DEFAULT_FILTERS.searchQuery,
+    sortBy: (sortOptions?.currentSort === 'title' ? 'title' : DEFAULT_FILTERS.sortBy),
+    sortOrder: (sortOptions?.currentOrder === 'asc' ? 'asc' : DEFAULT_FILTERS.sortOrder),
+    currentPage: initialMeta?.currentPage || DEFAULT_FILTERS.currentPage
+  })
+
+  // Helper function to update filters
+  const updateFilter = <K extends keyof Filters>(key: K, value: Filters[K]) => {
+    setFilters(prev => ({ ...prev, [key]: value }))
+  }
+
+  // Fetch labels when component mounts
+  useEffect(() => {
+    const fetchLabels = async () => {
+      try {
+        const response = await fetch('/labels')
+        
+        if (response.ok) {
+          const labelsData = await response.json()
+          
+          // Handle both formats: direct array or wrapped in success response
+          if (labelsData.success && labelsData.data) {
+            setLabels(labelsData.data)
+          } else if (Array.isArray(labelsData)) {
+            setLabels(labelsData)
+          } else {
+            console.error('Unexpected labels response format:', labelsData)
+          }
+        } else {
+          const errorText = await response.text()
+          console.error('Failed to fetch labels - Status:', response.status, 'Error:', errorText)
+        }
+      } catch (error) {
+        console.error('Failed to fetch labels:', error)
+>>>>>>> 613a4b0 (feat: complete frontend UI with advanced features and components)
       }
-    });
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-      submit(e as any);
     }
-  };
+    
+    fetchLabels()
+  }, [])
 
+  // Fetch notes when sorting/filtering changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      router.get('/notes', {
+        sort: filters.sortBy,
+        order: filters.sortOrder,
+        search: filters.searchQuery,
+        label_id: filters.selectedLabel,
+        page: 1 // Reset to first page when filters change
+      }, {
+        preserveState: true,
+        replace: true,
+        only: ['notes', 'meta', 'sortOptions'],
+        onSuccess: (page: any) => {
+          setNotes(page.props.notes as Note[])
+          setMeta(page.props.meta as Meta)
+        },
+        onError: (errors: any) => {
+          console.error('Notes fetch error:', errors)
+        }
+      })
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [filters.sortBy, filters.sortOrder, filters.searchQuery, filters.selectedLabel])
+
+  // Separate pinned and unpinned notes
+  const pinnedNotes = notes.filter(note => note && note.pinned)
+  const unpinnedNotes = notes.filter(note => note && !note.pinned)
+
+  const handleCreateSuccess = () => {
+    setIsFormVisible(false)
+    // No need to manually update state - Inertia reload will handle it
+  }
+
+<<<<<<< HEAD
+=======
+  const togglePin = async (id: number) => {
+    try {
+      await router.patch(`/notes/${id}/toggle-pin`, {}, {
+        preserveScroll: true,
+        onSuccess: (page: any) => {
+          setNotes(page.props.notes as Note[])
+        }
+      })
+    } catch (error) {
+      console.error('Error toggling pin:', error)
+    }
+  }
+
+  const handleDeleteNote = (noteId: number) => {
+    if (confirm('Are you sure you want to delete this note?')) {
+      // Use fetch instead of router.delete to avoid Inertia response requirement
+      fetch(`/notes/${noteId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+          // Explicitly NOT including 'X-Inertia' header to get JSON response
+        }
+      })
+      .then(response => {
+        if (response.ok) {
+          // Remove the deleted note from the local state
+          setNotes(prevNotes => prevNotes.filter(note => note.id !== noteId))
+          // Update meta total count
+          if (meta) {
+            setMeta({
+              ...meta,
+              total: meta.total - 1
+            })
+          }
+          console.log('Note deleted successfully')
+        } else {
+          throw new Error('Failed to delete note')
+        }
+      })
+      .catch(error => {
+        console.error('Error deleting note:', error)
+        alert('Failed to delete note. Please try again.')
+      })
+    }
+  }
+
+  const goToPage = (page: number) => {
+    if (meta && page >= 1 && page <= meta.lastPage && page !== meta.currentPage) {
+      updateFilter('currentPage', page)
+      
+      router.get('/notes', {
+        sort: filters.sortBy,
+        order: filters.sortOrder,
+        search: filters.searchQuery,
+        label_id: filters.selectedLabel,
+        page: page
+      }, {
+        preserveState: true,
+        only: ['notes', 'meta'],
+        onSuccess: (response: any) => {
+          setNotes(response.props.notes as Note[])
+          setMeta(response.props.meta as Meta)
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+        }
+      })
+    }
+  }
+
+>>>>>>> 613a4b0 (feat: complete frontend UI with advanced features and components)
   return (
     <>
       <Head title="Notes" />
@@ -64,7 +271,7 @@ export default function Index({ notes: initialNotes }: { notes: Note[] }) {
           >
             <div className="flex items-center gap-3">
               <Link 
-                href="/" 
+                href="/dashboard" 
                 className="p-2 hover:bg-[#2C2C2E] rounded-full transition-colors duration-200"
               >
                 <ArrowLeft size={24} />
@@ -82,7 +289,23 @@ export default function Index({ notes: initialNotes }: { notes: Note[] }) {
               <h1 className="text-3xl font-bold">Notes</h1>
             </div>
             <div className="flex items-center gap-3">
+<<<<<<< HEAD
               <ViewSwitcher currentView={viewType} onChange={setViewType} />
+=======
+              <ViewSwitcher 
+                currentView={viewType} 
+                onChange={setViewType}
+                sortBy={filters.sortBy}
+                setSortBy={(value) => updateFilter('sortBy', value)}
+                sortOrder={filters.sortOrder}
+                setSortOrder={(value) => updateFilter('sortOrder', value)}
+                searchQuery={filters.searchQuery}
+                setSearchQuery={(value) => updateFilter('searchQuery', value)}
+                selectedLabel={filters.selectedLabel}
+                setSelectedLabel={(value) => updateFilter('selectedLabel', value)}
+                labels={labels}
+              />
+>>>>>>> 613a4b0 (feat: complete frontend UI with advanced features and components)
               <motion.button
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setIsFormVisible(!isFormVisible)}
@@ -115,16 +338,58 @@ export default function Index({ notes: initialNotes }: { notes: Note[] }) {
                 className="overflow-hidden mb-8"
               >
                 <NoteForm 
-                  data={data}
-                  setData={setData}
-                  submit={submit}
-                  processing={processing}
-                  handleKeyDown={handleKeyDown}
+                  onSuccess={handleCreateSuccess}
+                  onCancel={() => setIsFormVisible(false)}
+                  labels={labels}
                 />
               </motion.div>
             )}
           </AnimatePresence>
 
+<<<<<<< HEAD
+=======
+          {/* Pinned Notes Section */}
+          {pinnedNotes.length > 0 && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="mb-8"
+            >
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <span className="text-yellow-400">📌</span> Pinned Notes
+              </h2>
+              <div className={viewType === 'grid' 
+                ? "grid grid-cols-1 md:grid-cols-2 gap-4"
+                : "flex flex-col gap-3"
+              }>
+                <AnimatePresence>
+                  {pinnedNotes.map((note, index) => (
+                    <motion.div
+                      key={note.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ 
+                        opacity: 1, 
+                        y: 0,
+                        transition: { delay: index * 0.05 }
+                      }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      className={viewType === 'list' ? 'w-full' : ''}
+                    >
+                      <NoteCard 
+                        note={note} 
+                        viewType={viewType} 
+                        onPinToggle={togglePin}
+                        onDelete={handleDeleteNote}
+                      />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+            </motion.div>
+          )}
+
+          {/* All Notes Section */}
+>>>>>>> 613a4b0 (feat: complete frontend UI with advanced features and components)
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -134,6 +399,7 @@ export default function Index({ notes: initialNotes }: { notes: Note[] }) {
               : "flex flex-col gap-3"
             }
           >
+<<<<<<< HEAD
             <AnimatePresence>
               {notes.map((note, index) => (
                 <motion.div
@@ -151,6 +417,130 @@ export default function Index({ notes: initialNotes }: { notes: Note[] }) {
                 </motion.div>
               ))}
             </AnimatePresence>
+=======
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">All Notes</h2>
+              {meta && meta.total > 0 && (
+                <div className="text-sm text-[#98989D]">
+                  Page {meta.currentPage} of {meta.lastPage} • {meta.total} total notes
+                </div>
+              )}
+            </div>
+            
+            {unpinnedNotes.length === 0 ? (
+              <p className="text-gray-400">No notes yet</p>
+            ) : (
+              <>
+                <div className={viewType === 'grid' 
+                  ? "grid grid-cols-1 md:grid-cols-2 gap-4"
+                  : "flex flex-col gap-3"
+                }>
+                  <AnimatePresence>
+                    {unpinnedNotes.map((note, index) => (
+                      <motion.div
+                        key={note.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ 
+                          opacity: 1, 
+                          y: 0,
+                          transition: { delay: index * 0.05 }
+                        }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        className={viewType === 'list' ? 'w-full' : ''}
+                      >
+                        <NoteCard 
+                          note={note} 
+                          viewType={viewType} 
+                          onPinToggle={togglePin}
+                          onDelete={handleDeleteNote}
+                        />
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+                
+                {/* Pagination Section */}
+                {meta && meta.lastPage > 1 && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="mt-8"
+                  >
+                    <div className="flex flex-col items-center gap-4 p-6 bg-[#2C2C2E] rounded-2xl border border-[#3A3A3C]">
+                      <div className="flex items-center gap-2 text-sm text-[#98989D]">
+                        <span>Page</span>
+                        <span className="font-semibold text-white">{meta.currentPage}</span>
+                        <span>of</span>
+                        <span className="font-semibold text-white">{meta.lastPage}</span>
+                        <span className="mx-2">•</span>
+                        <span className="font-semibold text-white">{meta.total}</span>
+                        <span>total notes</span>
+                      </div>
+                      
+                      <div className="flex items-center gap-3">
+                        {/* First page button - only show if not on first page and there are many pages */}
+                        {meta.currentPage > 2 && meta.lastPage > 5 && (
+                          <motion.button
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => goToPage(1)}
+                            className="flex items-center justify-center w-10 h-10 bg-[#3A3A3C] text-[#98989D] rounded-lg hover:bg-[#48484A] hover:text-white transition-all duration-200"
+                            title="First page"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                            </svg>
+                          </motion.button>
+                        )}
+                        
+                        <motion.button
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => goToPage(meta.currentPage - 1)}
+                          disabled={meta.currentPage <= 1}
+                          className="flex items-center gap-2 px-4 py-2 bg-[#3A3A3C] text-white rounded-lg disabled:bg-[#2C2C2E] disabled:text-[#98989D] disabled:cursor-not-allowed hover:bg-[#48484A] transition-all duration-200"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                          </svg>
+                          <span className="font-medium">Previous</span>
+                        </motion.button>
+                        
+                        <div className="flex items-center justify-center w-12 h-10 bg-[#0A84FF] text-white rounded-lg font-bold text-lg shadow-lg">
+                          {meta.currentPage}
+                        </div>
+                        
+                        <motion.button
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => goToPage(meta.currentPage + 1)}
+                          disabled={meta.currentPage >= meta.lastPage}
+                          className="flex items-center gap-2 px-4 py-2 bg-[#3A3A3C] text-white rounded-lg disabled:bg-[#2C2C2E] disabled:text-[#98989D] disabled:cursor-not-allowed hover:bg-[#48484A] transition-all duration-200"
+                        >
+                          <span className="font-medium">Next</span>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </motion.button>
+                        
+                        {/* Last page button - only show if not on last page and there are many pages */}
+                        {meta.currentPage < meta.lastPage - 1 && meta.lastPage > 5 && (
+                          <motion.button
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => goToPage(meta.lastPage)}
+                            className="flex items-center justify-center w-10 h-10 bg-[#3A3A3C] text-[#98989D] rounded-lg hover:bg-[#48484A] hover:text-white transition-all duration-200"
+                            title="Last page"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                            </svg>
+                          </motion.button>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </>
+            )}
+>>>>>>> 613a4b0 (feat: complete frontend UI with advanced features and components)
           </motion.div>
         </div>
       </div>

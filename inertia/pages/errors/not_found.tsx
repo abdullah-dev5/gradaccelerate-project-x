@@ -1,11 +1,60 @@
+import { Link } from '@inertiajs/react'
+import { motion } from 'framer-motion'
+import { Home, ArrowLeft } from 'lucide-react'
+
 export default function NotFound() {
   return (
-    <>
-      <div className="container">
-        <div className="title">Page not found</div>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="min-h-screen bg-[#1C1C1E] flex items-center justify-center p-4"
+    >
+      <div className="text-center max-w-md">
+        <motion.div
+          initial={{ scale: 0.8 }}
+          animate={{ scale: 1 }}
+          transition={{ delay: 0.2 }}
+          className="mb-8"
+        >
+          <h1 className="text-6xl font-bold text-blue-400 mb-4">404</h1>
+          <h2 className="text-2xl font-semibold text-white mb-2">Page Not Found</h2>
+          <p className="text-[#98989D]">
+            The page you're looking for doesn't exist or has been moved.
+          </p>
+        </motion.div>
 
-        <span>This page does not exist.</span>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4 }}
+          className="space-y-4"
+        >
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Link
+              href="/"
+              className="flex items-center gap-2 px-6 py-3 bg-blue-400 text-white rounded-lg hover:bg-blue-500 transition-colors"
+            >
+              <Home size={18} />
+              Go Home
+            </Link>
+            
+            <button
+              onClick={() => window.history.back()}
+              className="flex items-center gap-2 px-6 py-3 border border-[#3A3A3C] text-[#98989D] rounded-lg hover:bg-[#3A3A3C] hover:text-white transition-colors"
+            >
+              <ArrowLeft size={18} />
+              Go Back
+            </button>
+          </div>
+
+          <Link
+            href="/projects"
+            className="text-blue-400 hover:underline text-sm"
+          >
+            Browse Projects
+          </Link>
+        </motion.div>
       </div>
-    </>
+    </motion.div>
   )
 }
