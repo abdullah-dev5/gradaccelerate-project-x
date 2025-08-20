@@ -16,8 +16,21 @@ const shieldConfig = defineConfig({
    * to learn more
    */
   csrf: {
+<<<<<<< HEAD
     enabled: true,
     exceptRoutes: [],
+=======
+    enabled: true, // ✅ ENABLED: CSRF protection for security
+    exceptRoutes: [
+      '/notes', // ✅ TEMPORARY: Add notes route to test CSRF issue
+      '/notes/:id/upload',
+      '/auth/google/redirect', // OAuth redirect doesn't need CSRF
+      '/google/callback', // OAuth callback doesn't need CSRF
+      '/api/auth/login', // API endpoints handled separately
+      '/api/auth/register',
+      '/api/auth/logout'
+    ],
+>>>>>>> 97fc310 (refactor: implement hybrid authentication and fix note creation flow)
     enableXsrfCookie: true,
     methods: ['POST', 'PUT', 'PATCH', 'DELETE'],
   },

@@ -39,6 +39,12 @@ router.use([
   () => import('@adonisjs/session/session_middleware'),
   () => import('@adonisjs/shield/shield_middleware'),
   () => import('@adonisjs/auth/initialize_auth_middleware'),
+<<<<<<< HEAD
+=======
+  // () => import('#middleware/rate_limit_middleware'), // DISABLED for development
+  () => import('#middleware/error_handler_middleware'),
+  () => import('#middleware/inertia_error_handler'),
+>>>>>>> 97fc310 (refactor: implement hybrid authentication and fix note creation flow)
 ])
 
 /**
@@ -48,4 +54,5 @@ router.use([
 export const middleware = router.named({
   guest: () => import('#middleware/guest_middleware'),
   auth: () => import('#middleware/auth_middleware'),
+  oauthSecurity: () => import('#middleware/oauth_security_middleware'),
 })
