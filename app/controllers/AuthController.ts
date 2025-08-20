@@ -3,248 +3,245 @@ import User from '#models/user'
 import hash from '@adonisjs/core/services/hash'
 import { loginValidator, registerValidator } from '#validators/auth/auth_validator'
 import { errors } from '@vinejs/vine'
-import env from '#start/env'
-import Role from '#models/role'
 
-export default class AuthController {
+import Role from '#models/role'
+import BaseController, { ApiResponse } from './BaseController.js'
+import OAuthLogger from '#services/OAuthLogger'
+
+export default class AuthController extends BaseController {
+
     /**
-     * Login user and return API token
+     * ✅ IMPROVED: Login with hybrid approach (session + JWT)
      */
-    async login({ request, response, auth }: HttpContext) {
+    async login({ request, response, auth, session }: HttpContext) {
         try {
             const payload = await request.validateUsing(loginValidator)
 
-            // Find user by email
-            const user = await User.findBy('email', payload.email)
+            // Find user by email (case-insensitive)
+            const user = await User.query()
+                .where('email', payload.email.toLowerCase())
+                .first()
+
             if (!user) {
-                return response.status(401).json({
-                    message: 'Invalid credentials'
-                })
+                return response.status(401).json(
+                    ApiResponse.error('Invalid credentials', 401)
+                )
             }
 
-            // Verify password (skip if user has no password - OAuth user)
+            // Verify password (skip if OAuth user)
             if (!user.password) {
-                return response.status(401).json({
-                    message: 'Invalid credentials - this account uses social login'
-                })
+                return response.status(401).json(
+                    ApiResponse.error('This account uses social login. Please use that method.', 401)
+                )
             }
 
             const isValidPassword = await hash.verify(user.password, payload.password)
             if (!isValidPassword) {
-                return response.status(401).json({
-                    message: 'Invalid credentials'
-                })
+                return response.status(401).json(
+                    ApiResponse.error('Invalid credentials', 401)
+                )
             }
 
-            // Login user via session (for Inertia.js)
+            // ✅ HYBRID APPROACH: Login via session (for Inertia)
             await auth.use('web').login(user)
 
-            // Generate access token (for API access)
+            // ✅ HYBRID APPROACH: Generate JWT token (for API/SPA)
             const token = await User.accessTokens.create(user, ['*'], {
                 name: 'API Token',
                 expiresIn: '30 days'
             })
 
-            return response.json({
-                message: 'Login successful',
-                token: token.value!.release(),
-                user: {
-                    id: user.id,
-                    fullName: user.fullName,
-                    email: user.email,
-                    createdAt: user.createdAt,
-                    updatedAt: user.updatedAt
-                }
-            })
+            // ✅ HYBRID MODEL: Support both session and JWT authentication
+            const isInertiaRequest = request.header('x-inertia') === 'true'
+            const acceptsJson = request.header('accept')?.includes('application/json')
+            
+            if (isInertiaRequest) {
+                // For Inertia requests: Session + redirect with token in session
+                session.flash('success', 'Login successful!')
+                session.put('jwt_token', token.value!.release()) // Store JWT in session for hybrid access
+                return response.redirect('/dashboard')
+            } else if (acceptsJson) {
+                // For API requests: Return JWT token
+                return response.json(
+                    ApiResponse.success({
+                        token: token.value!.release(),
+                        user: {
+                            id: user.id,
+                            fullName: user.fullName,
+                            email: user.email,
+                            createdAt: user.createdAt,
+                            updatedAt: user.updatedAt
+                        }
+                    }, 'Login successful')
+                )
+            } else {
+                // For regular form submissions: Session + redirect
+                session.flash('success', 'Login successful!')
+                return response.redirect('/dashboard')
+            }
         } catch (error) {
-            // Handle validation errors specifically
             if (error instanceof errors.E_VALIDATION_ERROR) {
-                return response.status(422).json({
-                    message: 'Validation failed',
-                    errors: error.messages
-                })
+                return response.status(422).json(
+                    ApiResponse.error('Validation failed', 422, error.messages)
+                )
             }
 
-            return response.status(500).json({
-                message: 'An error occurred during login',
-                error: error.message
-            })
+            console.error('Login error:', error)
+            return response.status(500).json(
+                ApiResponse.error('An error occurred during login', 500)
+            )
         }
     }
 
     /**
-     * Register new user and return API token
+     * ✅ IMPROVED: Register with hybrid approach
      */
-    // before handling duplicate cases orignal  if anything breal commented out
-    // async register({ request, response }: HttpContext) {
-    //     try {
-    //         const payload = await request.validateUsing(registerValidator)
-
-    //         // Check if user already exists
-    //         const existingUser = await User.findBy('email', payload.email)
-    //         if (existingUser) {
-    //             return response.status(409).json({
-    //                 message: 'User already exists with this email'
-    //             })
-    //         }
-
-    //         // Create new user
-    //         const user = await User.create({
-    //             fullName: payload.fullName,
-    //             email: payload.email,
-    //             password: payload.password // Will be automatically hashed by the model
-    //         })
-
-    //         // Generate access token
-    //         const token = await User.accessTokens.create(user, ['*'], {
-    //             name: 'API Token',
-    //             expiresIn: '30 days'
-    //         })
-
-    //         return response.status(201).json({
-    //             message: 'User registered successfully',
-    //             token: token.value!.release(),
-    //             user: {
-    //                 id: user.id,
-    //                 fullName: user.fullName,
-    //                 email: user.email,
-    //                 createdAt: user.createdAt,
-    //                 updatedAt: user.updatedAt
-    //             }
-    //         })
-    //     } catch (error) {
-    //         // Handle validation errors specifically
-    //         if (error instanceof errors.E_VALIDATION_ERROR) {
-    //             return response.status(422).json({
-    //                 message: 'Validation failed',
-    //                 errors: error.messages
-    //             })
-    //         }
-
-    //         return response.status(500).json({
-    //             message: 'An error occurred during registration',
-    //             error: error.message
-    //         })
-    //     }
-    // }
-
-    async register({ request, response }: HttpContext) {
+    async register({ request, response, session }: HttpContext) {
         try {
-            const payload = await request.validateUsing(registerValidator);
-            const normalizedEmail = payload.email.toLowerCase();
+            const payload = await request.validateUsing(registerValidator)
+            const normalizedEmail = payload.email.toLowerCase()
 
             // Check if user already exists (case-insensitive)
             const existingUser = await User.query()
                 .where('email', normalizedEmail)
-                .first();
+                .first()
 
             if (existingUser) {
                 if (existingUser.provider) {
-                    return response.status(409).json({
-                        message: 'Account already exists with social login. Please use that method.',
-                        provider: existingUser.provider // Optional: Return which provider was used
-                    });
+                    return response.status(409).json(
+                        ApiResponse.error('Account already exists with social login. Please use that method.', 409)
+                    )
                 }
-                return response.status(409).json({
-                    message: 'Email already registered.'
-                });
+                return response.status(409).json(
+                    ApiResponse.error('Email already registered.', 409)
+                )
             }
 
             // Create new user
             const user = await User.create({
                 fullName: payload.fullName,
-                email: normalizedEmail, // Store normalized email
-                password: payload.password // Automatically hashed by the model
-            });
+                email: normalizedEmail,
+                password: payload.password
+            })
 
-            // Assign default role (example - adjust as needed)
-            const defaultRole = await Role.findBy('slug', 'user');
+            // Assign default role
+            const defaultRole = await Role.findBy('slug', 'user')
             if (defaultRole) {
-                await user.related('roles').attach([defaultRole.id]);
+                await user.related('roles').attach([defaultRole.id])
             }
 
-            // Generate access token
+            // ✅ HYBRID APPROACH: Login via session (for Inertia)
+            // Note: We don't auto-login on register for security
+            // User needs to explicitly login after registration
+
+            // ✅ HYBRID APPROACH: Generate JWT token (for API/SPA)
             const token = await User.accessTokens.create(user, ['*'], {
                 name: 'API Token',
                 expiresIn: '30 days'
-            });
+            })
 
-            return response.status(201).json({
-                message: 'User registered successfully',
-                token: token.value!.release(),
-                user: {
-                    id: user.id,
-                    fullName: user.fullName,
-                    email: user.email,
-                    createdAt: user.createdAt,
-                    updatedAt: user.updatedAt,
-                    isAdmin: await user.isAdmin() // Optional: Include role info
-                }
-            });
+            // Set success flash message for Inertia
+            session.flash('success', 'Registration successful! Please login.')
 
+            return response.status(201).json(
+                ApiResponse.success({
+                    token: token.value!.release(),
+                    user: {
+                        id: user.id,
+                        fullName: user.fullName,
+                        email: user.email,
+                        createdAt: user.createdAt,
+                        updatedAt: user.updatedAt
+                    }
+                }, 'User registered successfully')
+            )
         } catch (error) {
-            // Handle validation errors
             if (error instanceof errors.E_VALIDATION_ERROR) {
-                return response.status(422).json({
-                    message: 'Validation failed',
-                    errors: error.messages
-                });
+                return response.status(422).json(
+                    ApiResponse.error('Validation failed', 422, error.messages)
+                )
             }
 
-            console.error('Registration error:', error);
-            return response.status(500).json({
-                message: 'An error occurred during registration',
-                error: process.env.NODE_ENV === 'development' ? error.message : undefined
-            });
+            console.error('Registration error:', error)
+            return response.status(500).json(
+                ApiResponse.error('An error occurred during registration', 500)
+            )
         }
     }
 
     /**
-     * Get authenticated user info (requires API token)
+     * ✅ IMPROVED: Get authenticated user info (supports both guards)
      */
-    async me({ auth, response }: HttpContext) {
+    async me({ auth, response, session }: HttpContext) {
         try {
-            await auth.check()
-
-            const user = auth.user!
-            return response.json({
-                user: {
-                    id: user.id,
-                    fullName: user.fullName,
-                    email: user.email,
-                    createdAt: user.createdAt,
-                    updatedAt: user.updatedAt
-                }
-            })
-        } catch (error) {
-            return response.status(401).json({
-                message: 'Unauthorized'
-            })
-        }
-    }
-
-    /**
-     * Logout (revoke current token and clear session)
-     */
-    async logout({ auth, response }: HttpContext) {
-        try {
-            // Try to get user from either guard
+            // Try to authenticate with either guard
             let user = null
+            
             try {
-                await auth.check()
+                await auth.authenticate()
+                user = auth.user!
+            } catch (error) {
+                // If web guard fails, try API guard
+                try {
+                    await auth.use('api').authenticate()
+                    user = auth.user!
+                } catch (apiError) {
+                    return response.status(401).json(
+                        ApiResponse.error('Unauthorized', 401)
+                    )
+                }
+            }
+
+            // ✅ HYBRID: Include JWT token from session if available
+            const jwtToken = session.get('jwt_token')
+
+            return response.json(
+                ApiResponse.success({
+                    user: {
+                        id: user.id,
+                        fullName: user.fullName,
+                        email: user.email,
+                        createdAt: user.createdAt,
+                        updatedAt: user.updatedAt
+                    },
+                    token: jwtToken || null // Include JWT token for hybrid auth
+                })
+            )
+        } catch (error) {
+            return response.status(401).json(
+                ApiResponse.error('Unauthorized', 401)
+            )
+        }
+    }
+
+    /**
+     * ✅ IMPROVED: Logout (clears both session and JWT)
+     */
+    async logout({ auth, response, session, request }: HttpContext) {
+        try {
+            let user = null
+            
+            // Try to get user from either guard
+            try {
+                await auth.authenticate()
                 user = auth.user
             } catch (error) {
-                // User not authenticated, that's ok for logout
+                try {
+                    await auth.use('api').authenticate()
+                    user = auth.user
+                } catch (apiError) {
+                    // User not authenticated, that's ok for logout
+                }
             }
 
-            // Clear session if using web guard
+            // ✅ HYBRID APPROACH: Clear session (for Inertia)
             try {
                 await auth.use('web').logout()
             } catch (error) {
                 // No session to clear
             }
 
-            // Revoke API token if user has one
+            // ✅ HYBRID APPROACH: Revoke JWT token (for API/SPA)
             if (user) {
                 const token = user.currentAccessToken
                 if (token) {
@@ -252,181 +249,997 @@ export default class AuthController {
                 }
             }
 
-            return response.json({
-                message: 'Logged out successfully'
-            })
+            // ✅ STANDARD: Clear session data
+            session.clear()
+            session.flash('success', 'Logged out successfully')
+
+            // ✅ STANDARD: Handle response based on request type
+            const isInertiaRequest = request.header('x-inertia') === 'true'
+            const isApiRequest = request.url().startsWith('/api/')
+
+            if (isInertiaRequest) {
+                // For Inertia requests, redirect to login page
+                return response.redirect('/login')
+            } else if (isApiRequest) {
+                // For API requests, return JSON
+                return response.json(
+                    ApiResponse.success(null, 'Logged out successfully')
+                )
+            } else {
+                // For regular web requests, redirect to login
+                return response.redirect('/login')
+            }
         } catch (error) {
-            return response.status(401).json({
-                message: 'Unauthorized'
+            console.error('Logout error:', error)
+            
+            const isInertiaRequest = request.header('x-inertia') === 'true'
+            const isApiRequest = request.url().startsWith('/api/')
+
+            if (isInertiaRequest || !isApiRequest) {
+                session.flash('error', 'An error occurred during logout')
+                return response.redirect('/login')
+            } else {
+                return response.status(500).json(
+                    ApiResponse.error('An error occurred during logout', 500)
+                )
+            }
+        }
+    }
+
+    /**
+     * ✅ FIXED: Google OAuth redirect without custom state management
+     */
+    async googleRedirect({ ally, response, session }: HttpContext) {
+        try {
+            console.log('🔗 Starting Google OAuth redirect...')
+            
+            console.log('🔗 Ally configuration:', {
+                clientId: process.env.GOOGLE_CLIENT_ID ? 'SET' : 'MISSING',
+                clientSecret: process.env.GOOGLE_CLIENT_SECRET ? 'SET' : 'MISSING',
+                callbackUrl: process.env.GOOGLE_REDIRECT_URI || 'MISSING'
+            })
+            
+            console.log('🔗 Creating Ally Google instance...')
+            const google = ally.use('google')
+            console.log('🔗 Ally Google instance created successfully')
+            
+            console.log('🔗 Generating redirect URL...')
+            const redirectUrl = google.redirect()
+            console.log('🔗 Redirect URL generated:', redirectUrl)
+            console.log('🔗 Redirect URL type:', typeof redirectUrl)
+            
+            if (typeof redirectUrl === 'string') {
+                console.log('🔗 Redirecting to:', redirectUrl)
+                return response.redirect(redirectUrl)
+            } else {
+                console.log('🔗 Redirect URL is not a string, returning as is')
+                return redirectUrl
+            }
+        } catch (error) {
+            console.error('❌ Google OAuth redirect error:', error)
+            console.error('❌ Error stack:', error.stack)
+            
+            // Return a user-friendly error response
+            return response.status(500).json({
+                success: false,
+                message: 'OAuth configuration error. Please check your Google OAuth credentials.',
+                error: process.env.NODE_ENV === 'development' ? error.message : 'Configuration error'
             })
         }
     }
 
     /**
-     * Redirect to Google OAuth
+     * 🔍 DEBUG: OAuth state checker (development only)
      */
-    async googleRedirect({ ally }: HttpContext) {
-        return ally.use('google').redirect()
+    async oauthDebug({ ally, request, response }: HttpContext) {
+        if (process.env.NODE_ENV !== 'development') {
+            return response.status(404).json({ error: 'Not found' })
+        }
+
+        try {
+            const google = ally.use('google')
+            const url = request.url()
+            const queryParams = request.qs()
+
+            return response.json({
+                success: true,
+                debug: {
+                    url,
+                    queryParams,
+                    hasError: google.hasError(),
+                    accessDenied: google.accessDenied(),
+                    error: google.hasError() ? google.getError() : null,
+                    environment: {
+                        NODE_ENV: process.env.NODE_ENV,
+                        GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ? 'SET' : 'NOT SET',
+                        GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET ? 'SET' : 'NOT SET',
+                        GOOGLE_REDIRECT_URI: process.env.GOOGLE_REDIRECT_URI
+                    },
+                    timestamp: new Date().toISOString(),
+                    serverTime: Date.now()
+                }
+            })
+        } catch (error) {
+            return response.status(500).json({
+                success: false,
+                error: error.message,
+                stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+            })
+        }
     }
 
     /**
-     * Handle Google OAuth callback
+     * 🧪 DEBUG: Simple OAuth configuration test
      */
-    //before handling duplicate cases
+    async oauthDebugSimple({ ally, response }: HttpContext) {
+        if (process.env.NODE_ENV !== 'development') {
+            return response.status(404).json({ error: 'Not found' })
+        }
+
+        try {
+            const google = ally.use('google')
+            
+            return response.json({
+                success: true,
+                config: {
+                    clientId: process.env.GOOGLE_CLIENT_ID ? 'SET' : 'MISSING',
+                    clientSecret: process.env.GOOGLE_CLIENT_SECRET ? 'SET' : 'MISSING',
+                    redirectUri: process.env.GOOGLE_REDIRECT_URI || 'MISSING',
+                    nodeEnv: process.env.NODE_ENV
+                },
+                ally: {
+                    hasError: google.hasError(),
+                    accessDenied: google.accessDenied(),
+                    error: google.hasError() ? google.getError() : null
+                },
+                timestamp: new Date().toISOString()
+            })
+        } catch (error) {
+            return response.status(500).json({
+                success: false,
+                error: error.message
+            })
+        }
+    }
+
+    /**
+     * 🏥 HEALTH: OAuth health check
+     */
+    async oauthHealth({ response }: HttpContext) {
+        try {
+            return response.json({
+                success: true,
+                status: 'healthy',
+                oauth: {
+                    google: {
+                        clientId: process.env.GOOGLE_CLIENT_ID ? 'CONFIGURED' : 'MISSING',
+                        clientSecret: process.env.GOOGLE_CLIENT_SECRET ? 'CONFIGURED' : 'MISSING',
+                        redirectUri: process.env.GOOGLE_REDIRECT_URI || 'MISSING'
+                    }
+                },
+                timestamp: new Date().toISOString()
+            })
+        } catch (error) {
+            return response.status(500).json({
+                success: false,
+                status: 'unhealthy',
+                error: error.message
+            })
+        }
+    }
+
+    /**
+     * 🌐 NETWORK: Network connectivity diagnostic
+     */
+    async networkDiagnostic({ response }: HttpContext) {
+        if (process.env.NODE_ENV !== 'development') {
+            return response.status(404).json({ error: 'Not found' })
+        }
+
+        try {
+            const https = await import('https')
+            const results = {
+                googleOAuth: false,
+                googleAPIs: false,
+                googleAccounts: false,
+                timestamp: new Date().toISOString()
+            }
+
+            // Test Google OAuth endpoint
+            try {
+                await new Promise((resolve, reject) => {
+                    const req = https.get('https://oauth2.googleapis.com', { timeout: 5000 }, (res) => {
+                        results.googleOAuth = res.statusCode === 200
+                        resolve(true)
+                    })
+                    req.on('error', reject)
+                    req.on('timeout', () => reject(new Error('Timeout')))
+                })
+            } catch (error) {
+                console.error('Google OAuth connectivity test failed:', error.message)
+            }
+
+            // Test Google APIs endpoint
+            try {
+                await new Promise((resolve, reject) => {
+                    const req = https.get('https://www.googleapis.com', { timeout: 5000 }, (res) => {
+                        results.googleAPIs = res.statusCode === 200
+                        resolve(true)
+                    })
+                    req.on('error', reject)
+                    req.on('timeout', () => reject(new Error('Timeout')))
+                })
+            } catch (error) {
+                console.error('Google APIs connectivity test failed:', error.message)
+            }
+
+            // Test Google Accounts endpoint
+            try {
+                await new Promise((resolve, reject) => {
+                    const req = https.get('https://accounts.google.com', { timeout: 5000 }, (res) => {
+                        results.googleAccounts = res.statusCode === 200
+                        resolve(true)
+                    })
+                    req.on('error', reject)
+                    req.on('timeout', () => reject(new Error('Timeout')))
+                })
+            } catch (error) {
+                console.error('Google Accounts connectivity test failed:', error.message)
+            }
+
+            return response.json({
+                success: true,
+                network: results,
+                recommendations: {
+                    allGood: results.googleOAuth && results.googleAPIs && results.googleAccounts,
+                    checkInternet: !results.googleOAuth && !results.googleAPIs && !results.googleAccounts,
+                    checkFirewall: results.googleAPIs && !results.googleOAuth,
+                    checkDNS: results.googleAccounts && !results.googleAPIs
+                }
+            })
+        } catch (error) {
+            return response.status(500).json({
+                success: false,
+                error: error.message
+            })
+        }
+    }
+
+    /**
+     * 🧪 TEST: Simple OAuth configuration test
+     */
+    async oauthTest({ response }: HttpContext) {
+        if (process.env.NODE_ENV !== 'development') {
+            return response.status(404).json({ error: 'Not found' })
+        }
+
+        try {
+            // Test basic configuration
+            const config = {
+                clientId: process.env.GOOGLE_CLIENT_ID ? 'SET' : 'MISSING',
+                clientSecret: process.env.GOOGLE_CLIENT_SECRET ? 'SET' : 'MISSING',
+                redirectUri: process.env.GOOGLE_REDIRECT_URI || 'MISSING',
+                nodeEnv: process.env.NODE_ENV
+            }
+            
+            // Test network connectivity
+            const https = await import('https')
+            const networkTest = await new Promise<{ status: number | string; connected: boolean }>((resolve) => {
+                const req = https.get('https://oauth2.googleapis.com', { timeout: 5000 }, (res) => {
+                    resolve({ status: res.statusCode || 0, connected: res.statusCode === 200 })
+                })
+                req.on('error', () => resolve({ status: 'error', connected: false }))
+                req.on('timeout', () => resolve({ status: 'timeout', connected: false }))
+            })
+            
+            return response.json({
+                success: true,
+                config,
+                network: networkTest,
+                timestamp: new Date().toISOString(),
+                recommendations: {
+                    allGood: config.clientId === 'SET' && config.clientSecret === 'SET' && networkTest.connected,
+                    checkCredentials: config.clientId === 'MISSING' || config.clientSecret === 'MISSING',
+                    checkNetwork: !networkTest.connected,
+                    checkRedirectUri: config.redirectUri === 'MISSING'
+                }
+            })
+        } catch (error) {
+            return response.status(500).json({
+                success: false,
+                error: error.message
+            })
+        }
+    }
+
+    /**
+     * 🧪 TEST: Direct Google OAuth credentials test
+     */
+    async testGoogleCredentials({ response }: HttpContext) {
+        if (process.env.NODE_ENV !== 'development') {
+            return response.status(404).json({ error: 'Not found' })
+        }
+
+        try {
+            const clientId = process.env.GOOGLE_CLIENT_ID
+            const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+            const redirectUri = process.env.GOOGLE_REDIRECT_URI
+            
+            // Test basic credential format
+            const clientIdValid = clientId && clientId.includes('.apps.googleusercontent.com')
+            const clientSecretValid = clientSecret && clientSecret.length > 10
+            const redirectUriValid = redirectUri && redirectUri.includes('localhost:3333')
+            
+            return response.json({
+                success: true,
+                credentials: {
+                    clientId: clientIdValid ? 'VALID' : 'INVALID',
+                    clientSecret: clientSecretValid ? 'VALID' : 'INVALID',
+                    redirectUri: redirectUriValid ? 'VALID' : 'INVALID',
+                    clientIdPreview: clientId ? clientId.substring(0, 20) + '...' : 'MISSING',
+                    redirectUriFull: redirectUri || 'MISSING'
+                },
+                recommendations: {
+                    checkGoogleConsole: !clientIdValid || !clientSecretValid,
+                    checkRedirectUri: !redirectUriValid,
+                    allGood: clientIdValid && clientSecretValid && redirectUriValid
+                }
+            })
+        } catch (error) {
+            return response.status(500).json({
+                success: false,
+                error: error.message
+            })
+        }
+    }
+
+    /**
+     * 🧪 TEST: Simple redirect test to see Google callback data
+     */
+    async testRedirect({ request, response }: HttpContext) {
+        if (process.env.NODE_ENV !== 'development') {
+            return response.status(404).json({ error: 'Not found' })
+        }
+
+        return response.json({
+            success: true,
+            url: request.url(),
+            queryParams: request.qs(),
+            headers: {
+                'user-agent': request.header('user-agent'),
+                'referer': request.header('referer')
+            },
+            timestamp: new Date().toISOString()
+        })
+    }
+
+    /**
+     * 🌐 TEST: Direct Google OAuth endpoint connectivity
+     */
+    async testGoogleConnectivity({ response }: HttpContext) {
+        if (process.env.NODE_ENV !== 'development') {
+            return response.status(404).json({ error: 'Not found' })
+        }
+
+        try {
+            const https = await import('https')
+            const results = {
+                oauth2Googleapis: false,
+                accountsGoogle: false,
+                wwwGoogleapis: false
+            }
+
+            // Test oauth2.googleapis.com
+            try {
+                await new Promise((resolve, reject) => {
+                    const req = https.get('https://oauth2.googleapis.com', { timeout: 5000 }, (res) => {
+                        results.oauth2Googleapis = res.statusCode === 200
+                        resolve(true)
+                    })
+                    req.on('error', reject)
+                    req.on('timeout', () => reject(new Error('Timeout')))
+                })
+            } catch (error) {
+                console.error('oauth2.googleapis.com test failed:', error.message)
+            }
+
+            // Test accounts.google.com
+            try {
+                await new Promise((resolve, reject) => {
+                    const req = https.get('https://accounts.google.com', { timeout: 5000 }, (res) => {
+                        results.accountsGoogle = res.statusCode === 200
+                        resolve(true)
+                    })
+                    req.on('error', reject)
+                    req.on('timeout', () => reject(new Error('Timeout')))
+                })
+            } catch (error) {
+                console.error('accounts.google.com test failed:', error.message)
+            }
+
+            // Test www.googleapis.com
+            try {
+                await new Promise((resolve, reject) => {
+                    const req = https.get('https://www.googleapis.com', { timeout: 5000 }, (res) => {
+                        results.wwwGoogleapis = res.statusCode === 200
+                        resolve(true)
+                    })
+                    req.on('error', reject)
+                    req.on('timeout', () => reject(new Error('Timeout')))
+                })
+            } catch (error) {
+                console.error('www.googleapis.com test failed:', error.message)
+            }
+
+            return response.json({
+                success: true,
+                connectivity: results,
+                timestamp: new Date().toISOString(),
+                recommendations: {
+                    allGood: results.oauth2Googleapis && results.accountsGoogle && results.wwwGoogleapis,
+                    checkFirewall: !results.oauth2Googleapis && !results.accountsGoogle,
+                    checkDNS: results.accountsGoogle && !results.oauth2Googleapis
+                }
+            })
+        } catch (error) {
+            return response.status(500).json({
+                success: false,
+                error: error.message
+            })
+        }
+    }
+
+    /**
+     * 🔧 TEST: Direct HTTPS request to Google OAuth
+     */
+    async testDirectHttps({ response }: HttpContext) {
+        if (process.env.NODE_ENV !== 'development') {
+            return response.status(404).json({ error: 'Not found' })
+        }
+
+        try {
+            const https = await import('https')
+            
+            // Test direct HTTPS request to Google OAuth
+            const testUrl = 'https://oauth2.googleapis.com/token'
+            
+            return new Promise((resolve) => {
+                const req = https.get(testUrl, { timeout: 10000 }, (res) => {
+                    let data = ''
+                    res.on('data', (chunk) => {
+                        data += chunk
+                    })
+                    res.on('end', () => {
+                        resolve(response.json({
+                            success: true,
+                            statusCode: res.statusCode,
+                            headers: res.headers,
+                            data: data.substring(0, 200) + '...',
+                            timestamp: new Date().toISOString()
+                        }))
+                    })
+                })
+                
+                req.on('error', (error) => {
+                    resolve(response.json({
+                        success: false,
+                        error: error.message,
+                        timestamp: new Date().toISOString()
+                    }))
+                })
+                
+                req.on('timeout', () => {
+                    req.destroy()
+                    resolve(response.json({
+                        success: false,
+                        error: 'Request timeout',
+                        timestamp: new Date().toISOString()
+                    }))
+                })
+            })
+            
+        } catch (error) {
+            return response.status(500).json({
+                success: false,
+                error: error.message
+            })
+        }
+    }
+
+    /**
+     * 🧪 TEST: Ally configuration test
+     */
+    async testAllyConfig({ ally, response }: HttpContext) {
+        if (process.env.NODE_ENV !== 'development') {
+            return response.status(404).json({ error: 'Not found' })
+        }
+
+        try {
+            console.log('🧪 Testing Ally configuration...')
+            
+            const google = ally.use('google')
+            console.log('🧪 Ally Google instance created')
+            
+            // Test redirect URL generation
+            console.log('🧪 Testing redirect URL generation...')
+            const redirectUrl = google.redirect()
+            console.log('🧪 Redirect URL generated:', redirectUrl)
+            
+            // Test if we can access Google OAuth endpoints
+            console.log('🧪 Testing Google OAuth endpoint accessibility...')
+            
+            return response.json({
+                success: true,
+                ally: {
+                    hasError: google.hasError(),
+                    accessDenied: google.accessDenied(),
+                    error: google.hasError() ? google.getError() : null,
+                    redirectUrl: typeof redirectUrl === 'string' ? redirectUrl : 'Not a string'
+                },
+                config: {
+                    clientId: process.env.GOOGLE_CLIENT_ID ? 'SET' : 'MISSING',
+                    clientSecret: process.env.GOOGLE_CLIENT_SECRET ? 'SET' : 'MISSING',
+                    callbackUrl: process.env.GOOGLE_REDIRECT_URI || 'MISSING'
+                },
+                timestamp: new Date().toISOString()
+            })
+        } catch (error) {
+            console.error('🧪 Ally config test error:', error)
+            return response.status(500).json({
+                success: false,
+                error: error.message,
+                stack: error.stack
+            })
+        }
+    }
+
+    /**
+     * ✅ REDEFINED: Google OAuth callback with proper hybrid approach
+     */
     async googleCallback({ ally, auth, response, session, request }: HttpContext) {
+        const startTime = Date.now()
+        const requestId = OAuthLogger.startRequest()
+        
         try {
             const google = ally.use('google')
 
-            console.log('OAuth callback received:', request.qs())
-
-            // Check if the callback has been denied
+            // Check for OAuth errors
             if (google.accessDenied()) {
-                console.log('OAuth access denied')
+                OAuthLogger.logWarning(requestId, 'Google authorization was denied by user')
                 session.flash('error', 'Google authorization was denied')
                 return response.redirect('/login')
             }
 
             if (google.hasError()) {
                 const error = google.getError()
-                console.log('OAuth error:', error)
+                OAuthLogger.logError({
+                    requestId,
+                    action: 'oauth_google_error',
+                    error: error || 'Unknown OAuth error',
+                    ip: request.ip(),
+                    userAgent: request.header('user-agent'),
+                    additionalData: { url: request.url() }
+                })
                 session.flash('error', `OAuth error: ${error}`)
                 return response.redirect('/login')
             }
 
-            // For development, we'll handle state mismatch more gracefully
-            let googleUser
+            // ✅ REDEFINED: Try Ally first, then manual fallback
+            let googleUser: any
             try {
-                console.log('Before google.user()');
-                googleUser = await google.user();
-                console.log('After google.user()', googleUser);
-
-            } catch (error) {
-                if (error.message.includes('Unable to verify re-redirect state')) {
-                    console.log('State verification failed - trying alternative approach');
-
-                    // Get the authorization code from the callback
-                    const code = request.input('code');
-                    if (!code) {
-                        session.flash('error', 'No authorization code received from Google');
-                        return response.redirect('/login');
-                    }
-
-                    // Manual token exchange (for development only)
-                    const start = Date.now();
-                    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                        },
-                        body: new URLSearchParams({
-                            code: code,
-                            client_id: env.get('GOOGLE_CLIENT_ID'),
-                            client_secret: env.get('GOOGLE_CLIENT_SECRET'),
-                            redirect_uri: env.get('GOOGLE_REDIRECT_URI'),
-                            grant_type: 'authorization_code',
-                        }),
-                    });
-                    console.log('Token exchange took', Date.now() - start, 'ms');
-
-                    if (!tokenResponse.ok) {
-                        throw new Error('Failed to exchange code for token');
-                    }
-
-                    const tokenData = await tokenResponse.json();
-
-                    const userStart = Date.now();
-                    const userResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-                        headers: {
-                            'Authorization': `Bearer ${tokenData.access_token}`
-                        }
-                    });
-                    console.log('User info fetch took', Date.now() - userStart, 'ms');
-
-                    if (!userResponse.ok) {
-                        throw new Error('Failed to fetch user info from Google');
-                    }
-
-                    const userData = await userResponse.json();
-
-                    // Transform to match expected format
-                    googleUser = {
-                        id: userData.id,
-                        email: userData.email,
-                        name: userData.name,
-                        avatarUrl: userData.picture
-                    };
-                } else {
-                    throw error // Re-throw if it's a different error
+                OAuthLogger.logStep(requestId, 'Fetching Google user data...')
+                
+                // Add detailed debugging
+                console.log(`[DEBUG-${requestId}] Starting OAuth token exchange...`)
+                console.log(`[DEBUG-${requestId}] Request URL:`, request.url())
+                console.log(`[DEBUG-${requestId}] Query params:`, request.qs())
+                console.log(`[DEBUG-${requestId}] Ally config:`, {
+                    hasError: google.hasError(),
+                    accessDenied: google.accessDenied(),
+                    error: google.hasError() ? google.getError() : null
+                })
+                
+                // Step 1: Try Ally's user() method with longer timeout
+                console.log(`[DEBUG-${requestId}] Step 1: Trying Ally user() method...`)
+                const allyTimeoutPromise = new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error('Ally user() timeout after 15 seconds')), 15000)
+                })
+                
+                const startTime = Date.now()
+                
+                try {
+                    // Try Ally's built-in method first
+                    googleUser = await Promise.race([google.user(), allyTimeoutPromise])
+                    console.log(`[DEBUG-${requestId}] ✅ Ally user() method succeeded!`)
+                    console.log(`[DEBUG-${requestId}] Ally user data:`, {
+                        id: googleUser?.id,
+                        email: googleUser?.email,
+                        name: googleUser?.name
+                    })
+                } catch (allyError) {
+                    console.warn(`[DEBUG-${requestId}] ❌ Ally user() method failed:`, allyError.message)
+                    
+                    // Step 2: Fall back to manual token exchange
+                    console.log(`[DEBUG-${requestId}] Step 2: Falling back to manual token exchange...`)
+                    googleUser = await this.performManualTokenExchange(requestId, request)
+                    console.log(`[DEBUG-${requestId}] ✅ Manual token exchange succeeded!`)
+                    console.log(`[DEBUG-${requestId}] Manual user data:`, {
+                        id: googleUser?.id,
+                        email: googleUser?.email,
+                        name: googleUser?.name
+                    })
                 }
+                
+                const endTime = Date.now()
+                console.log(`[DEBUG-${requestId}] Token exchange completed in:`, endTime - startTime, 'ms')
+                OAuthLogger.logGoogleUserReceived(requestId, googleUser)
+                
+            } catch (error) {
+                const endTime = Date.now()
+                console.error(`[DEBUG-${requestId}] ❌ All token exchange methods failed after:`, endTime - startTime, 'ms')
+                console.error(`[DEBUG-${requestId}] Final error:`, error.message)
+                console.error(`[DEBUG-${requestId}] Error stack:`, error.stack)
+                
+                OAuthLogger.logError({
+                    requestId,
+                    action: 'oauth_google_user_fetch',
+                    error: error.message,
+                    stack: error.stack,
+                    ip: request.ip(),
+                    userAgent: request.header('user-agent'),
+                    additionalData: { 
+                        url: request.url(),
+                        duration: endTime - startTime,
+                        errorType: error.constructor.name
+                    }
+                })
+                session.flash('error', 'Failed to authenticate with Google. Please try again.')
+                return response.redirect('/login')
             }
 
-            console.log('Google user data:', {
-                id: googleUser.id,
-                email: googleUser.email,
-                name: googleUser.name
-            })
-
-            // Check if user already exists with this provider ID
+            // ✅ HYBRID: Find or create user
             let user = await User.query()
-                .where('provider', 'google')
-                .where('providerId', googleUser.id)
+                .where((query) => {
+                    query.where('provider', 'google').where('providerId', googleUser.id)
+                         .orWhere('email', googleUser.email)
+                })
                 .first()
 
             if (!user) {
-                // Check if user exists with same email but different provider
-                const existingUser = await User.findBy('email', googleUser.email)
-
-                if (existingUser) {
-                    // Only link Google if password exists (i.e., not a Google-only user)
-                    if (existingUser.password) {
-                        existingUser.provider = 'google'
-                        existingUser.providerId = googleUser.id
-                        existingUser.avatarUrl = googleUser.avatarUrl
-                        await existingUser.save()
-                        user = existingUser
-                    } else {
-                        // Prevent duplicate Google-only accounts
-                        user = existingUser
-                    }
-                } else {
-                    // Create new Google-only user
-                    user = await User.create({
-                        fullName: googleUser.name,
-                        email: googleUser.email,
-                        provider: 'google',
-                        providerId: googleUser.id,
-                        avatarUrl: googleUser.avatarUrl,
-                        password: null // OAuth users don't have passwords
-                    })
-                }
+                // Create new Google user
+                OAuthLogger.logStep(requestId, 'Creating new Google user...')
+                user = await User.create({
+                    fullName: googleUser.name,
+                    email: googleUser.email,
+                    provider: 'google',
+                    providerId: googleUser.id,
+                    avatarUrl: googleUser.avatarUrl,
+                    password: null
+                })
+                OAuthLogger.logUserCreation(requestId, user)
+            } else if (!user.providerId) {
+                // Link Google to existing email account
+                OAuthLogger.logAccountLinking(requestId, user, googleUser.id)
+                user.provider = 'google'
+                user.providerId = googleUser.id
+                user.avatarUrl = googleUser.avatarUrl
+                await user.save()
+                OAuthLogger.logStep(requestId, 'Account linking completed')
+            } else {
+                OAuthLogger.logStep(requestId, 'Existing Google user found')
             }
 
-            // Login user via session (for Inertia.js)
+            // ✅ HYBRID APPROACH: Conditional token exchange based on request type
+            OAuthLogger.logStep(requestId, 'Starting conditional authentication...')
+            
+            // Determine authentication method based on request type
+            const { sessionToken, jwtToken } = await this.handleTokenExchange(requestId, user, request, session)
+            
+            if (sessionToken) {
+                // Session login for web/Inertia requests
+                await auth.use('web').login(user)
+                OAuthLogger.logStep(requestId, 'Session login completed')
+                
+                // Store JWT in session for hybrid access if available
+                if (jwtToken) {
+                    session.put('jwt_token', jwtToken)
+                    OAuthLogger.logStep(requestId, 'JWT token stored in session')
+                }
+            } else if (jwtToken) {
+                // JWT-only for API requests
+                OAuthLogger.logStep(requestId, 'JWT-only authentication for API')
+                // Don't create session, just return JWT
+            } else {
+                // Fallback to session if JWT generation failed
             await auth.use('web').login(user)
+                OAuthLogger.logStep(requestId, 'Fallback session login completed')
+            }
 
-            // Generate access token (for API access)
-            const token = await User.accessTokens.create(user, ['*'], {
-                name: 'OAuth API Token',
-                expiresIn: '30 days'
-            })
+            // ✅ SUCCESS: Log authentication success
+            const duration = Date.now() - startTime
+            OAuthLogger.logAuthenticationSuccess(requestId, user, duration)
 
-            // Set success flash message
-            session.flash('success', 'Successfully logged in with Google!')
-
-            // Redirect to dashboard with token as query parameter (for frontend use)
-            return response.redirect(`/dashboard?token=${token.value!.release()}`)
+            // ✅ RESPONSE: Handle response based on request type
+            return this.handleAuthResponse(request, response, session, user, jwtToken)
 
         } catch (error) {
-            console.error('OAuth Error Details:', {
-                message: error.message,
-                stack: error.stack,
-                name: error.name
-            })
-
+            const duration = Date.now() - startTime
+            OAuthLogger.logAuthenticationError(requestId, error, duration)
+            
             session.flash('error', 'Authentication failed. Please try again.')
             return response.redirect('/login')
         }
     }
 
+    /**
+     * 🔄 IMPROVED: Manual token exchange with better error handling
+     */
+    private async performManualTokenExchange(requestId: string, request: any) {
+        try {
+            const https = await import('https')
+            const querystring = await import('querystring')
+            
+            const code = request.qs().code
+            const clientId = process.env.GOOGLE_CLIENT_ID
+            const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+            const redirectUri = process.env.GOOGLE_REDIRECT_URI
+            
+            if (!code || !clientId || !clientSecret || !redirectUri) {
+                throw new Error('Missing required OAuth parameters')
+            }
+            
+            console.log(`[DEBUG-${requestId}] Manual token exchange starting...`)
+            console.log(`[DEBUG-${requestId}] Authorization code:`, code.substring(0, 20) + '...')
+            console.log(`[DEBUG-${requestId}] Redirect URI:`, redirectUri)
+            console.log(`[DEBUG-${requestId}] Client ID:`, clientId.substring(0, 20) + '...')
+            
+            // Prepare token exchange request
+            const postData = querystring.stringify({
+                code: code,
+                client_id: clientId,
+                client_secret: clientSecret,
+                redirect_uri: redirectUri,
+                grant_type: 'authorization_code'
+            })
+            
+            const options = {
+                hostname: 'oauth2.googleapis.com',
+                port: 443,
+                path: '/token',
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Content-Length': Buffer.byteLength(postData)
+                },
+                timeout: 10000 // 10 second timeout
+            }
+            
+            console.log(`[DEBUG-${requestId}] Making HTTPS request to Google...`)
+            
+            return new Promise((resolve, reject) => {
+                const req = https.request(options, (res) => {
+                    let data = ''
+                    
+                    res.on('data', (chunk) => {
+                        data += chunk
+                    })
+                    
+                    res.on('end', () => {
+                        try {
+                            console.log(`[DEBUG-${requestId}] Token exchange response status:`, res.statusCode)
+                            console.log(`[DEBUG-${requestId}] Response data:`, data.substring(0, 300) + '...')
+                            
+                            const tokenResponse = JSON.parse(data)
+                            
+                            if (res.statusCode !== 200) {
+                                const errorMsg = tokenResponse.error_description || tokenResponse.error || 'Unknown error'
+                                console.error(`[DEBUG-${requestId}] Token exchange failed with status ${res.statusCode}:`, errorMsg)
+                                
+                                // Handle specific error types
+                                if (tokenResponse.error === 'invalid_grant') {
+                                    console.error(`[DEBUG-${requestId}] Invalid grant error - code may be expired or already used`)
+                                    reject(new Error('Authorization code expired or already used. Please try again.'))
+                                } else {
+                                    reject(new Error(`Token exchange failed (${res.statusCode}): ${errorMsg}`))
+                                }
+                                return
+                            }
+                            
+                            if (tokenResponse.error) {
+                                reject(new Error(`Token exchange failed: ${tokenResponse.error_description || tokenResponse.error}`))
+                                return
+                            }
+                            
+                            console.log(`[DEBUG-${requestId}] ✅ Token exchange successful!`)
+                            console.log(`[DEBUG-${requestId}] Access token received:`, tokenResponse.access_token ? 'YES' : 'NO')
+                            
+                            // Now get user info using the access token
+                            this.getUserInfoWithToken(requestId, tokenResponse.access_token)
+                                .then(resolve)
+                                .catch(reject)
+                                
+                        } catch (parseError) {
+                            reject(new Error(`Failed to parse token response: ${parseError.message}`))
+                        }
+                    })
+                })
+                
+                req.on('error', (error) => {
+                    console.error(`[DEBUG-${requestId}] Network error during token exchange:`, error.message)
+                    reject(new Error(`Network error during token exchange: ${error.message}`))
+                })
+                
+                req.on('timeout', () => {
+                    console.error(`[DEBUG-${requestId}] Token exchange timeout`)
+                    req.destroy()
+                    reject(new Error('Token exchange timeout'))
+                })
+                
+                console.log(`[DEBUG-${requestId}] Writing request data...`)
+                req.write(postData)
+                req.end()
+            })
+            
+        } catch (error) {
+            throw new Error(`Manual token exchange failed: ${error.message}`)
+        }
+    }
+    
+    /**
+     * 👤 GET_USER: Get user info using access token
+     */
+    private async getUserInfoWithToken(requestId: string, accessToken: string) {
+        try {
+            const https = await import('https')
+            
+            const options = {
+                hostname: 'www.googleapis.com',
+                port: 443,
+                path: '/oauth2/v2/userinfo',
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'User-Agent': 'AdonisJS-OAuth-Fallback'
+                },
+                timeout: 10000 // 10 second timeout
+            }
+            
+            return new Promise((resolve, reject) => {
+                const req = https.request(options, (res) => {
+                    let data = ''
+                    
+                    res.on('data', (chunk) => {
+                        data += chunk
+                    })
+                    
+                    res.on('end', () => {
+                        try {
+                            const userInfo = JSON.parse(data)
+                            
+                            if (userInfo.error) {
+                                reject(new Error(`Failed to get user info: ${userInfo.error_description || userInfo.error}`))
+                                return
+                            }
+                            
+                            // Format user data to match Ally's format
+                            const googleUser = {
+                                id: userInfo.id,
+                                name: userInfo.name,
+                                email: userInfo.email,
+                                avatarUrl: userInfo.picture,
+                                emailVerified: userInfo.verified_email
+                            }
+                            
+                            resolve(googleUser)
+                            
+                        } catch (parseError) {
+                            reject(new Error(`Failed to parse user info: ${parseError.message}`))
+                        }
+                    })
+                })
+                
+                req.on('error', (error) => {
+                    reject(new Error(`Network error getting user info: ${error.message}`))
+                })
+                
+                req.on('timeout', () => {
+                    req.destroy()
+                    reject(new Error('User info request timeout'))
+                })
+                
+                req.end()
+            })
+            
+        } catch (error) {
+            throw new Error(`Failed to get user info: ${error.message}`)
+        }
+    }
 
+    /**
+     * ✅ SIMPLIFIED: Basic OAuth configuration validator
+     */
+    private validateOAuthConfig(requestId: string, request: any) {
+        const errors = []
+        
+        // Only check essential environment variables
+        if (!process.env.GOOGLE_CLIENT_ID) {
+            errors.push('GOOGLE_CLIENT_ID is missing')
+        }
+        if (!process.env.GOOGLE_CLIENT_SECRET) {
+            errors.push('GOOGLE_CLIENT_SECRET is missing')
+        }
+        
+        // Check authorization code
+        const code = request.qs().code
+        if (!code) {
+            errors.push('Authorization code is missing from callback')
+        }
+        
+        if (errors.length > 0) {
+            console.error(`[DEBUG-${requestId}] OAuth configuration errors:`, errors)
+            throw new Error(`OAuth configuration errors: ${errors.join(', ')}`)
+        }
+        
+        console.log(`[DEBUG-${requestId}] OAuth configuration validation passed`)
+        return true
+    }
+
+    /**
+     * ✅ CONDITIONAL: Handle token exchange based on request type
+     */
+    private async handleTokenExchange(requestId: string, user: any, request: any, session: any) {
+        const isApiRequest = request.header('accept')?.includes('application/json')
+        const isInertiaRequest = request.header('x-inertia') === 'true'
+        
+        // Always do session login for web requests
+        if (!isApiRequest || isInertiaRequest) {
+            OAuthLogger.logStep(requestId, 'Performing session login for web request')
+            return { sessionToken: true, jwtToken: null }
+        }
+        
+        // For API requests, generate JWT token
+        try {
+            OAuthLogger.logStep(requestId, 'Generating JWT token for API request')
+            const token = await User.accessTokens.create(user, ['*'], {
+                name: 'OAuth API Token',
+                expiresIn: '30 days'
+            })
+            const jwtToken = token.value!.release()
+            OAuthLogger.logStep(requestId, 'JWT token generated successfully')
+            return { sessionToken: false, jwtToken }
+        } catch (error) {
+            console.warn(`[DEBUG-${requestId}] JWT token generation failed:`, error.message)
+            return { sessionToken: false, jwtToken: null }
+        }
+    }
+
+    /**
+     * ✅ RESPONSE: Handle response based on request type
+     */
+    private handleAuthResponse(request: any, response: any, session: any, user: any, jwtToken: string | null) {
+        const isApiRequest = request.header('accept')?.includes('application/json')
+        const isInertiaRequest = request.header('x-inertia') === 'true'
+        
+        if (isApiRequest && !isInertiaRequest && jwtToken) {
+            // API request with JWT token
+            return response.json({
+                success: true,
+                data: {
+                    token: jwtToken,
+                    user: {
+                        id: user.id,
+                        fullName: user.fullName,
+                        email: user.email,
+                        createdAt: user.createdAt,
+                        updatedAt: user.updatedAt
+                    }
+                },
+                message: 'Authentication successful'
+            })
+        } else {
+            // Web/Inertia request - redirect with session
+            session.flash('success', 'Successfully logged in with Google!')
+            return response.redirect('/dashboard')
+        }
+    }
 }

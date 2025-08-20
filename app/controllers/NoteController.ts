@@ -86,9 +86,9 @@ export default class NotesController {
     try {
       await auth.authenticate()
       const user = auth.getUserOrFail()
-      const { note_id } = await request.validateUsing(noteIdValidator, { data: params })
+      const noteId = params.id
       const note = await Note.query()
-        .where('id', note_id)
+        .where('id', noteId)
         .where('userId', user.id)
         .whereNull('deleted_at')
         // .preload('labels') // label logic removed
@@ -101,10 +101,14 @@ export default class NotesController {
     } catch (error) {
       if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
         if (error.message?.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
-          return response.redirect('/login')
+          return inertia.render('errors/unauthorized', {
+            message: 'You need to be authenticated to view this note.',
+            redirectUrl: '/login'
+          })
         }
         return inertia.render('errors/not_found', {
-          error: error.message || 'Note not found'
+          error: error.message || 'Note not found',
+          message: 'This note may have been deleted or you do not have permission to view it.'
         })
       }
       if (error.message?.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
@@ -118,9 +122,9 @@ export default class NotesController {
     try {
       await auth.authenticate()
       const user = auth.getUserOrFail()
-      const { note_id } = await request.validateUsing(noteIdValidator, { data: params })
+      const noteId = params.id
       const note = await Note.query()
-        .where('id', note_id)
+        .where('id', noteId)
         .where('userId', user.id)
         .whereNull('deleted_at')
         // .preload('labels') // label logic removed
@@ -138,10 +142,14 @@ export default class NotesController {
     } catch (error) {
       if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
         if (error.message?.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
-          return response.redirect('/login')
+          return inertia.render('errors/unauthorized', {
+            message: 'You need to be authenticated to edit this note.',
+            redirectUrl: '/login'
+          })
         }
         return inertia.render('errors/not_found', {
-          error: error.message || 'Note not found'
+          error: error.message || 'Note not found',
+          message: 'This note may have been deleted or you do not have permission to edit it.'
         })
       }
       if (error.message?.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
@@ -152,31 +160,51 @@ export default class NotesController {
   }
 
 
-  async store({ request, response, auth }: HttpContext) {
+  async store({ request, response, auth, inertia }: HttpContext) {
     try {
+      // ✅ FIXED: Ensure proper authentication
       await auth.authenticate()
       const user = auth.getUserOrFail()
+      
+      if (!user || !user.id) {
+        logger.error('User authentication failed - no user or user ID')
+        if (this.isInertiaRequest(request)) {
+          return response.redirect('/login')
+        } else {
+          return response.unauthorized({ message: 'Authentication required' })
+        }
+      }
+
       const payload = await request.validateUsing(createNoteValidator)
 
-      // Debug: log incoming payload
-      logger.info('DEBUG NOTE PAYLOAD', { payload })
-      console.log('DEBUG NOTE PAYLOAD', JSON.stringify(payload))
+      // Debug: log incoming payload and user
+      logger.info('DEBUG NOTE CREATION', { 
+        userId: user.id, 
+        userEmail: user.email,
+        payload: payload,
+        rawLabels: request.input('labels'),
+        allInputs: request.all()
+      })
+      console.log('DEBUG NOTE CREATION - User:', user.id, user.email)
+      console.log('DEBUG NOTE CREATION - Payload:', JSON.stringify(payload))
+      console.log('DEBUG NOTE CREATION - Raw labels input:', request.input('labels'))
+      console.log('DEBUG NOTE CREATION - All inputs:', request.all())
 
       const noteData: Partial<Note> = {
         title: payload.title,
         content: payload.content ? await marked.parse(payload.content) : '',
         pinned: payload.pinned ?? false,
-        userId: user.id,
+        userId: user.id, // ✅ FIXED: Ensure user_id is set
         imageUrl: null,
         imagePublicId: null,
-        gif_url: payload.gif_url || null, // DB column is gif_url
-        gif_slug: payload.gif_slug || null, // DB column is gif_slug
-        labels: payload.labels || [],
+        gif_url: payload.gif_url || null,
+        gif_slug: payload.gif_slug || null,
+        labels: payload.labels || null, // ✅ FIXED: Handle undefined labels
       }
 
       // Debug: log noteData before create
       logger.info('DEBUG NOTE DATA', { noteData })
-      console.log('DEBUG NOTE DATA', JSON.stringify(noteData))
+      console.log('DEBUG NOTE DATA:', JSON.stringify(noteData))
 
       // Handle image upload with cleanup on failure
       if (payload.image) {
@@ -205,23 +233,38 @@ export default class NotesController {
 
       let note = null
       try {
-        note = await Note.create(noteData)
-        logger.info('DEBUG NOTE CREATED', { note })
-        console.log('DEBUG NOTE CREATED', JSON.stringify(note))
+        // ✅ FIXED: Ensure user_id is explicitly set
+        note = await Note.create({
+          ...noteData,
+          userId: user.id // Double-check user_id is set
+        })
+        
+        logger.info('DEBUG NOTE CREATED SUCCESSFULLY', { 
+          noteId: note.id, 
+          userId: note.userId,
+          title: note.title 
+        })
+        console.log('DEBUG NOTE CREATED SUCCESSFULLY:', {
+          id: note.id,
+          userId: note.userId,
+          title: note.title
+        })
       } catch (err) {
-        logger.error('ERROR CREATING NOTE', { err })
-        console.log('ERROR CREATING NOTE', err)
+        logger.error('ERROR CREATING NOTE', { 
+          error: err.message, 
+          userId: user.id,
+          noteData: noteData 
+        })
+        console.log('ERROR CREATING NOTE:', err.message)
         throw err
       }
 
-      // Debug: log note after create
-      logger.info('DEBUG NOTE CREATED', { note })
-
-
-
+      // ✅ FIXED: Proper response handling for Inertia
       if (this.isInertiaRequest(request)) {
-        return response.redirect().toRoute('notes.index')
+        // For Inertia requests, redirect to notes page
+        return response.redirect('/notes')
       } else {
+        // For API requests, return JSON
         return response.created({
           message: 'Note created successfully',
           note: note.serialize()
@@ -232,13 +275,25 @@ export default class NotesController {
       logger.error('Note creation failed', {
         error: error.message,
         stack: error.stack,
-        full: error
+        userId: auth.user?.id || 'unknown'
       })
 
-      // Debug: send error details in response for frontend
+      // ✅ FIXED: Better error handling for Inertia
       if (this.isInertiaRequest(request)) {
+        if (error.message?.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
+          return response.redirect('/login')
+        }
+        
+        // ✅ FIXED: Return proper Inertia response for validation errors
+        if (error.messages) {
+          // For Inertia requests, redirect back with validation errors
+          return response.redirect().back()
+        }
+        
+        // Generic error for Inertia - redirect back
         return response.redirect().back()
       } else {
+        // For API requests, return JSON error
         return response.status(400).json({
           message: 'Note creation failed',
           error: error.messages?.messages || error.message,

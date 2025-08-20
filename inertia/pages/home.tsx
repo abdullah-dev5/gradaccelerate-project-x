@@ -1,7 +1,7 @@
 import { Head, Link } from '@inertiajs/react'
 
-import { useAuth } from '../contexts/AuthContext'
-import WeatherCard from '../components/WeatherCard'
+import { useAuth } from '../contexts/AuthContext.js'
+import WeatherCard from '../components/WeatherCard.js'
 
 export default function Home() {
   const { isAuthenticated, user } = useAuth()

@@ -1,124 +1,160 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import React, { createContext, useContext, useEffect, useState } from 'react'
 
 interface User {
   id: number
   fullName: string
   email: string
+  createdAt: string
+  updatedAt: string
 }
 
 interface AuthContextType {
   user: User | null
-  setUser: (user: User | null) => void
   isAuthenticated: boolean
+  token: string | null
+  login: (token: string, user: User) => void
   logout: () => void
+  loading: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export const useAuth = () => {
-  const context = useContext(AuthContext)
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider')
-  }
-  return context
-}
-
-interface AuthProviderProps {
-  children: ReactNode
-}
-
-export const AuthProvider = ({ children }: AuthProviderProps) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
-  const [isClient, setIsClient] = useState(false)
+  const [token, setToken] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  const isAuthenticated = !!user
-
-  const logout = async () => {
-    // Only run on client side
-    if (typeof window === 'undefined') return
-
-    try {
-      // Get token from localStorage
-      const token = localStorage.getItem('auth_token')
-      
-      if (token) {
-        await fetch('/api/auth/logout', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        })
-      }
-      
-      // Clear local storage and user state
-      localStorage.removeItem('auth_token')
-      setUser(null)
-      
-      // Redirect to home
-      window.location.href = '/'
-    } catch (error) {
-      console.error('Logout error:', error)
-      // Clear local storage anyway
-      localStorage.removeItem('auth_token')
-      setUser(null)
-      window.location.href = '/'
-    }
-  }
-
-  // Check if we're on the client side
+  // ✅ SIMPLIFIED: Initialize auth state from localStorage
   useEffect(() => {
-    setIsClient(true)
+    try {
+      const storedToken = localStorage.getItem('auth_token')
+      const storedUser = localStorage.getItem('auth_user')
+      
+      if (storedToken && storedUser) {
+        try {
+          setToken(storedToken)
+          setUser(JSON.parse(storedUser))
+        } catch (parseError) {
+          console.warn('AuthProvider: Failed to parse stored auth data')
+          // Clear invalid data
+          localStorage.removeItem('auth_token')
+          localStorage.removeItem('auth_user')
+        }
+      }
+    } catch (error) {
+      console.warn('AuthProvider: Error initializing auth state:', error)
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
-  // Check if user is authenticated on app load - only on client side
+  // ✅ SIMPLIFIED: Check authentication status on mount
   useEffect(() => {
-    if (!isClient || typeof window === 'undefined') return
+    const checkAuthStatus = async () => {
+      try {
+        const response = await fetch('/api/auth/me', {
+          headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          credentials: 'include'
+        })
 
-    const token = localStorage.getItem('auth_token')
-    if (token) {
-      // Verify token and get user info
-      fetch('/api/auth/me', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      })
-        .then(response => {
-          if (response.ok) {
-            return response.json()
+        if (response.ok) {
+          const data = await response.json()
+          if (data.data && data.data.user) {
+            setUser(data.data.user)
+            setToken(data.data.token || null)
           }
-          // Handle 401 Unauthorized specifically
-          if (response.status === 401) {
-            console.log('Token expired or invalid, removing from storage')
-            localStorage.removeItem('auth_token')
-            return null
-          }
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-        })
-        .then(data => {
-          if (data && data.user) {
-            setUser(data.user)
-          }
-        })
-        .catch((error) => {
-          console.log('Auth verification failed:', error.message)
-          // Token is invalid, remove it
+        } else {
+          // Not authenticated, clear local state
+          setUser(null)
+          setToken(null)
           localStorage.removeItem('auth_token')
-        })
+          localStorage.removeItem('auth_user')
+        }
+      } catch (error) {
+        console.warn('AuthProvider: Error checking auth status:', error)
+        // On error, clear local state
+        setUser(null)
+        setToken(null)
+        localStorage.removeItem('auth_token')
+        localStorage.removeItem('auth_user')
+      }
     }
-  }, [isClient])
 
-  const value = {
-    user,
-    setUser,
-    isAuthenticated,
-    logout,
+    checkAuthStatus()
+  }, [])
+
+  const login = (newToken: string, newUser: User) => {
+    setToken(newToken)
+    setUser(newUser)
+    localStorage.setItem('auth_token', newToken)
+    localStorage.setItem('auth_user', JSON.stringify(newUser))
+  }
+
+  const logout = async () => {
+    try {
+      // Call backend logout endpoint
+      const response = await fetch('/logout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-Inertia': 'true'
+        },
+        credentials: 'include'
+      })
+
+      if (response.ok) {
+        console.log('Logout successful')
+      } else {
+        console.warn('Logout request failed:', response.status)
+      }
+    } catch (error) {
+      console.error('Logout error:', error)
+    } finally {
+      // ✅ STANDARD: Clear local state and storage
+      setToken(null)
+      setUser(null)
+      localStorage.removeItem('auth_token')
+      localStorage.removeItem('auth_user')
+      
+      // ✅ STANDARD: Use Inertia's built-in navigation
+      // This ensures proper cleanup and prevents browser back button issues
+      window.location.href = '/login'
+    }
   }
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{
+      user,
+      isAuthenticated: !!user,
+      token,
+      login,
+      logout,
+      loading
+    }}>
       {children}
     </AuthContext.Provider>
   )
+}
+
+export const useAuth = () => {
+  const context = useContext(AuthContext)
+  if (context === undefined) {
+    // ✅ FIXED: Return safe defaults during SSR instead of throwing
+    if (typeof window === 'undefined') {
+      return {
+        user: null,
+        isAuthenticated: false,
+        token: null,
+        login: () => {},
+        logout: () => {},
+        loading: true
+      }
+    }
+    throw new Error('useAuth must be used within an AuthProvider')
+  }
+  return context
 }

@@ -15,6 +15,7 @@ const inertiaConfig = defineConfig({
     errors: (ctx) => ctx.session.flashMessages.get('errors'),
     success: (ctx) => ctx.session.flashMessages.get('success'),
     error: (ctx) => ctx.session.flashMessages.get('error'),
+    csrf: (ctx) => ctx.request.csrfToken,
   },
 
   /**

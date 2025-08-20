@@ -1,50 +1,40 @@
-import { Link } from '@inertiajs/react'
+import { Head, Link } from '@inertiajs/react'
 import { motion } from 'framer-motion'
-import { Home, ArrowLeft, Share2, AlertCircle } from 'lucide-react'
+import { Home, ArrowLeft, AlertTriangle } from 'lucide-react'
 
-interface SharedNoteNotFoundProps {
+interface PageNotFoundProps {
   message?: string
 }
 
-export default function SharedNoteNotFound({ 
-  message = 'Shared note not found or has been removed' 
-}: SharedNoteNotFoundProps) {
+export default function PageNotFound({ 
+  message = 'The page you are looking for does not exist or has been moved.' 
+}: PageNotFoundProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-cyan-50 flex items-center justify-center p-4"
-    >
-      <div className="text-center max-w-lg">
-        <motion.div
-          initial={{ scale: 0.8 }}
-          animate={{ scale: 1 }}
-          transition={{ delay: 0.2 }}
-          className="mb-8"
-        >
-          <div className="flex justify-center mb-6">
-            <div className="bg-red-100 p-4 rounded-full">
-              <Share2 className="h-12 w-12 text-red-600" />
+    <>
+      <Head title="404 - Page Not Found" />
+      
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="min-h-screen bg-[#1C1C1E] flex items-center justify-center p-4"
+      >
+        <div className="text-center max-w-lg">
+          <motion.div
+            initial={{ scale: 0.8 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.2 }}
+            className="mb-8"
+          >
+            <div className="w-24 h-24 mx-auto bg-blue-500/20 rounded-full flex items-center justify-center mb-6">
+              <AlertTriangle size={48} className="text-blue-400" />
             </div>
-          </div>
-          
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Shared Note Not Found</h1>
-          <div className="flex items-center justify-center space-x-2 mb-4">
-            <AlertCircle className="h-5 w-5 text-amber-500" />
-            <p className="text-lg text-gray-600">{message}</p>
-          </div>
-          
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
-            <p className="text-sm text-amber-800">
-              This could happen if:
+            
+            <h1 className="text-6xl font-bold text-blue-400 mb-4">404</h1>
+            <h2 className="text-2xl font-semibold text-white mb-4">Page Not Found</h2>
+            <p className="text-[#98989D] text-lg">
+              {message}
             </p>
-            <ul className="text-sm text-amber-700 mt-2 text-left space-y-1">
-              <li>• The shared link has expired or been revoked</li>
-              <li>• The note has been deleted by its owner</li>
-              <li>• The link URL is incomplete or incorrect</li>
-            </ul>
-          </div>
-        </motion.div>
+          </motion.div>
 
         <motion.div
           initial={{ opacity: 0 }}
@@ -55,7 +45,7 @@ export default function SharedNoteNotFound({
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
               href="/"
-              className="flex items-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors shadow-md"
+              className="flex items-center gap-2 px-6 py-3 bg-blue-400 text-white rounded-lg hover:bg-blue-500 transition-colors"
             >
               <Home size={18} />
               Go Home
@@ -63,18 +53,22 @@ export default function SharedNoteNotFound({
             
             <button
               onClick={() => window.history.back()}
-              className="flex items-center gap-2 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-2 px-6 py-3 border border-[#3A3A3C] text-[#98989D] rounded-lg hover:bg-[#3A3A3C] hover:text-white transition-colors"
             >
               <ArrowLeft size={18} />
               Go Back
             </button>
           </div>
 
-          <p className="text-sm text-gray-500 mt-6">
-            If you believe this is an error, please contact the person who shared this note.
-          </p>
+          <Link
+            href="/notes"
+            className="text-blue-400 hover:underline text-sm"
+          >
+            Browse Notes
+          </Link>
         </motion.div>
       </div>
     </motion.div>
+    </>
   )
 }

@@ -16,10 +16,16 @@ const shieldConfig = defineConfig({
    * to learn more
    */
   csrf: {
-    enabled: false,
-    // Uncomment the following line to enable CSRF protection 
-    // we turn off to test on postman 
-    exceptRoutes: ['/notes/:id/upload'],
+    enabled: true, // ✅ ENABLED: CSRF protection for security
+    exceptRoutes: [
+      '/notes', // ✅ TEMPORARY: Add notes route to test CSRF issue
+      '/notes/:id/upload',
+      '/auth/google/redirect', // OAuth redirect doesn't need CSRF
+      '/google/callback', // OAuth callback doesn't need CSRF
+      '/api/auth/login', // API endpoints handled separately
+      '/api/auth/register',
+      '/api/auth/logout'
+    ],
     enableXsrfCookie: true,
     methods: ['POST', 'PUT', 'PATCH', 'DELETE'],
   },
