@@ -67,10 +67,58 @@ export default defineConfig({
         name: 'unit',
         timeout: 2000,
       },
+      {
+        files: ['tests/*.spec(.ts|.js)'],
+        name: 'oauth',
+        timeout: 5000,
+      },
+      {
+        files: ['tests/functional/**/*.spec(.ts|.js)'],
+        name: 'functional',
+        timeout: 10000,
+      },
+      {
+        files: ['tests/controllers/**/*.spec(.ts|.js)'],
+        name: 'controllers',
+        timeout: 5000,
+      },
+      {
+        files: ['tests/models/**/*.spec(.ts|.js)'],
+        name: 'models',
+        timeout: 5000,
+      },
+      {
+        files: ['tests/services/**/*.spec(.ts|.js)'],
+        name: 'services',
+        timeout: 5000,
+      },
+      {
+        files: ['tests/validators/**/*.spec(.ts|.js)'],
+        name: 'validators',
+        timeout: 5000,
+      },
+      {
+        files: ['tests/middleware/**/*.spec(.ts|.js)'],
+        name: 'middleware',
+        timeout: 5000,
+      },
     ],
-    forceExit: false,
+    forceExit: true,
   },
 
+  /*
+  |--------------------------------------------------------------------------
+  | File Watcher
+  |--------------------------------------------------------------------------
+  |
+  | Configuration for the file watcher to ignore certain files and directories
+  |
+  */
+  unstable_assembler: {
+    onBuildStarting: [],
+    onBuildCompleted: [],
+  },
+  
   /*
   |--------------------------------------------------------------------------
   | Metafiles

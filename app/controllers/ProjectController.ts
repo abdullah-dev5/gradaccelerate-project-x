@@ -143,38 +143,98 @@ export default class ProjectsController {
   /**
    * Show single project
    */
-  async show({ params, inertia, auth }: HttpContext) {
-    await auth.authenticate()
-    const user = auth.getUserOrFail()
-    const project = await Project.query()
-      .where('id', params.id)
-      .where('userId', user.id)
-      .firstOrFail()
+  async show({ params, inertia, auth, request, response }: HttpContext) {
+    try {
+      await auth.authenticate()
+      const user = auth.getUserOrFail()
+      const projectId = params.id
+      
+      const project = await Project.query()
+        .where('id', projectId)
+        .where('userId', user.id)
+        .firstOrFail()
 
-    // SSR/Browser/SPA
-    if (typeof inertia !== 'undefined') {
-      return inertia.render('projects/show', { project })
+      // Check if it's an Inertia request (web page)
+      const isInertiaRequest = request.header('x-inertia') === 'true'
+      const acceptsHtml = request.header('accept')?.includes('text/html')
+      
+      if (isInertiaRequest || acceptsHtml) {
+        return inertia.render('projects/show', { project: project.serialize() })
+      }
+      
+      // API/JSON response
+      return response.ok({ project: project.serialize() })
+    } catch (error) {
+      const isInertiaRequest = request.header('x-inertia') === 'true'
+      const acceptsHtml = request.header('accept')?.includes('text/html')
+      
+      if (isInertiaRequest || acceptsHtml) {
+        if (error.message?.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
+          return inertia.render('errors/unauthorized', {
+            message: 'You need to be authenticated to view this project.',
+            redirectUrl: '/login'
+          })
+        }
+        return inertia.render('errors/not_found', {
+          error: error.message || 'Project not found',
+          message: 'This project may have been deleted or you do not have permission to view it.'
+        })
+      }
+      
+      if (error.message?.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
+        return response.unauthorized({ message: 'Unauthorized', error: error.message })
+      }
+      return response.status(404).send({ message: 'Project not found', error: error.message })
     }
-    // API/JSON
-    return { project }
   }
 
   /**
    * Show project edit form
    */
-  async edit({ params, inertia, auth }: HttpContext) {
-    await auth.authenticate()
-    const user = auth.getUserOrFail()
-    const project = await Project.query()
-      .where('id', params.id)
-      .where('userId', user.id)
-      .firstOrFail()
+  async edit({ params, inertia, auth, request, response }: HttpContext) {
+    try {
+      await auth.authenticate()
+      const user = auth.getUserOrFail()
+      const projectId = params.id
+      const project = await Project.query()
+        .where('id', projectId)
+        .where('userId', user.id)
+        .firstOrFail()
 
-    const statusOptions = ['pending', 'in_progress', 'completed']
-    if (typeof inertia !== 'undefined') {
-      return inertia.render('projects/edit', { project, statusOptions })
+      const statusOptions = ['pending', 'in_progress', 'completed']
+      
+      // Check if it's an Inertia request (web page)
+      const isInertiaRequest = request.header('x-inertia') === 'true'
+      const acceptsHtml = request.header('accept')?.includes('text/html')
+      
+      if (isInertiaRequest || acceptsHtml) {
+        return inertia.render('projects/edit', { project: project.serialize(), statusOptions })
+      }
+      
+      // API/JSON response
+      return response.ok({ project: project.serialize(), statusOptions })
+    } catch (error) {
+      const isInertiaRequest = request.header('x-inertia') === 'true'
+      const acceptsHtml = request.header('accept')?.includes('text/html')
+      
+      if (isInertiaRequest || acceptsHtml) {
+        if (error.message?.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
+          return inertia.render('errors/unauthorized', {
+            message: 'You need to be authenticated to edit this project.',
+            redirectUrl: '/login'
+          })
+        }
+        return inertia.render('errors/not_found', {
+          error: error.message || 'Project not found',
+          message: 'This project may have been deleted or you do not have permission to edit it.'
+        })
+      }
+      
+      if (error.message?.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
+        return response.unauthorized({ message: 'Unauthorized', error: error.message })
+      }
+      return response.status(404).send({ message: 'Project not found', error: error.message })
     }
-    return { project, statusOptions }
   }
 
   /**

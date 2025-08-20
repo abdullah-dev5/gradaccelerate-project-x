@@ -12,7 +12,15 @@
     "fix": "eslint --fix .",
     "typecheck": "tsc --noEmit",
     "test:frontend": "jest",
-    "test:backend": "c8 --config .c8rc.json node ace test unit",
+    "test:backend": "node ace test",
+    "test:unit": "node ace test unit",
+    "test:oauth": "node ace test oauth",
+    "test:controllers": "node ace test controllers",
+    "test:models": "node ace test models",
+    "test:services": "node ace test services",
+    "test:validators": "node ace test validators",
+    "test:middleware": "node ace test middleware",
+    "test:all": "npm run test:frontend && npm run test:backend",
     "test": "npm run test:frontend && npm run test:backend"
   },
   "imports": {
@@ -33,6 +41,9 @@
     "#start/*": "./start/*.js",
     "#config/*": "./config/*.js",
     "#inertia/*": "./inertia/*.js"
+  },
+  "overrides": {
+    "cli-boxes": "3.0.0"
   },
   "devDependencies": {
     "@adonisjs/assembler": "^7.8.2",
