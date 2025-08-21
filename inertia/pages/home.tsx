@@ -1,5 +1,12 @@
+<<<<<<< HEAD
 import { Head } from '@inertiajs/react'
 import { Link } from '@inertiajs/react'
+=======
+import { Head, Link } from '@inertiajs/react'
+
+import { useAuth } from '../contexts/AuthContext.js'
+import WeatherCard from '../components/WeatherCard.js'
+>>>>>>> 97fc310 (refactor: implement hybrid authentication and fix note creation flow)
 
 export default function Home() {
   return (

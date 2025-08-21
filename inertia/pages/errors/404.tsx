@@ -1,54 +1,39 @@
-<<<<<<< HEAD
-export default function NotFound() {
-  return (
-    <>
-      <div className="container">
-        <div className="title">Page not found</div>
-
-        <span>This page does not exist.</span>
-      </div>
-=======
 import { Head, Link } from '@inertiajs/react'
 import { motion } from 'framer-motion'
-import { Home, ArrowLeft, FileX } from 'lucide-react'
+import { Home, ArrowLeft, AlertTriangle } from 'lucide-react'
 
-interface NotFoundProps {
-  error?: string
+interface PageNotFoundProps {
   message?: string
 }
 
-export default function NotFound({ 
-  error,
-  message = "This content is no longer available. It may have been deleted, moved, or the link has been revoked."
-}: NotFoundProps) {
+export default function PageNotFound({ 
+  message = 'The page you are looking for does not exist or has been moved.' 
+}: PageNotFoundProps) {
   return (
     <>
-      <Head title="Content Not Found" />
+      <Head title="404 - Page Not Found" />
       
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="min-h-screen bg-[#1C1C1E] flex items-center justify-center p-4"
       >
-        <div className="text-center max-w-md">
+        <div className="text-center max-w-lg">
           <motion.div
             initial={{ scale: 0.8 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.2 }}
             className="mb-8"
           >
-            <div className="w-24 h-24 mx-auto bg-orange-500/20 rounded-full flex items-center justify-center mb-6">
-              <FileX size={48} className="text-orange-400" />
+            <div className="w-24 h-24 mx-auto bg-blue-500/20 rounded-full flex items-center justify-center mb-6">
+              <AlertTriangle size={48} className="text-blue-400" />
             </div>
-            <h2 className="text-2xl font-semibold text-white mb-2">Content Not Found</h2>
-            <p className="text-[#98989D]">
+            
+            <h1 className="text-6xl font-bold text-blue-400 mb-4">404</h1>
+            <h2 className="text-2xl font-semibold text-white mb-4">Page Not Found</h2>
+            <p className="text-[#98989D] text-lg">
               {message}
             </p>
-            {error && (
-              <p className="text-sm text-red-400 mt-2">
-                {error}
-              </p>
-            )}
           </motion.div>
 
         <motion.div
@@ -77,14 +62,13 @@ export default function NotFound({
 
           <Link
             href="/notes"
-            className="text-orange-400 hover:underline text-sm"
+            className="text-blue-400 hover:underline text-sm"
           >
-            Browse Available Content
+            Browse Notes
           </Link>
         </motion.div>
       </div>
     </motion.div>
->>>>>>> 97fc310 (refactor: implement hybrid authentication and fix note creation flow)
     </>
   )
 }
