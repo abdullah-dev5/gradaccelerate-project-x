@@ -1,18 +1,10 @@
-import { BaseModel, column, belongsTo, manyToMany } from '@adonisjs/lucid/orm'
-import type { BelongsTo, ManyToMany } from '@adonisjs/lucid/types/relations'
+import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
+import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 
 import User from './user.js'
 import { DateTime } from 'luxon'
 
 export default class Todo extends BaseModel {
-  @column({
-    consume: (value) => (typeof value === 'string' ? JSON.parse(value) : value),
-    prepare: (value) => (value ? JSON.stringify(value) : null),
-    serialize: (value) => value,
-  })
-  declare labels: { id: number; name: string; color?: string }[] | null;
-  public static softDelete = true
-
   @column({ isPrimary: true })
   declare id: number
 
@@ -25,12 +17,25 @@ export default class Todo extends BaseModel {
   @column({ columnName: 'is_completed' })
   declare isCompleted: boolean
 
+  @column()
+  declare priority: 'low' | 'medium' | 'high'
+
+  @column()
+  declare status: 'pending' | 'in_progress' | 'completed'
+
   @column({ columnName: 'user_id' })
   declare userId: number
 
   @belongsTo(() => User)
   declare user: BelongsTo<typeof User>
 
+  @column({
+    consume: (value) => (typeof value === 'string' ? JSON.parse(value) : value),
+    prepare: (value) => (value ? JSON.stringify(value) : null),
+    serialize: (value) => value,
+  })
+  declare labels: { id: number; name: string; color?: string }[] | null;
+  public static softDelete = true
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime

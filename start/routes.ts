@@ -123,6 +123,7 @@ router.group(() => {
   router.post('/', '#controllers/TodoController.store')
   router.put('/:id', '#controllers/TodoController.update')
   router.patch('/:id/toggle-status', '#controllers/TodoController.toggleStatus')
+  router.patch('/:id/priority-status', '#controllers/TodoController.updatePriorityStatus')
   router.delete('/:id', '#controllers/TodoController.destroy')
 }).prefix('/todos').use(middleware.auth({ guards: ['web', 'api'] }))
 
@@ -157,6 +158,7 @@ router.group(() => {
   router.get('/notes/:id/share/status', '#controllers/NoteController.getShareStatus')
   
   // Projects API (CRUD Operations)
+  router.get('/projects', '#controllers/ProjectController.index')
   router.post('/projects', '#controllers/ProjectController.store')
   router.put('/projects/:id', '#controllers/ProjectController.update')
   router.patch('/projects/:id/status', '#controllers/ProjectController.updateStatus')
@@ -168,6 +170,7 @@ router.group(() => {
   router.get('/todos/:id', '#controllers/TodoController.show')
   router.put('/todos/:id', '#controllers/TodoController.update')
   router.patch('/todos/:id/status', '#controllers/TodoController.toggleStatus')
+  router.patch('/todos/:id/priority-status', '#controllers/TodoController.updatePriorityStatus')
   router.delete('/todos/:id', '#controllers/TodoController.destroy')
   
 }).prefix('/api/v1').use(middleware.auth({ guards: ['web', 'api'] }))

@@ -365,9 +365,31 @@ export default class TodosController {
 
             const { labels = [], ...updateData } = payload
 
-            // Update todo fields
-            todo.merge({ ...updateData, labels })
-            await todo.save()
+            // Debug logging
+            logger.info('Update payload received:', { 
+                todoId: params.id, 
+                payload, 
+                updateData, 
+                labels 
+            })
+
+            // Only update fields that are actually provided (not undefined)
+            const fieldsToUpdate: any = {}
+            
+            if (updateData.title !== undefined) fieldsToUpdate.title = updateData.title
+            if (updateData.description !== undefined) fieldsToUpdate.description = updateData.description
+            if (updateData.isCompleted !== undefined) fieldsToUpdate.isCompleted = updateData.isCompleted
+            if (updateData.priority !== undefined) fieldsToUpdate.priority = updateData.priority
+            if (updateData.status !== undefined) fieldsToUpdate.status = updateData.status
+            if (labels !== undefined) fieldsToUpdate.labels = labels
+
+            logger.info('Fields to update:', { fieldsToUpdate })
+
+            // Update todo fields only if they were provided
+            if (Object.keys(fieldsToUpdate).length > 0) {
+                todo.merge(fieldsToUpdate)
+                await todo.save()
+            }
 
             logger.info('Todo updated successfully', {
                 todoId: todo.id,
@@ -417,6 +439,117 @@ export default class TodosController {
 
             return response.status(500).json({
                 message: 'Failed to update todo',
+                error: 'Internal server error'
+            })
+        }
+    }
+
+    /**
+     * Update todo priority and status
+     * PATCH /todos/:id/priority-status
+     */
+    public async updatePriorityStatus({ params, request, response, auth }: HttpContext) {
+        try {
+            await auth.authenticate()
+            const user = auth.getUserOrFail()
+            
+            // Validate the ID parameter
+            await request.validateUsing(todoIdValidator, { data: { id: Number(params.id) } })
+
+            const todo = await Todo.query()
+                .where('id', params.id)
+                .where('userId', user.id)
+                .whereNull('deleted_at')
+                .first()
+
+            if (!todo) {
+                return response.status(404).json({
+                    message: 'Todo not found or has been deleted'
+                })
+            }
+
+            // Get the request body
+            const body = request.body()
+            logger.info('Received update request body:', { body, todoId: params.id })
+            
+            let updatedField = ''
+            let updatedValue = ''
+
+            // Check if priority is being updated
+            if (body.priority !== undefined && body.priority !== null && body.priority !== '') {
+                logger.info('Updating priority:', { oldPriority: todo.priority, newPriority: body.priority })
+                // Validate priority value
+                if (!['low', 'medium', 'high'].includes(body.priority)) {
+                    return response.status(400).json({
+                        message: 'Invalid priority value. Must be low, medium, or high.'
+                    })
+                }
+                // Update only priority
+                todo.priority = body.priority
+                updatedField = 'priority'
+                updatedValue = body.priority
+            }
+            // Check if status is being updated
+            else if (body.status !== undefined && body.status !== null && body.status !== '') {
+                logger.info('Updating status:', { oldStatus: todo.status, newStatus: body.status })
+                // Validate status value
+                if (!['pending', 'in_progress', 'completed'].includes(body.status)) {
+                    return response.status(400).json({
+                        message: 'Invalid status value. Must be pending, in_progress, or completed.'
+                    })
+                }
+                // Update only status
+                todo.status = body.status
+                updatedField = 'status'
+                updatedValue = body.status
+            }
+            else {
+                logger.warn('No valid fields to update:', { body, todoId: params.id })
+                return response.status(400).json({
+                    message: 'No valid fields to update. Please provide either priority or status.'
+                })
+            }
+
+            // Save the todo with only the updated field
+            await todo.save()
+
+            logger.info('Todo field updated successfully', {
+                todoId: todo.id,
+                title: todo.title,
+                updatedField: updatedField,
+                newValue: updatedValue,
+                oldPriority: todo.priority,
+                oldStatus: todo.status
+            })
+
+            return response.ok({
+                message: `Todo ${updatedField} updated successfully`,
+                data: {
+                    id: todo.id,
+                    priority: todo.priority,
+                    status: todo.status,
+                    title: todo.title,
+                    updatedField: updatedField,
+                    newValue: updatedValue
+                }
+            })
+
+        } catch (error) {
+            if (error.status === 422) {
+                return response.status(400).json({
+                    message: 'Validation failed',
+                    errors: error.messages
+                })
+            }
+
+            logger.error('Failed to update todo field', {
+                error: error.message,
+                todoId: params.id,
+                stack: error.stack
+            })
+
+            return response.status(500).json({
+                message: 'Failed to update todo field',
                 error: 'Internal server error'
             })
         }

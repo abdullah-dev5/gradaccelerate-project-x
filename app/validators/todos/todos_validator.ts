@@ -24,6 +24,12 @@ export const createTodoValidator = vine.compile(
             .optional(),
         isCompleted: vine
             .boolean(),
+        priority: vine
+            .enum(['low', 'medium', 'high'])
+            .optional(),
+        status: vine
+            .enum(['pending', 'in_progress', 'completed'])
+            .optional(),
     })
 )
 
@@ -53,6 +59,12 @@ export const updateTodoValidator = vine.compile(
                     color: vine.string().optional(),
                 })
             )
+            .optional(),
+        priority: vine
+            .enum(['low', 'medium', 'high'])
+            .optional(),
+        status: vine
+            .enum(['pending', 'in_progress', 'completed'])
             .optional(),
     })
 )

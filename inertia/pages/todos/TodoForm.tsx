@@ -2,7 +2,14 @@
 import React, { useState } from 'react';
 import { router } from '@inertiajs/react';
 import { Save, X } from 'lucide-react';
-import { Label } from '../../components/Label';
+import { Label as TodoLabel } from '../../components/Label';
+import { Input } from '../../components/ui/input';
+import { Textarea } from '../../components/ui/textarea';
+import { Button } from '../../components/ui/button';
+import { Checkbox } from '../../components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Label as FormLabel } from '../../components/ui/label';
+import { TodoPriority, TodoStatus } from '../../stores/todosStore';
 
 type TodoLabelType = {
   id: number;
@@ -15,6 +22,8 @@ interface TodoFormProps {
     title?: string;
     description?: string;
     isCompleted?: boolean;
+    priority?: TodoPriority;
+    status?: TodoStatus;
     labels?: TodoLabelType[];
   };
   onSuccess?: () => void;
@@ -29,13 +38,44 @@ export function TodoForm({ initialData, onSuccess, onCancel, submitLabel = 'Crea
     title: initialData?.title || '',
     description: initialData?.description || '',
     isCompleted: initialData?.isCompleted || false,
+    priority: initialData?.priority || 'medium' as TodoPriority,
+    status: initialData?.status || 'pending' as TodoStatus,
     labels: initialData?.labels || [],
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [processing, setProcessing] = useState(false);
 
-  const handleChange = (field: 'title' | 'description' | 'isCompleted' | 'labels', value: any) => {
+  const handleChange = (field: 'title' | 'description' | 'isCompleted' | 'priority' | 'status' | 'labels', value: any) => {
     setForm(prev => ({ ...prev, [field]: value }));
+    
+    // Remove the immediate update - let the form submission handle it
+    // This was causing issues with default values
+  };
+
+  const updatePriorityStatus = async (field: 'priority' | 'status', value: any) => {
+    try {
+      const response = await fetch(`/todos/${todoId}/priority-status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+        },
+        body: JSON.stringify({ [field]: value }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update priority/status');
+      }
+
+      // Update local state with the response
+      const result = await response.json();
+      console.log(`${field} updated successfully:`, result);
+      
+    } catch (error) {
+      console.error(`Failed to update ${field}:`, error);
+      // Optionally show an error message to the user
+    }
   };
 
   const handleLabelToggle = (label: TodoLabelType) => {
@@ -59,7 +99,17 @@ export function TodoForm({ initialData, onSuccess, onCancel, submitLabel = 'Crea
         router[method](url, form, {
           onSuccess: () => {
             setProcessing(false);
-            setForm({ title: '', description: '', isCompleted: false, labels: [] });
+            // Only reset form to defaults if we're creating a new todo
+            if (!todoId) {
+              setForm({ 
+                title: '', 
+                description: '', 
+                isCompleted: false, 
+                priority: 'medium',
+                status: 'pending',
+                labels: [] 
+              });
+            }
             if (onSuccess) onSuccess();
             resolve();
           },
@@ -76,97 +126,146 @@ export function TodoForm({ initialData, onSuccess, onCancel, submitLabel = 'Crea
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <div>
-          <input
-            type="text"
-            value={form.title}
-            onChange={(e) => handleChange('title', e.target.value)}
-            className="w-full bg-[#1C1C1E] text-white px-4 py-3 rounded-lg border border-[#3A3A3C] focus:border-[#007AFF] focus:outline-none transition-colors duration-200"
-            placeholder="Enter todo title..."
-            required
-          />
-          {errors?.title && (
-            <p className="text-red-500 text-sm mt-1">{errors.title}</p>
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Title */}
+      <div className="space-y-2">
+        <FormLabel htmlFor="title" className="text-white">Title</FormLabel>
+        <Input
+          id="title"
+          type="text"
+          value={form.title}
+          onChange={(e) => handleChange('title', e.target.value)}
+          className="bg-[#2C2C2E] border-[#3A3A3C] text-white placeholder:text-gray-400 focus:border-[#0A84FF] focus:ring-[#0A84FF]"
+          placeholder="Enter todo title..."
+          required
+        />
+        {errors?.title && (
+          <p className="text-red-500 text-sm">{errors.title}</p>
+        )}
+      </div>
+
+      {/* Description */}
+      <div className="space-y-2">
+        <FormLabel htmlFor="description" className="text-white">Description</FormLabel>
+        <Textarea
+          id="description"
+          value={form.description}
+          onChange={(e) => handleChange('description', e.target.value)}
+          rows={3}
+          className="bg-[#2C2C2E] border-[#3A3A3C] text-white placeholder:text-gray-400 focus:border-[#0A84FF] focus:ring-[#0A84FF] resize-none"
+          placeholder="Enter todo description..."
+        />
+        {errors?.description && (
+          <p className="text-red-500 text-sm">{errors.description}</p>
+        )}
+      </div>
+
+      {/* Priority and Status Row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Priority */}
+        <div className="space-y-2">
+          <FormLabel htmlFor="priority" className="text-white">Priority</FormLabel>
+          <Select value={form.priority} onValueChange={(value: TodoPriority) => handleChange('priority', value)}>
+            <SelectTrigger className="bg-[#2C2C2E] border-[#3A3A3C] text-white focus:border-[#0A84FF] focus:ring-[#0A84FF]">
+              <SelectValue placeholder="Select priority" />
+            </SelectTrigger>
+            <SelectContent className="bg-[#2C2C2E] border-[#3A3A3C] text-white">
+              <SelectItem value="low" className="hover:bg-[#3A3A3C] focus:bg-[#3A3A3C]">Low</SelectItem>
+              <SelectItem value="medium" className="hover:bg-[#3A3A3C] focus:bg-[#3A3A3C]">Medium</SelectItem>
+              <SelectItem value="high" className="hover:bg-[#3A3A3C] focus:bg-[#3A3A3C]">High</SelectItem>
+            </SelectContent>
+          </Select>
+          {errors?.priority && (
+            <p className="text-red-500 text-sm">{errors.priority}</p>
           )}
         </div>
-        <div>
-          <textarea
-            value={form.description}
-            onChange={(e) => handleChange('description', e.target.value)}
-            rows={3}
-            className="w-full bg-[#1C1C1E] text-white px-4 py-3 rounded-lg border border-[#3A3A3C] focus:border-[#007AFF] focus:outline-none transition-colors duration-200 resize-none"
-            placeholder="Enter todo description..."
-          />
-          {errors?.description && (
-            <p className="text-red-500 text-sm mt-1">{errors.description}</p>
+
+        {/* Status */}
+        <div className="space-y-2">
+          <FormLabel htmlFor="status" className="text-white">Status</FormLabel>
+          <Select value={form.status} onValueChange={(value: TodoStatus) => handleChange('status', value)}>
+            <SelectTrigger className="bg-[#2C2C2E] border-[#3A3A3C] text-white focus:border-[#0A84FF] focus:ring-[#0A84FF]">
+              <SelectValue placeholder="Select status" />
+            </SelectTrigger>
+            <SelectContent className="bg-[#2C2C2E] border-[#3A3A3C] text-white">
+              <SelectItem value="pending" className="hover:bg-[#3A3A3C] focus:bg-[#3A3A3C]">Pending</SelectItem>
+              <SelectItem value="in_progress" className="hover:bg-[#3A3A3C] focus:bg-[#3A3A3C]">In Progress</SelectItem>
+              <SelectItem value="completed" className="hover:bg-[#3A3A3C] focus:bg-[#3A3A3C]">Completed</SelectItem>
+            </SelectContent>
+          </Select>
+          {errors?.status && (
+            <p className="text-red-500 text-sm">{errors.status}</p>
           )}
         </div>
-        {/* Labels UI */}
-        {allLabels.length > 0 && (
-          <div>
-            <label className="block text-sm font-medium mb-2">Labels</label>
-            <div className="flex flex-wrap gap-2 mb-2">
-              {allLabels.map(label => (
-                <button
+      </div>
+
+      {/* Labels */}
+      {allLabels.length > 0 && (
+        <div className="space-y-3">
+          <FormLabel className="text-white">Labels</FormLabel>
+          <div className="flex flex-wrap gap-2">
+            {allLabels.map(label => (
+              <button
+                key={label.id}
+                type="button"
+                onClick={() => handleLabelToggle(label)}
+                className={`transition-all ${form.labels?.some(l => l.id === label.id) ? 'opacity-100' : 'opacity-60 hover:opacity-80'}`}
+                style={{ border: 'none', background: 'none', padding: 0 }}
+              >
+                <TodoLabel
+                  name={label.name}
+                  color={label.color}
+                  onRemove={form.labels?.some(l => l.id === label.id) ? () => handleLabelToggle(label) : undefined}
+                />
+              </button>
+            ))}
+          </div>
+          {/* Show selected labels */}
+          {form.labels && form.labels.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {form.labels.map(label => (
+                <TodoLabel
                   key={label.id}
-                  type="button"
-                  onClick={() => handleLabelToggle(label)}
-                  className={`transition-all ${form.labels?.some(l => l.id === label.id) ? 'opacity-100' : 'opacity-60 hover:opacity-80'}`}
-                  style={{ border: 'none', background: 'none', padding: 0 }}
-                >
-                  <Label
-                    name={label.name}
-                    color={label.color}
-                    onRemove={form.labels?.some(l => l.id === label.id) ? () => handleLabelToggle(label) : undefined}
-                  />
-                </button>
+                  name={label.name}
+                  color={label.color}
+                  onRemove={() => handleLabelToggle(label)}
+                />
               ))}
             </div>
-            {/* Show selected labels (if any) */}
-            {form.labels && form.labels.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {form.labels.map(label => (
-                  <Label
-                    key={label.id}
-                    name={label.name}
-                    color={label.color}
-                    onRemove={() => handleLabelToggle(label)}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-        <div className="flex items-center justify-between mt-4">
-          <div className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              checked={form.isCompleted}
-              onChange={(e) => handleChange('isCompleted', e.target.checked)}
-              className="w-4 h-4 text-[#007AFF] bg-[#1C1C1E] border-[#3A3A3C] rounded focus:ring-[#007AFF] focus:ring-2"
-            />
-            <label className="text-sm">Mark as completed</label>
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={processing}
-              className="bg-[#007AFF] hover:bg-[#0056CC] disabled:bg-[#3A3A3C] px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
-            >
-              <Save size={16} />
-              {processing ? (submitLabel === 'Create' ? 'Creating...' : 'Updating...') : submitLabel}
-            </button>
-            <button
-              type="button"
-              onClick={onCancel}
-              className="bg-[#3A3A3C] hover:bg-[#48484A] px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-2"
-            >
-              <X size={16} />
-              Cancel
-            </button>
-          </div>
+          )}
+        </div>
+      )}
+
+      {/* Completed Checkbox and Actions */}
+      <div className="flex items-center justify-between pt-4 border-t border-[#3A3A3C]">
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="completed"
+            checked={form.isCompleted}
+            onCheckedChange={(checked: boolean) => handleChange('isCompleted', checked)}
+            className="border-[#3A3A3C] data-[state=checked]:bg-[#0A84FF] data-[state=checked]:border-[#0A84FF]"
+          />
+          <FormLabel htmlFor="completed" className="text-white text-sm">Mark as completed</FormLabel>
+        </div>
+        
+        <div className="flex gap-2">
+          <Button
+            type="submit"
+            disabled={processing}
+            className="bg-[#0A84FF] hover:bg-[#0A74FF] disabled:bg-[#3A3A3C] disabled:text-gray-400"
+          >
+            <Save size={16} className="mr-2" />
+            {processing ? (submitLabel === 'Create' ? 'Creating...' : 'Updating...') : submitLabel}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            className="border-[#3A3A3C] text-white hover:bg-[#3A3A3C]"
+          >
+            <X size={16} className="mr-2" />
+            Cancel
+          </Button>
         </div>
       </div>
     </form>

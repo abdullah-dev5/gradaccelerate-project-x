@@ -172,7 +172,7 @@ export default class AuthController extends BaseController {
     /**
      * ✅ IMPROVED: Get authenticated user info (supports both guards)
      */
-    async me({ auth, response, session }: HttpContext) {
+    async me({ auth, response, session, request }: HttpContext) {
         try {
             // Try to authenticate with either guard
             let user = null
@@ -186,31 +186,58 @@ export default class AuthController extends BaseController {
                     await auth.use('api').authenticate()
                     user = auth.user!
                 } catch (apiError) {
-                    return response.status(401).json(
-                        ApiResponse.error('Unauthorized', 401)
-                    )
+                    // Check if it's an Inertia request
+                    const isInertiaRequest = request.header('x-inertia') === 'true'
+                    
+                    if (isInertiaRequest) {
+                        // For Inertia requests, redirect to login page
+                        return response.redirect('/login')
+                    } else {
+                        // For API requests, return JSON error
+                        return response.status(401).json(
+                            ApiResponse.error('Invalid credentials', 401)
+                        )
+                    }
                 }
             }
 
             // ✅ HYBRID: Include JWT token from session if available
             const jwtToken = session.get('jwt_token')
 
-            return response.json(
-                ApiResponse.success({
-                    user: {
-                        id: user.id,
-                        fullName: user.fullName,
-                        email: user.email,
-                        createdAt: user.createdAt,
-                        updatedAt: user.updatedAt
-                    },
-                    token: jwtToken || null // Include JWT token for hybrid auth
-                })
-            )
+            // Check if it's an Inertia request
+            const isInertiaRequest = request.header('x-inertia') === 'true'
+            
+            if (isInertiaRequest) {
+                // For Inertia requests, redirect to dashboard (user is authenticated)
+                return response.redirect('/dashboard')
+            } else {
+                // For API requests, return JSON
+                return response.json(
+                    ApiResponse.success({
+                        user: {
+                            id: user.id,
+                            fullName: user.fullName,
+                            email: user.email,
+                            createdAt: user.createdAt,
+                            updatedAt: user.updatedAt
+                        },
+                        token: jwtToken || null // Include JWT token for hybrid auth
+                    })
+                )
+            }
         } catch (error) {
-            return response.status(401).json(
-                ApiResponse.error('Unauthorized', 401)
-            )
+            // Check if it's an Inertia request
+            const isInertiaRequest = request.header('x-inertia') === 'true'
+            
+            if (isInertiaRequest) {
+                // For Inertia requests, redirect to login page
+                return response.redirect('/login')
+            } else {
+                // For API requests, return JSON error
+                return response.status(401).json(
+                    ApiResponse.error('Invalid credentials', 401)
+                )
+            }
         }
     }
 
@@ -253,21 +280,44 @@ export default class AuthController extends BaseController {
             session.clear()
             session.flash('success', 'Logged out successfully')
 
+            // ✅ CRITICAL: Set response headers to clear cookies and prevent caching
+            response.header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            response.header('Pragma', 'no-cache')
+            response.header('Expires', '0')
+            
+            // ✅ CRITICAL: Clear any authentication cookies
+            response.cookie('remember_web', null, { 
+                expires: new Date(0), 
+                path: '/',
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax'
+            })
+            
+            // ✅ CRITICAL: Clear session cookie
+            response.cookie('adonis-session', null, { 
+                expires: new Date(0), 
+                path: '/',
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax'
+            })
+
             // ✅ STANDARD: Handle response based on request type
             const isInertiaRequest = request.header('x-inertia') === 'true'
             const isApiRequest = request.url().startsWith('/api/')
 
             if (isInertiaRequest) {
-                // For Inertia requests, redirect to login page
-                return response.redirect('/login')
+                // For Inertia requests, redirect to home page
+                return response.redirect('/')
             } else if (isApiRequest) {
                 // For API requests, return JSON
                 return response.json(
                     ApiResponse.success(null, 'Logged out successfully')
                 )
             } else {
-                // For regular web requests, redirect to login
-                return response.redirect('/login')
+                // For regular web requests, redirect to home page
+                return response.redirect('/')
             }
         } catch (error) {
             console.error('Logout error:', error)
@@ -277,7 +327,7 @@ export default class AuthController extends BaseController {
 
             if (isInertiaRequest || !isApiRequest) {
                 session.flash('error', 'An error occurred during logout')
-                return response.redirect('/login')
+                return response.redirect('/')
             } else {
                 return response.status(500).json(
                     ApiResponse.error('An error occurred during logout', 500)

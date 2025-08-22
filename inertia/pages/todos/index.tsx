@@ -7,7 +7,9 @@ import { TodoCard } from './TodoCard'
 import { TodoForm } from './TodoForm'
 import { useToast } from '../../hooks/useToast'
 import { ToastContainer } from '../../components/Toast'
-
+import { TodosSearchFilter } from '../../components/TodosSearchFilter'
+import { TodoPriority, TodoStatus } from '../../stores/todosStore'
+import { Card, CardContent } from '../../components/ui/card'
 
 interface Todo {
   id: number
@@ -17,6 +19,8 @@ interface Todo {
   userId: number
   createdAt: string
   updatedAt: string
+  priority: TodoPriority
+  status: TodoStatus
   labels?: { id: number; name: string; color?: string }[]
 }
 
@@ -107,6 +111,20 @@ export default function Todos({ todos, error }: TodosProps) {
     setEditingId(null)
   }
 
+  const handleTodoUpdate = async (id: number, updates: Partial<Todo>) => {
+    try {
+      // Show success message
+      success('Todo updated', 'Priority/Status has been successfully updated');
+      
+      // Reload the todos data to show the updated values
+      router.reload({ only: ['todos'] });
+      
+    } catch (error) {
+      console.error('Failed to update todo:', error);
+      toastError('Failed to update todo', 'Could not update the priority/status');
+    }
+  };
+
   return (
     <>
       <Head title="Todos" />
@@ -153,22 +171,44 @@ export default function Todos({ todos, error }: TodosProps) {
             </button>
           </motion.div>
 
-          {/* Create Todo Form */}
+          {/* Search and Filter Section */}
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="mb-6"
+          >
+            <Card variant="default" size="default">
+              <CardContent>
+                <TodosSearchFilter 
+                  labels={allLabels} 
+                />
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Create Form */}
           {isCreating && (
             <motion.div
-              initial={{ opacity: 0, y: -20 }}
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-[#2C2C2E] rounded-xl p-6 mb-6"
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+              className="mb-6"
             >
-              <TodoForm
-                onCancel={() => setIsCreating(false)}
-                onSuccess={() => {
-                  setIsCreating(false);
-                  success('Todo created', 'New todo has been successfully created');
-                }}
-                submitLabel="Create"
-                allLabels={allLabels}
-              />
+              <Card variant="form" size="default">
+                <CardContent>
+                  <TodoForm
+                    onSuccess={() => {
+                      setIsCreating(false);
+                      success('Todo created', 'Todo has been successfully created');
+                    }}
+                    onCancel={() => setIsCreating(false)}
+                    submitLabel="Create"
+                    allLabels={allLabels}
+                  />
+                </CardContent>
+              </Card>
             </motion.div>
           )}
 
@@ -202,34 +242,40 @@ export default function Todos({ todos, error }: TodosProps) {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className="bg-[#2C2C2E] rounded-xl p-4 hover:bg-[#3A3A3C] transition-colors duration-200"
                 >
-                  <TodoCard
-                    todo={todo}
-                    isEditing={editingId === todo.id}
-                    onEditStart={handleEditStart}
-                    onDelete={handleDelete}
-                    onToggleStatus={handleToggleStatus}
-                  >
-                    {editingId === todo.id && (
-                      <TodoForm
-                        initialData={{
-                          title: todo.title,
-                          description: todo.description || '',
-                          isCompleted: todo.isCompleted,
-                          labels: todo.labels || [],
-                        }}
-                        todoId={todo.id}
-                        onCancel={handleEditCancel}
-                        onSuccess={() => {
-                          setEditingId(null);
-                          success('Todo updated', 'Todo has been successfully updated');
-                        }}
-                        submitLabel="Update"
-                        allLabels={allLabels}
-                      />
-                    )}
-                  </TodoCard>
+                  <Card variant="interactive" size="sm">
+                    <CardContent>
+                      <TodoCard
+                        todo={todo}
+                        isEditing={editingId === todo.id}
+                        onEditStart={handleEditStart}
+                        onDelete={handleDelete}
+                        onToggleStatus={handleToggleStatus}
+                        onUpdate={handleTodoUpdate}
+                      >
+                        {editingId === todo.id && (
+                          <TodoForm
+                            initialData={{
+                              title: todo.title,
+                              description: todo.description || '',
+                              isCompleted: todo.isCompleted,
+                              priority: todo.priority,
+                              status: todo.status,
+                              labels: todo.labels || [],
+                            }}
+                            todoId={todo.id}
+                            onCancel={handleEditCancel}
+                            onSuccess={() => {
+                              setEditingId(null);
+                              success('Todo updated', 'Todo has been successfully updated');
+                            }}
+                            submitLabel="Update"
+                            allLabels={allLabels}
+                          />
+                        )}
+                      </TodoCard>
+                    </CardContent>
+                  </Card>
                 </motion.div>
               ))}
             </motion.div>

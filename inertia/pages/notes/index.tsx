@@ -5,6 +5,9 @@ import { PlusIcon, XIcon, ArrowLeft } from 'lucide-react'
 import NoteCard from './note-card'
 import NoteForm from './note-form'
 import ViewSwitcher from './view-switcher'
+import { NotesSearchFilter } from '../../components/NotesSearchFilter'
+import { allLabels } from '../../components/Label'
+import { Card, CardContent } from '../../components/ui/card'
 
 interface Note {
   id: number
@@ -14,6 +17,7 @@ interface Note {
   updatedAt: string | null
   pinned: boolean
   imageUrl: string | null
+  labels?: { id: number; name: string; color?: string }[]
 }
 
 interface Meta {
@@ -232,6 +236,22 @@ export default function Index({
                 {isFormVisible ? <XIcon size={20} /> : <PlusIcon size={20} />}
               </motion.button>
             </div>
+          </motion.div>
+
+          {/* Search and Filter Section */}
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="mb-6"
+          >
+            <Card variant="default" size="default">
+              <CardContent>
+                <NotesSearchFilter 
+                  labels={allLabels} 
+                />
+              </CardContent>
+            </Card>
           </motion.div>
 
           <AnimatePresence>
