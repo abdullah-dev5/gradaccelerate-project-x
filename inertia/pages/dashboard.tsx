@@ -46,7 +46,7 @@ export default function Dashboard() {
         
         console.log('Fetching dashboard stats...')
         
-        // Fetch notes count using web routes (session-based auth)
+        // Use manual fetch calls to get real-time data
         const notesResponse = await fetch('/notes?perPage=1', {
           headers: { 
             'Accept': 'application/json',
@@ -54,11 +54,8 @@ export default function Dashboard() {
           },
           credentials: 'include'
         })
-        console.log('Notes response status:', notesResponse.status)
         const notesData = await notesResponse.json()
-        console.log('Notes data:', notesData)
         
-        // Fetch todos count using web routes (session-based auth)
         const todosResponse = await fetch('/todos?perPage=1', {
           headers: { 
             'Accept': 'application/json',
@@ -66,11 +63,8 @@ export default function Dashboard() {
           },
           credentials: 'include'
         })
-        console.log('Todos response status:', todosResponse.status)
         const todosData = await todosResponse.json()
-        console.log('Todos data:', todosData)
         
-        // Fetch projects count using web routes (session-based auth)
         const projectsResponse = await fetch('/projects?perPage=1', {
           headers: { 
             'Accept': 'application/json',
@@ -78,20 +72,18 @@ export default function Dashboard() {
           },
           credentials: 'include'
         })
-        console.log('Projects response status:', projectsResponse.status)
         const projectsData = await projectsResponse.json()
-        console.log('Projects data:', projectsData)
         
         setStats({
-          notes: notesData.projects?.meta?.total || notesData.meta?.total || 0,
-          todos: todosData.todos?.meta?.total || todosData.meta?.total || 0,
-          projects: projectsData.projects?.meta?.total || projectsData.meta?.total || 0
+          notes: notesData.meta?.total || 0,
+          todos: todosData.meta?.total || 0,
+          projects: projectsData.meta?.total || 0
         })
         
         console.log('Final stats:', {
-          notes: notesData.projects?.meta?.total || notesData.meta?.total || 0,
-          todos: todosData.todos?.meta?.total || todosData.meta?.total || 0,
-          projects: projectsData.projects?.meta?.total || projectsData.meta?.total || 0
+          notes: notesData.meta?.total || 0,
+          todos: todosData.meta?.total || 0,
+          projects: projectsData.meta?.total || 0
         })
         
       } catch (error) {

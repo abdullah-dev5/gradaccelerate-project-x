@@ -5,7 +5,7 @@ import { BaseSeeder } from '@adonisjs/lucid/seeders'
 export default class TodoSeeder extends BaseSeeder {
   async run() {
     const labels = await Label.all()
-    const labelIds = labels.map(label => label.id)
+    const labelIds = labels.map((label) => label.id)
 
     const todos = [
       { title: 'Complete project', description: 'Finish all tasks' },
@@ -17,13 +17,14 @@ export default class TodoSeeder extends BaseSeeder {
       { title: 'Learn recipe', isCompleted: true },
       { title: 'Organize desk', isCompleted: false },
       { title: 'Review PRs', description: 'Code reviews' },
-      { title: 'Morning jog', isCompleted: true }
+      { title: 'Morning jog', isCompleted: true },
     ]
 
     for (const todoData of todos) {
       const todo = await Todo.create(todoData)
       const randomLabels = labelIds.sort(() => 0.5 - Math.random()).slice(0, 2)
-      await todo.related('labels').attach(randomLabels)
+      const labelData = randomLabels.map(id => labels.find(l => l.id === id)).filter(Boolean)
+      await todo.merge({ labels: labelData }).save()
     }
   }
 }

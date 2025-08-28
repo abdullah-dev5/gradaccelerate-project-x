@@ -20,11 +20,15 @@ const shieldConfig = defineConfig({
     exceptRoutes: [
       '/notes', // ✅ TEMPORARY: Add notes route to test CSRF issue
       '/notes/:id/upload',
+      '/notes/:id/pin', // ✅ Add pin route to CSRF exception
+      '/todos', // ✅ Add todos routes to CSRF exception
+      '/todos/:id/complete',
+      '/todos/:id/workflow-status',
       '/auth/google/redirect', // OAuth redirect doesn't need CSRF
       '/google/callback', // OAuth callback doesn't need CSRF
       '/api/auth/login', // API endpoints handled separately
       '/api/auth/register',
-      '/api/auth/logout'
+      '/api/auth/logout',
     ],
     enableXsrfCookie: true,
     methods: ['POST', 'PUT', 'PATCH', 'DELETE'],

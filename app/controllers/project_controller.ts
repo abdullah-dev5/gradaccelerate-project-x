@@ -6,7 +6,7 @@ import { projectStatusValidator } from '#validators/projects/project_status'
 export default class ProjectsController {
   // Alias method for backward compatibility - redirect to index
   async indexPage(context: HttpContext) {
-    return this.index(context);
+    return this.index(context)
   }
 
   /**
@@ -43,28 +43,45 @@ export default class ProjectsController {
     try {
       await auth.authenticate()
       const user = auth.getUserOrFail()
-      const page = request.input('page', 1);
-      const status = request.input('status');
-      const search = request.input('search');
+      const page = request.input('page', 1)
+      const status = request.input('status')
+      const search = request.input('search')
 
       const query = Project.query()
         .where('userId', user.id)
         .orderBy('createdAt', 'desc')
-        .if(status, (query) => query.where('status', status))
-        .if(search, (query) =>
-          query.where((builder) => {
+        .if(status, (statusQuery) => statusQuery.where('status', status))
+        .if(search, (searchQuery) =>
+          searchQuery.where((builder) => {
             builder
               .where('title', 'ILIKE', `%${search}%`)
               .orWhere('description', 'ILIKE', `%${search}%`)
           })
-        );
+        )
 
-      const projects = await query.paginate(page, 10);
+      const projects = await query.paginate(page, 10)
+      
+      // Debug: Log project data
+      const projectData = projects.all()
+      console.log('Projects fetched:', {
+        total: projects.total,
+        currentPage: projects.currentPage,
+        projects: projectData.map(p => ({
+          id: p.id,
+          title: p.title,
+          userId: p.userId,
+          hasUserId: p.userId !== undefined,
+          serialized: p.serialize()
+        }))
+      })
 
-      if (request.header('x-inertia') === 'true' || request.header('accept')?.includes('text/html')) {
+      if (
+        request.header('x-inertia') === 'true' ||
+        request.header('accept')?.includes('text/html')
+      ) {
         return inertia.render('projects/index', {
           projects: {
-            data: projects.all(),
+            data: projectData.map(p => p.serialize()),
             meta: {
               total: projects.total,
               per_page: projects.perPage,
@@ -74,37 +91,43 @@ export default class ProjectsController {
               first_page_url: null,
               last_page_url: null,
               next_page_url: projects.getNextPageUrl(),
-              previous_page_url: projects.getPreviousPageUrl()
-            }
+              previous_page_url: projects.getPreviousPageUrl(),
+            },
           },
-          filters: { status, search }
-        });
+          filters: { status, search },
+        })
       }
       // API/JSON response
       return response.ok({
-        projects: projects.all(),
+        projects: projectData.map(p => p.serialize()),
         meta: {
           total: projects.total,
           per_page: projects.perPage,
           current_page: projects.currentPage,
-          last_page: projects.lastPage
+          last_page: projects.lastPage,
         },
-        filters: { status, search }
+        filters: { status, search },
       })
     } catch (error) {
-      if (request.header('x-inertia') === 'true' || request.header('accept')?.includes('text/html')) {
+      if (
+        request.header('x-inertia') === 'true' ||
+        request.header('accept')?.includes('text/html')
+      ) {
         if (error.message.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
           return response.redirect('/login')
         }
         return inertia.render('projects/index', {
-          projects: { data: [], meta: { total: 0, per_page: 10, current_page: 1, last_page: 1, first_page: 1 } },
+          projects: {
+            data: [],
+            meta: { total: 0, per_page: 10, current_page: 1, last_page: 1, first_page: 1, first_page_url: null, last_page_url: null, next_page_url: null, previous_page_url: null },
+          },
           filters: { status: null, search: null },
-          error: 'Failed to fetch projects'
-        });
+          error: 'Failed to fetch projects',
+        })
       }
       return response.status(500).json({
         message: 'Failed to fetch projects',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -129,7 +152,7 @@ export default class ProjectsController {
 
       await Project.create({
         ...payload,
-        userId: user.id // Set the authenticated user as owner
+        userId: user.id, // Set the authenticated user as owner
       })
 
       session.flash('success', 'Project created successfully!')
@@ -148,7 +171,8 @@ export default class ProjectsController {
       await auth.authenticate()
       const user = auth.getUserOrFail()
       const projectId = params.id
-      
+
+      // Find project by ID and ensure user has access
       const project = await Project.query()
         .where('id', projectId)
         .where('userId', user.id)
@@ -157,30 +181,36 @@ export default class ProjectsController {
       // Check if it's an Inertia request (web page)
       const isInertiaRequest = request.header('x-inertia') === 'true'
       const acceptsHtml = request.header('accept')?.includes('text/html')
-      
+
       if (isInertiaRequest || acceptsHtml) {
-        return inertia.render('projects/show', { project: project.serialize() })
+        const serializedProject = project.serialize()
+        console.log('Rendering project show page:', {
+          projectId: project.id,
+          serializedProject,
+          hasUserId: serializedProject.userId !== undefined
+        })
+        return inertia.render('projects/Show', { project: serializedProject })
       }
-      
+
       // API/JSON response
       return response.ok({ project: project.serialize() })
     } catch (error) {
       const isInertiaRequest = request.header('x-inertia') === 'true'
       const acceptsHtml = request.header('accept')?.includes('text/html')
-      
+
       if (isInertiaRequest || acceptsHtml) {
         if (error.message?.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
           return inertia.render('errors/unauthorized', {
             message: 'You need to be authenticated to view this project.',
-            redirectUrl: '/login'
+            redirectUrl: '/login',
           })
         }
         return inertia.render('errors/not_found', {
           error: error.message || 'Project not found',
-          message: 'This project may have been deleted or you do not have permission to view it.'
+          message: 'This project may have been deleted or you do not have permission to view it.',
         })
       }
-      
+
       if (error.message?.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
         return response.unauthorized({ message: 'Unauthorized', error: error.message })
       }
@@ -202,34 +232,40 @@ export default class ProjectsController {
         .firstOrFail()
 
       const statusOptions = ['pending', 'in_progress', 'completed']
-      
+
       // Check if it's an Inertia request (web page)
       const isInertiaRequest = request.header('x-inertia') === 'true'
       const acceptsHtml = request.header('accept')?.includes('text/html')
-      
+
       if (isInertiaRequest || acceptsHtml) {
-        return inertia.render('projects/edit', { project: project.serialize(), statusOptions })
+        const serializedProject = project.serialize()
+        console.log('Rendering project edit page:', {
+          projectId: project.id,
+          serializedProject,
+          hasUserId: serializedProject.userId !== undefined
+        })
+        return inertia.render('projects/edit', { project: serializedProject, statusOptions })
       }
-      
+
       // API/JSON response
       return response.ok({ project: project.serialize(), statusOptions })
     } catch (error) {
       const isInertiaRequest = request.header('x-inertia') === 'true'
       const acceptsHtml = request.header('accept')?.includes('text/html')
-      
+
       if (isInertiaRequest || acceptsHtml) {
         if (error.message?.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
           return inertia.render('errors/unauthorized', {
             message: 'You need to be authenticated to edit this project.',
-            redirectUrl: '/login'
+            redirectUrl: '/login',
           })
         }
         return inertia.render('errors/not_found', {
           error: error.message || 'Project not found',
-          message: 'This project may have been deleted or you do not have permission to edit it.'
+          message: 'This project may have been deleted or you do not have permission to edit it.',
         })
       }
-      
+
       if (error.message?.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
         return response.unauthorized({ message: 'Unauthorized', error: error.message })
       }

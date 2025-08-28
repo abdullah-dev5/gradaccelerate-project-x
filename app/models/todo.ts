@@ -34,7 +34,7 @@ export default class Todo extends BaseModel {
     prepare: (value) => (value ? JSON.stringify(value) : null),
     serialize: (value) => value,
   })
-  declare labels: { id: number; name: string; color?: string }[] | null;
+  declare labels: { id: number; name: string; color?: string }[] | null
   public static softDelete = true
 
   @column.dateTime({ autoCreate: true })

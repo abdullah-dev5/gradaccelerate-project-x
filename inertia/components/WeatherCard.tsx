@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
 import { Sun, CloudRain, Cloud, MapPin } from 'lucide-react';
-import { Toast } from './Toast';
+import { Toast } from './Toast.js';
 
 interface WeatherData {
   name: string;

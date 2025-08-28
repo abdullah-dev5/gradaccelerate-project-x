@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { allLabels, Label } from '../../components/Label';
 import KlipyGifPicker from './KlipyGifPicker'
 import { router } from '@inertiajs/react'
@@ -9,6 +9,10 @@ import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
 import 'highlight.js/styles/atom-one-dark.css'
 import { usePage } from '@inertiajs/react'
+
+import { useNoteFormValidation } from '../../hooks/use_form_validation'
+import { NoteFormData } from '../../validators/note_schemas'
+import { useToast } from '../../hooks/useToast'
 
 interface NoteLabelType {
   id: number;
@@ -22,6 +26,8 @@ interface NoteFormInitialData {
   content: string;
   pinned: boolean;
   imageUrl?: string | null;
+  gif_url?: string | null;
+  gif_slug?: string | null;
   labels?: NoteLabelType[];
 }
 
@@ -30,29 +36,38 @@ interface NoteFormProps {
   onSuccess: (note: any) => void;
   onCancel?: () => void;
 }
-// Removed label logic from NoteFormProps
 
 export default function NoteForm({ 
   initialData = { title: '', content: '', pinned: false },
   onSuccess,
   onCancel
 }: NoteFormProps) {
-// Removed label logic from function parameters
+  const { showToast } = useToast()
+  
+  // Form validation hook
+  const {
+    errors,
+    validateField,
+    validateForm,
+    clearErrors,
+    hasErrors,
+    getFieldError
+  } = useNoteFormValidation({
+    validateOnChange: true,
+    debounceMs: 500
+  })
 
   const [isPreview, setIsPreview] = useState(false)
-  const [data, setData] = useState({
+  const [data, setData] = useState<NoteFormData>({
     title: initialData.title,
     content: initialData.content,
     pinned: initialData.pinned,
     imageUrl: initialData.imageUrl || null,
-    gifUrl: null as string | null,
-    gifSlug: null as string | null,
+    gif_url: initialData.gif_url || null,
+    gif_slug: initialData.gif_slug || null,
     labels: initialData.labels || [],
   })
-// Removed label logic from state initialization
-    // label logic removed
-    // label logic removed
-  // label logic removed
+
   const [removeImageFlag, setRemoveImageFlag] = useState(false)
 
   // Klipy GIF picker state
@@ -63,14 +78,24 @@ export default function NoteForm({
   const [imagePreview, setImagePreview] = useState(initialData.imageUrl || null)
   const [isUploading, setIsUploading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // ✅ FIXED: Get CSRF token from page props
   const { csrf } = usePage().props as any
 
-  const handleChange = (field: string, value: any) => {
+  // Clear validation errors when form data changes
+  useEffect(() => {
+    if (initialData.id) {
+      clearErrors()
+    }
+  }, [initialData.id, clearErrors])
+
+  const handleChange = (field: keyof NoteFormData, value: any) => {
     setData(prev => ({ ...prev, [field]: value }))
+    
+    // Validate field in real-time
+    validateField(field, value)
+    
     // Only check for /klipy in content field
     if (field === 'content') {
       const match = value.match(/\/klipy\s+(\w+)/i)
@@ -85,356 +110,365 @@ export default function NoteForm({
   const handleLabelToggle = (label: { id: number; name: string; color?: string }) => {
     const exists = data.labels?.some(l => l.id === label.id);
     if (exists) {
-      setData(prev => ({ ...prev, labels: prev.labels.filter(l => l.id !== label.id) }));
+      const newLabels = (data.labels || []).filter(l => l.id !== label.id)
+      handleChange('labels', newLabels)
     } else {
-      setData(prev => ({ ...prev, labels: [...(prev.labels || []), label] }));
+      const newLabels = [...(data.labels || []), label]
+      handleChange('labels', newLabels)
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Validate entire form before submission
+    const validationErrors = validateForm(data)
+    if (validationErrors.length > 0) {
+      showToast('Please fix the validation errors before submitting', 'error')
+      return
+    }
+
     setIsSubmitting(true)
-    setError(null)
+    clearErrors()
     
-    const formData = new FormData()
-    formData.append('title', data.title)
-    formData.append('content', data.content)
-    formData.append('pinned', String(data.pinned))
-    
-    // ✅ FIXED: Handle labels properly - temporarily simplified to avoid validation issues
-    // TODO: Fix labels handling after core note creation works
-    // if (data.labels && data.labels.length > 0) {
-    //   // Send each label individually to avoid JSON parsing issues
-    //   data.labels.forEach((label, index) => {
-    //     formData.append(`labels[${index}][id]`, label.id.toString())
-    //     formData.append(`labels[${index}][name]`, label.name)
-    //     if (label.color) {
-    //       formData.append(`labels[${index}][color]`, label.color)
-    //   }
-    // })
-    // } else {
-    //   // If no labels, send empty array to avoid validation issues
-    //   formData.append('labels', '[]')
-    // }
-
-    // Handle image upload
-    if (fileInputRef.current?.files?.[0]) {
-      formData.append('image', fileInputRef.current.files[0])
-    } else if (data.imageUrl) {
-      formData.append('imageUrl', data.imageUrl)
-    }
-
-    // Handle GIF fields
-    if (data.gifUrl) {
-      formData.append('gif_url', data.gifUrl)
-    }
-    if (data.gifSlug) {
-      formData.append('gif_slug', data.gifSlug)
-    }
-
-    // Handle image removal for existing notes
-    if (removeImageFlag && initialData.id) {
-      formData.append('removeImage', 'true')
-    }
-
-    const url = initialData.id ? `/notes/${initialData.id}/edit` : '/notes'
-    const method = initialData.id ? 'put' : 'post'
-
-    // ✅ FIXED: Use proper Inertia form submission with authentication
-    router[method](url, formData, {
-      preserveScroll: true,
-      // ✅ FIXED: Let Inertia handle CSRF automatically
-      onSuccess: (page: any) => {
-        console.log('Note saved successfully:', page)
-        onSuccess({} as any) // Trigger form close
-        // The redirect will handle navigation
-      },
-      onError: (errors: any) => {
-        console.error('Validation errors:', errors)
-        setError(Object.values(errors)[0] as string || 'Failed to save note')
-        setIsSubmitting(false)
-      },
-      onFinish: () => {
-        setIsSubmitting(false)
+    try {
+      // Prepare data for backend - ensure proper field mapping
+      const submitData = {
+        title: data.title,
+        content: data.content,
+        pinned: data.pinned,
+        imageUrl: data.imageUrl, // Include the uploaded image URL
+        gif_url: data.gif_url,
+        gif_slug: data.gif_slug,
+        // Ensure labels are in the correct format
+        labels: (data.labels || []).map(label => ({
+          id: label.id,
+          name: label.name,
+          color: label.color
+        }))
       }
-    })
+      
+      // Debug: log what's being sent
+      console.log('Form submission data:', submitData)
+      console.log('Original data state:', data)
+      
+      if (initialData.id) {
+        // Update existing note using Inertia router
+        await router.put(`/notes/${initialData.id}`, submitData, {
+          onSuccess: () => {
+            showToast('Note updated successfully!', 'success')
+            onSuccess({ id: initialData.id, ...submitData })
+          },
+          onError: (errors) => {
+            console.error('Update errors:', errors)
+            showToast('Failed to update note. Please try again.', 'error')
+          }
+        })
+      } else {
+        // Create new note using Inertia router
+        await router.post('/notes', submitData, {
+          onSuccess: () => {
+            showToast('Note created successfully!', 'success')
+            // Call onSuccess with a temporary note object
+            onSuccess({ id: Date.now(), ...submitData })
+          },
+          onError: (errors) => {
+            console.error('Creation errors:', errors)
+            showToast('Failed to create note. Please try again.', 'error')
+          }
+        })
+      }
+    } catch (error) {
+      console.error('Form submission error:', error)
+      showToast('Failed to save note. Please try again.', 'error')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+  const handleImageUpload = async (file: File) => {
     if (!file) return
 
     setIsUploading(true)
-    setError(null)
-    
     try {
-      // Create preview URL
-      const previewUrl = URL.createObjectURL(file)
-      setImagePreview(previewUrl)
-      setRemoveImageFlag(false) // Reset remove flag when new image is selected
+      const formData = new FormData()
+      formData.append('image', file)
       
-      // Actual upload will happen during form submission
+      const response = await fetch('/notes/upload-image', {
+        method: 'POST',
+        headers: {
+          'X-CSRF-TOKEN': csrf,
+        },
+        body: formData,
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        handleChange('imageUrl', result.imageUrl)
+        setImagePreview(result.imageUrl)
+        showToast('Image uploaded successfully!', 'success')
+      } else {
+        throw new Error('Upload failed')
+      }
     } catch (error) {
-      console.error('Error handling image:', error)
-      setError('Failed to process image')
-      if (fileInputRef.current) fileInputRef.current.value = ''
+      console.error('Image upload error:', error)
+      showToast('Failed to upload image. Please try again.', 'error')
     } finally {
       setIsUploading(false)
     }
   }
 
-  const removeImage = () => {
-    handleChange('imageUrl', null)
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      handleImageUpload(file)
+    }
+  }
+
+  const handleRemoveImage = () => {
+    setRemoveImageFlag(true)
     setImagePreview(null)
-    setRemoveImageFlag(true) // Flag that image should be removed from the note
-    if (fileInputRef.current) fileInputRef.current.value = ''
+    handleChange('imageUrl', null)
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-      handleSubmit(e)
-    }
-  }
-
-  // label logic removed
-
-  // Insert GIF markdown at cursor position and store gifUrl/gifSlug
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-  // Accepts gifUrl and gifSlug
-  const handleGifSelect = (gifUrl: string, gifSlug?: string) => {
+  const handleGifSelect = (gifUrl: string, gifSlug: string) => {
+    handleChange('gif_url', gifUrl)
+    handleChange('gif_slug', gifSlug)
     setShowGifPicker(false)
-    setKlipyQuery('')
-    setKlipyPage(1)
-    // Remove /klipy command from content
-    const klipyCmdRegex = /\n?\/klipy\s+\w+\n?/i;
-    let cleanedContent = data.content.replace(klipyCmdRegex, '\n');
-    // Insert ![gif](url) at cursor
-    if (textareaRef.current) {
-      const textarea = textareaRef.current
-      const start = textarea.selectionStart
-      const end = textarea.selectionEnd
-      const before = cleanedContent.slice(0, start)
-      const after = cleanedContent.slice(end)
-      const newContent = `${before}\n![gif](${gifUrl})\n${after}`
-      setData(prev => ({ ...prev, content: newContent, gifUrl, gifSlug: gifSlug || null }))
-      setTimeout(() => {
-        textarea.focus()
-        textarea.selectionStart = textarea.selectionEnd = start + (`\n![gif](${gifUrl})\n`).length
-      }, 0)
-    } else {
-      setData(prev => ({ ...prev, content: cleanedContent + `\n![gif](${gifUrl})\n`, gifUrl, gifSlug: gifSlug || null }))
-    }
+    showToast('GIF added to note!', 'success')
+  }
+
+  const handleGifRemove = () => {
+    handleChange('gif_url', null)
+    handleChange('gif_slug', null)
+    showToast('GIF removed from note', 'info')
+  }
+
+  // Error display component
+  const ErrorMessage = ({ field }: { field: keyof NoteFormData }) => {
+    const error = getFieldError(field as string)
+    if (!error) return null
+    
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="text-red-400 text-sm mt-1 flex items-center gap-1"
+      >
+        <span className="w-1 h-1 bg-red-400 rounded-full"></span>
+        {error}
+      </motion.div>
+    )
   }
 
   return (
-    <motion.div
-      className="bg-[#2C2C2E] rounded-xl p-6 backdrop-blur-lg border border-[#3A3A3C]"
-      style={{ boxShadow: "0 10px 30px rgba(0, 0, 0, 0.25)" }}
-    >
-      {showGifPicker && klipyQuery && (
-        <KlipyGifPicker
-          query={klipyQuery}
-          page={klipyPage}
-          limit={8}
-          noteId={initialData.id ? initialData.id : undefined}
-          onSelect={(gifUrl: string, gifSlug?: string) => handleGifSelect(gifUrl, gifSlug)}
-          onClose={() => setShowGifPicker(false)}
-          onNextPage={() => setKlipyPage(p => p + 1)}
-          onPrevPage={() => setKlipyPage(p => Math.max(1, p - 1))}
-        />
-      )}
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold text-white">
-          {initialData.id ? 'Edit Note' : 'New Note'}
-        </h2>
-        <div className="flex items-center gap-2">
-          {/* Pin toggle */}
-          <button
-            type="button"
-            onClick={() => handleChange('pinned', !data.pinned)}
-            className={`p-2 rounded-full ${data.pinned ? 'text-yellow-400 bg-yellow-400/10' : 'text-[#98989D] hover:bg-[#3A3A3C]'}`}
-            aria-label={data.pinned ? "Unpin note" : "Pin note"}
-          >
-            <Pin size={18} />
-          </button>
+    <div className="max-w-4xl mx-auto p-6">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Title Field */}
+        <div>
+          <label htmlFor="title" className="block text-sm font-medium text-[#98989D] mb-2">
+            Title *
+          </label>
+          <input
+            type="text"
+            id="title"
+            value={data.title}
+            onChange={(e) => handleChange('title', e.target.value)}
+            className={`w-full px-3 py-2 bg-[#1C1C1E] border text-white rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-200 ${
+              getFieldError('title') ? 'border-red-400/50 focus:ring-red-400' : 'border-[#3A3A3C]'
+            }`}
+            placeholder="Enter note title..."
+          />
+          <ErrorMessage field="title" />
+        </div>
 
-          {/* Preview toggle */}
-          <button
-            type="button"
-            onClick={() => setIsPreview(!isPreview)}
-            className={`p-2 rounded-full ${isPreview ? 'text-[#0A84FF] bg-[#0A84FF]/10' : 'text-[#98989D] hover:bg-[#3A3A3C]'}`}
-            aria-label={isPreview ? "Switch to editor" : "Switch to preview"}
-          >
-            {isPreview ? <FileText size={18} /> : <Eye size={18} />}
-          </button>
-
-          {onCancel && (
+        {/* Content Field */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label htmlFor="content" className="block text-sm font-medium text-[#98989D]">
+              Content
+            </label>
             <button
               type="button"
-              onClick={onCancel}
-              className="p-2 rounded-full text-[#98989D] hover:bg-[#3A3A3C]"
-              aria-label="Cancel"
+              onClick={() => setIsPreview(!isPreview)}
+              className="flex items-center gap-2 text-sm text-[#98989D] hover:text-white transition-colors"
             >
-              <X size={18} />
+              {isPreview ? <FileText size={16} /> : <Eye size={16} />}
+              {isPreview ? 'Edit' : 'Preview'}
             </button>
+          </div>
+          
+          {isPreview ? (
+            <div className="border border-[#3A3A3C] rounded-xl p-4 bg-[#1C1C1E] min-h-[200px]">
+              {data.content ? (
+                <div className="prose prose-invert max-w-none">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    rehypePlugins={[rehypeHighlight]}
+                  >
+                    {data.content}
+                  </ReactMarkdown>
+                </div>
+              ) : (
+                <p className="text-[#98989D] italic">No content to preview</p>
+              )}
+            </div>
+          ) : (
+            <textarea
+              id="content"
+              value={data.content}
+              onChange={(e) => handleChange('content', e.target.value)}
+              rows={8}
+              className={`w-full px-3 py-2 bg-[#1C1C1E] border text-white rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-200 ${
+                getFieldError('content') ? 'border-red-400/50 focus:ring-red-400' : 'border-[#3A3A3C]'
+              }`}
+              placeholder="Write your note content here... (Markdown supported)"
+            />
           )}
+          <ErrorMessage field="content" />
+        </div>
+
+        {/* Image Upload Section */}
+        <div>
+          <label className="block text-sm font-medium text-[#98989D] mb-2">
+            Image
+          </label>
+          <div className="space-y-3">
+            {/* File Upload */}
+            <div className="flex items-center gap-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+          <button
+            type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="flex items-center gap-2 px-4 py-2 border border-[#3A3A3C] rounded-xl shadow-sm text-sm font-medium text-white bg-[#1C1C1E] hover:bg-[#3A3A3C] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent disabled:opacity-50 transition-all duration-200"
+              >
+                <ImageIcon size={16} />
+                {isUploading ? 'Uploading...' : 'Upload Image'}
+          </button>
+
+              {/* GIF Picker */}
+          <button
+            type="button"
+                onClick={() => setShowGifPicker(true)}
+                className="flex items-center gap-2 px-4 py-2 border border-[#3A3A3C] rounded-xl shadow-sm text-sm font-medium text-white bg-[#1C1C1E] hover:bg-[#3A3A3C] focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-200"
+          >
+                🎬 Add GIF
+          </button>
+            </div>
+
+            {/* Image Preview */}
+            {imagePreview && (
+              <div className="relative inline-block">
+                <img
+                  src={imagePreview}
+                  alt="Note attachment"
+                  className="max-w-xs max-h-48 rounded-md border"
+                />
+                <button
+                  type="button"
+                  onClick={handleRemoveImage}
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+
+            {/* GIF Preview */}
+            {data.gif_url && (
+              <div className="relative inline-block">
+                <img
+                  src={data.gif_url}
+                  alt="GIF"
+                  className="max-w-xs max-h-48 rounded-md border"
+                />
+                <button
+                  type="button"
+                  onClick={handleGifRemove}
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
         </div>
       </div>
 
-      {error && (
-        <div className="mb-4 p-3 bg-red-900/20 border border-red-700 text-red-300 rounded-lg">
-          {error}
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit}>
-        <div className="mb-4">
-          <motion.input
-            whileFocus={{ scale: 1.01 }}
-            transition={{ duration: 0.2 }}
-            type="text"
-            value={data.title}
-            onChange={(e) => handleChange('title', e.target.value)}
-            placeholder="Note title"
-            className="w-full px-4 py-3 bg-[#3A3A3C] text-white placeholder-[#98989D] rounded-lg border-none focus:ring-2 focus:ring-[#0A84FF] focus:outline-none transition-all duration-200"
-            required
-          />
-        </div>
-
-        {/* Labels UI (moved above image) */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium mb-2">Labels</label>
-          <div className="flex flex-wrap gap-2 mb-2">
-            {allLabels.map(label => (
-              <div
+        {/* Labels Section */}
+        <div>
+          <label className="block text-sm font-medium text-[#98989D] mb-2">
+            Labels
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {allLabels.map((label) => (
+              <button
                 key={label.id}
+                type="button"
                 onClick={() => handleLabelToggle(label)}
-                className={`transition-all cursor-pointer ${data.labels?.some(l => l.id === label.id) ? 'opacity-100' : 'opacity-60 hover:opacity-80'}`}
-                style={{ border: 'none', background: 'none', padding: 0 }}
+                className={`px-3 py-1 rounded-xl text-sm font-medium transition-colors ${
+                  data.labels?.some(l => l.id === label.id)
+                    ? 'bg-blue-400/20 text-blue-400 border border-blue-400/40'
+                    : 'bg-[#1C1C1E] text-[#98989D] border border-[#3A3A3C] hover:bg-[#3A3A3C] hover:text-white'
+                }`}
               >
-                <Label
-                  name={label.name}
-                  color={label.color}
-                  onRemove={data.labels?.some(l => l.id === label.id) ? () => handleLabelToggle(label) : undefined}
-                />
-              </div>
+                {label.name}
+              </button>
             ))}
           </div>
-          {/* Show selected labels (if any) */}
-          {data.labels && data.labels.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {data.labels.map(label => (
-                <Label
-                  key={label.id}
-                  name={label.name}
-                  color={label.color}
-                  onRemove={() => handleLabelToggle(label)}
-                />
-              ))}
-            </div>
-          )}
+          <ErrorMessage field="labels" />
         </div>
 
-        {imagePreview && (
-          <div className="mb-4 relative group">
-            <img
-              src={imagePreview}
-              alt="Note preview"
-              className="w-full h-48 object-cover rounded-lg"
-              onError={() => setImagePreview(null)}
-            />
-            <button
-              type="button"
-              onClick={removeImage}
-              className="absolute top-2 right-2 p-1.5 bg-[#2C2C2E]/90 rounded-full text-white hover:bg-[#3A3A3C] transition-colors"
-            >
-              <X size={16} />
-            </button>
-          </div>
-        )}
-
-        <div className="mb-4">
-          {isPreview ? (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              className="px-4 py-3 bg-[#3A3A3C] text-white rounded-lg min-h-[120px] prose prose-invert prose-sm max-w-none"
-            >
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                rehypePlugins={[rehypeHighlight]}
-                components={{
-                  a: ({node, ...props}) => (
-                    <a className="text-[#0A84FF] hover:underline" target="_blank" rel="noopener noreferrer" {...props} />
-                  ),
-                  code: ({node, ...props}) => (
-                    <code className="bg-[#2C2C2E] px-1 py-0.5 rounded" {...props} />
-                  )
-                }}
-              >
-                {data.content || '*Nothing to preview*'}
-              </ReactMarkdown>
-            </motion.div>
-          ) : (
-            <motion.textarea
-              ref={textareaRef}
-              whileFocus={{ scale: 1.01 }}
-              transition={{ duration: 0.2 }}
-              value={data.content}
-              onChange={(e) => handleChange('content', e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Write your note in Markdown..."
-              className="w-full px-4 py-3 bg-[#3A3A3C] text-white placeholder-[#98989D] rounded-lg border-none focus:ring-2 focus:ring-[#0A84FF] focus:outline-none min-h-[120px] transition-all duration-200"
-              required
-            />
-          )}
-        </div>
-
-        <div className="mb-4">
+        {/* Pinned Toggle */}
+        <div className="flex items-center">
           <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleImageUpload}
-            accept="image/*"
-            className="hidden"
-            id="note-image-upload"
+            type="checkbox"
+            id="pinned"
+            checked={data.pinned}
+            onChange={(e) => handleChange('pinned', e.target.checked)}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
-          <label
-            htmlFor="note-image-upload"
-            className={`inline-flex items-center px-4 py-2 rounded-lg cursor-pointer transition-colors ${
-              isUploading 
-                ? 'bg-[#3A3A3C] text-[#98989D]' 
-                : 'bg-[#3A3A3C] text-[#98989D] hover:bg-[#4A4A4C]'
-            }`}
-          >
-            <ImageIcon size={16} className="mr-2" />
-            {isUploading ? 'Uploading...' : 'Add Image'}
+          <label htmlFor="pinned" className="ml-2 block text-sm text-white">
+            Pin this note
           </label>
         </div>
 
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          type="submit"
-          disabled={isUploading || isSubmitting}
-          className="w-full bg-[#0A84FF] text-white px-4 py-3 rounded-lg hover:bg-[#0A74FF] focus:outline-none focus:ring-2 focus:ring-[#0A84FF] focus:ring-offset-2 focus:ring-offset-[#2C2C2E] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-        >
-          {isUploading || isSubmitting 
-            ? "Saving..." 
-            : initialData.id 
-              ? "Update Note" 
-              : "Save Note"}
-        </motion.button>
+        {/* Form Actions */}
+        <div className="flex items-center justify-end gap-3 pt-6 border-t border-[#3A3A3C]">
+            <button
+              type="button"
+            onClick={onCancel}
+            className="px-4 py-2 border border-[#3A3A3C] rounded-xl shadow-sm text-sm font-medium text-[#98989D] bg-[#1C1C1E] hover:bg-[#3A3A3C] hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-200"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={isSubmitting || hasErrors}
+            className="px-4 py-2 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+          >
+            {isSubmitting ? 'Saving...' : initialData.id ? 'Update Note' : 'Create Note'}
+            </button>
+          </div>
 
-        <div className="flex justify-between items-center mt-2">
-          <p className="text-sm text-[#98989D]">
-            {isPreview ? "Markdown preview" : "Markdown supported"}
-          </p>
-          <p className="text-sm text-[#98989D]">
-            {(typeof navigator !== 'undefined' && navigator.platform?.includes("Mac")) ? "⌘" : "Ctrl"} + Enter to save
-          </p>
-        </div>
+
       </form>
-    </motion.div>
+
+      {/* Klipy GIF Picker Modal */}
+      {showGifPicker && (
+        <KlipyGifPicker
+          query={klipyQuery}
+          page={klipyPage}
+          onSelect={(gifUrl: string, gifSlug?: string) => gifSlug && handleGifSelect(gifUrl, gifSlug)}
+          onClose={() => setShowGifPicker(false)}
+            />
+          )}
+        </div>
   )
 }

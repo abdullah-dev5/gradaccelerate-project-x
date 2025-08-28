@@ -31,13 +31,7 @@ export default class OAuthLogger {
   }
 
   static logSuccess(data: Omit<OAuthLogData, 'success'>) {
-    const logEntry = {
-      timestamp: DateTime.now().toISO(),
-      level: 'INFO',
-      ...data,
-      success: true
-    }
-    
+
     console.log(`[OAUTH-${data.requestId}] ✅ SUCCESS:`, {
       action: data.action,
       userId: data.userId,
@@ -46,7 +40,7 @@ export default class OAuthLogger {
       duration: data.duration ? `${data.duration}ms` : undefined,
       ip: data.ip,
       userAgent: data.userAgent,
-      ...data.additionalData
+      ...data.additionalData,
     })
 
     // TODO: In production, you might want to store this in a database
@@ -54,13 +48,7 @@ export default class OAuthLogger {
   }
 
   static logError(data: Omit<OAuthLogData, 'success'> & { error: string; stack?: string }) {
-    const logEntry = {
-      timestamp: DateTime.now().toISO(),
-      level: 'ERROR',
-      ...data,
-      success: false
-    }
-    
+
     console.error(`[OAUTH-${data.requestId}] ❌ ERROR:`, {
       action: data.action,
       error: data.error,
@@ -68,7 +56,7 @@ export default class OAuthLogger {
       duration: data.duration ? `${data.duration}ms` : undefined,
       ip: data.ip,
       userAgent: data.userAgent,
-      ...data.additionalData
+      ...data.additionalData,
     })
 
     // TODO: In production, you might want to store this in a database
@@ -83,7 +71,7 @@ export default class OAuthLogger {
     console.warn(`[OAUTH-${requestId}] 🔒 SECURITY: ${event}`, {
       timestamp: DateTime.now().toISO(),
       event,
-      ...data
+      ...data,
     })
   }
 
@@ -93,7 +81,7 @@ export default class OAuthLogger {
       id: googleUser.id,
       email: googleUser.email,
       name: googleUser.name,
-      avatarUrl: googleUser.avatarUrl ? 'present' : 'missing'
+      avatarUrl: googleUser.avatarUrl ? 'present' : 'missing',
     })
   }
 
@@ -101,7 +89,7 @@ export default class OAuthLogger {
     this.logStep(requestId, 'New Google user created', {
       userId: user.id,
       email: user.email,
-      providerId: user.providerId
+      providerId: user.providerId,
     })
   }
 
@@ -109,7 +97,7 @@ export default class OAuthLogger {
     this.logStep(requestId, 'Linking Google to existing email account', {
       existingUserId: existingUser.id,
       existingEmail: existingUser.email,
-      googleProviderId
+      googleProviderId,
     })
   }
 
@@ -123,8 +111,8 @@ export default class OAuthLogger {
       action: 'oauth_authentication',
       duration,
       additionalData: {
-        message: 'OAuth flow completed successfully'
-      }
+        message: 'OAuth flow completed successfully',
+      },
     })
   }
 
@@ -134,7 +122,7 @@ export default class OAuthLogger {
       action: 'oauth_authentication',
       duration,
       error: error.message,
-      stack: error.stack
+      stack: error.stack,
     })
   }
 }

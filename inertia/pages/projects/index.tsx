@@ -3,7 +3,6 @@ import { usePage, Link, router } from '@inertiajs/react'
 import { motion } from 'framer-motion'
 import { Plus, ChevronLeft, ChevronRight, Home, Search, X, ArrowLeft } from 'lucide-react'
 import { useToast } from '../../hooks/useToast'
-import { ToastContainer } from '../../components/Toast'
 import ProjectCard from './ProjectCard'
 import { Project, StatusColors, StatusLabels, ProjectStatus, ProjectPagination } from '../../types/project'
 
@@ -363,7 +362,6 @@ export default function ProjectIndex() {
             </div>
           </div>
         )}
-        <ToastContainer toasts={toasts} onClose={removeToast} />
       </div>
     </div>
   )

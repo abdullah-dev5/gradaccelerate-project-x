@@ -6,16 +6,16 @@ export class ApiResponse {
     return {
       success: true,
       message,
-      data
+      data,
     }
   }
-  
+
   static error(message: string, status = 400, errors?: any) {
     return {
       success: false,
       message,
       errors,
-      status
+      status,
     }
   }
 }
@@ -48,22 +48,19 @@ export default class BaseController {
   protected handleAuthError(_error: any, ctx: HttpContext) {
     const isInertiaRequest = ctx.request.header('x-inertia') === 'true'
     const acceptsHtml = ctx.request.header('accept')?.includes('text/html')
-    
+
     if (isInertiaRequest || acceptsHtml) {
       return ctx.response.redirect('/login')
     }
-    
-    return ctx.response.status(401).json(
-      ApiResponse.error('Unauthorized', 401)
-    )
+
+    return ctx.response.status(401).json(ApiResponse.error('Unauthorized', 401))
   }
 
   /**
    * ✅ IMPROVED: Check if request is from Inertia
    */
   protected isInertiaRequest(request: HttpContext['request']) {
-    return request.header('x-inertia') === 'true' || 
-           request.header('accept')?.includes('text/html')
+    return request.header('x-inertia') === 'true' || request.header('accept')?.includes('text/html')
   }
 
   /**
@@ -71,16 +68,14 @@ export default class BaseController {
    */
   protected handleError(error: any, ctx: HttpContext, defaultMessage = 'An error occurred') {
     console.error('Controller error:', error)
-    
+
     const isInertiaRequest = this.isInertiaRequest(ctx.request)
-    
+
     if (isInertiaRequest) {
       return ctx.response.redirect('/login')
     }
-    
-    return ctx.response.status(500).json(
-      ApiResponse.error(defaultMessage, 500)
-    )
+
+    return ctx.response.status(500).json(ApiResponse.error(defaultMessage, 500))
   }
 
   /**

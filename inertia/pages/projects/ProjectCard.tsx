@@ -10,7 +10,17 @@ interface ProjectCardProps {
 }
 
 export default function ProjectCard({ project, onStatusUpdate, onDelete }: ProjectCardProps) {
-  const maxDescriptionLength = 120 // Max characters before showing "View more"
+  const maxDescriptionLength = 50 // Reduced from 120 to 50 for better UX
+
+  // Debug: Log project data
+  console.log('ProjectCard render:', {
+    id: project.id,
+    title: project.title,
+    description: project.description,
+    descriptionLength: project.description?.length || 0,
+    maxLength: maxDescriptionLength,
+    shouldShowViewMore: project.description && project.description.length > maxDescriptionLength
+  })
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -46,7 +56,7 @@ export default function ProjectCard({ project, onStatusUpdate, onDelete }: Proje
       {/* Content */}
       <div className="relative p-6">
         {/* Header with title and status */}
-        <div className="flex justify-between items-start mb-4">
+        <div className="flex justify-between items-start mb-4 relative z-40">
           <div className="flex-1 min-w-0">
             <h3 className="font-bold text-xl text-white mb-2 line-clamp-2 group-hover:text-blue-100 transition-colors">
               <Link 
@@ -59,7 +69,7 @@ export default function ProjectCard({ project, onStatusUpdate, onDelete }: Proje
           </div>
           
           {/* Status Dropdown */}
-          <div className="flex-shrink-0 ml-3 relative z-30">
+          <div className="flex-shrink-0 ml-3 relative z-50">
             <select
               value={project.status}
               onChange={(e) => {
@@ -79,7 +89,7 @@ export default function ProjectCard({ project, onStatusUpdate, onDelete }: Proje
         </div>
 
         {/* Description */}
-        <div className="mb-6 relative z-20">
+        <div className="mb-6 relative z-30">
           <p className="text-[#98989D] leading-relaxed">
             {(project.description?.substring(0, maxDescriptionLength) || 'No description provided for this project.')}
             {project.description && project.description.length > maxDescriptionLength && '...'}
@@ -87,7 +97,21 @@ export default function ProjectCard({ project, onStatusUpdate, onDelete }: Proje
           {project.description && project.description.length > maxDescriptionLength && (
             <Link
               href={`/projects/${project.id}`}
-              className="inline-flex items-center gap-1 mt-2 text-xs text-blue-400 hover:text-blue-300 transition-colors cursor-pointer relative z-40 pointer-events-auto"
+              onClick={(e) => {
+                e.preventDefault()
+                console.log('View More clicked for project:', {
+                  id: project.id,
+                  title: project.title,
+                  description: project.description,
+                  descriptionLength: project.description?.length || 0,
+                  maxLength: maxDescriptionLength,
+                  shouldShowViewMore: project.description && project.description.length > maxDescriptionLength
+                })
+                
+                // Try to navigate programmatically
+                window.location.href = `/projects/${project.id}`
+              }}
+              className="inline-flex items-center gap-1 mt-2 text-xs text-blue-400 hover:text-blue-300 transition-colors cursor-pointer relative z-50 bg-blue-400/10 px-2 py-1 rounded-md border border-blue-400/20 hover:bg-blue-400/20"
             >
               <span>View more</span>
               <Eye size={12} />
@@ -96,7 +120,7 @@ export default function ProjectCard({ project, onStatusUpdate, onDelete }: Proje
         </div>
 
         {/* Metadata */}
-        <div className="flex items-center justify-between text-sm text-[#98989D] mb-4">
+        <div className="flex items-center justify-between text-sm text-[#98989D] mb-4 relative z-30">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1.5">
               <Calendar size={14} className="text-[#98989D]" />
@@ -112,7 +136,7 @@ export default function ProjectCard({ project, onStatusUpdate, onDelete }: Proje
         </div>
 
         {/* Action buttons */}
-        <div className="flex items-center justify-between pt-4 border-t border-[#3A3A3C]/50 relative z-10">
+        <div className="flex items-center justify-between pt-4 border-t border-[#3A3A3C]/50 relative z-40">
           <div className="flex items-center gap-2">
             <Link 
               href={`/projects/${project.id}/edit`}
@@ -141,10 +165,11 @@ export default function ProjectCard({ project, onStatusUpdate, onDelete }: Proje
       </div>
 
       {/* Bottom gradient */}
-      <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#1C1C1E]/80 to-transparent pointer-events-none" />
+      <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#1C1C1E]/80 to-transparent pointer-events-none z-10" />
       
       {/* Hover glow effect */}
-      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-400/0 via-blue-400/0 to-purple-500/0 group-hover:from-blue-400/5 group-hover:via-blue-400/5 group-hover:to-purple-500/5 transition-all duration-500" />
+      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-400/0 via-blue-400/0 to-purple-500/0 group-hover:from-blue-400/5 group-hover:via-blue-400/5 group-hover:to-purple-500/5 transition-all duration-500 pointer-events-none z-20" />
+      
     </motion.div>
   )
 }

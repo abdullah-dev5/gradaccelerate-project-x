@@ -11,6 +11,8 @@ interface Note {
   updatedAt: string | null
   pinned: boolean
   imageUrl: string | null
+  gif_url?: string | null
+  gif_slug?: string | null
 }
 
 
@@ -68,7 +70,9 @@ export default function Edit({ note }: { note: Note }) {
                 title: note.title,
                 content: note.content,
                 pinned: note.pinned,
-                imageUrl: note.imageUrl
+                imageUrl: note.imageUrl,
+                gif_url: note.gif_url,
+                gif_slug: note.gif_slug
               }}
               onSuccess={handleUpdateSuccess}
               onCancel={handleCancel}

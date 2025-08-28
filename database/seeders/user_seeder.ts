@@ -42,7 +42,7 @@ export default class UserSeeder extends BaseSeeder {
         fullName: 'David Park',
         email: 'david@example.com',
         password: simplePassword,
-      }
+      },
     ])
   }
 }

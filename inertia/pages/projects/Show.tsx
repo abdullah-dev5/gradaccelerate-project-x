@@ -4,7 +4,6 @@ import { motion } from 'framer-motion'
 import { ArrowLeft, Edit, Trash2, Calendar, Clock, Tag } from 'lucide-react'
 import { Project, StatusColors, StatusLabels, ProjectStatus } from '../../types/project'
 import { useToast } from '../../hooks/useToast'
-import { ToastContainer } from '../../components/Toast'
 
 type Props = {
   project: Project
@@ -219,8 +218,6 @@ export default function ProjectShow() {
           </motion.div>
         </div>
       </div>
-
-      <ToastContainer toasts={toasts} onClose={removeToast} />
     </div>
   )
 }

@@ -5,18 +5,9 @@ import vine from '@vinejs/vine'
  */
 export const loginValidator = vine.compile(
   vine.object({
-    email: vine
-      .string()
-      .trim()
-      .email()
-      .normalizeEmail()
-      .maxLength(255),
-    
-    password: vine
-      .string()
-      .trim()
-      .minLength(6)
-      .maxLength(255),
+    email: vine.string().trim().email().normalizeEmail().maxLength(255),
+
+    password: vine.string().trim().minLength(6).maxLength(255),
   })
 )
 
@@ -25,32 +16,18 @@ export const loginValidator = vine.compile(
  */
 export const registerValidator = vine.compile(
   vine.object({
-    fullName: vine
-      .string()
-      .trim()
-      .minLength(2)
-      .maxLength(100)
-      .escape()
-      .optional(),
-    
-    email: vine
-      .string()
-      .trim()
-      .email()
-      .normalizeEmail()
-      .maxLength(255),
-    
+    fullName: vine.string().trim().minLength(2).maxLength(100).escape().optional(),
+
+    email: vine.string().trim().email().normalizeEmail().maxLength(255),
+
     password: vine
       .string()
       .trim()
       .minLength(8)
       .maxLength(255)
       .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/),
-    
-    passwordConfirmation: vine
-      .string()
-      .trim()
-      .sameAs('password'),
+
+    passwordConfirmation: vine.string().trim().sameAs('password'),
   })
 )
 
@@ -59,12 +36,7 @@ export const registerValidator = vine.compile(
  */
 export const passwordResetValidator = vine.compile(
   vine.object({
-    email: vine
-      .string()
-      .trim()
-      .email()
-      .normalizeEmail()
-      .maxLength(255),
+    email: vine.string().trim().email().normalizeEmail().maxLength(255),
   })
 )
 
@@ -73,22 +45,16 @@ export const passwordResetValidator = vine.compile(
  */
 export const passwordUpdateValidator = vine.compile(
   vine.object({
-    currentPassword: vine
-      .string()
-      .trim()
-      .minLength(6),
-    
+    currentPassword: vine.string().trim().minLength(6),
+
     newPassword: vine
       .string()
       .trim()
       .minLength(8)
       .maxLength(255)
       .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/),
-    
-    newPasswordConfirmation: vine
-      .string()
-      .trim()
-      .sameAs('newPassword'),
+
+    newPasswordConfirmation: vine.string().trim().sameAs('newPassword'),
   })
 )
 
@@ -97,21 +63,10 @@ export const passwordUpdateValidator = vine.compile(
  */
 export const profileUpdateValidator = vine.compile(
   vine.object({
-    fullName: vine
-      .string()
-      .trim()
-      .minLength(2)
-      .maxLength(100)
-      .escape()
-      .optional(),
-    
-    email: vine
-      .string()
-      .trim()
-      .email()
-      .normalizeEmail()
-      .maxLength(255),
-    
+    fullName: vine.string().trim().minLength(2).maxLength(100).escape().optional(),
+
+    email: vine.string().trim().email().normalizeEmail().maxLength(255),
+
     avatar: vine
       .file({
         size: '5mb',
@@ -126,14 +81,8 @@ export const profileUpdateValidator = vine.compile(
  */
 export const oauthCallbackValidator = vine.compile(
   vine.object({
-    code: vine
-      .string()
-      .trim()
-      .minLength(1),
-    
-    state: vine
-      .string()
-      .trim()
-      .optional(),
+    code: vine.string().trim().minLength(1),
+
+    state: vine.string().trim().optional(),
   })
 )

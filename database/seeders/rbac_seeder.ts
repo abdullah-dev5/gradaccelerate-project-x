@@ -118,23 +118,24 @@ export default class extends BaseSeeder {
     // Assign permissions to roles
 
     // Admin gets all permissions
-    await adminRole.related('permissions').attach(permissions.map(p => p.id))
+    await adminRole.related('permissions').attach(permissions.map((p) => p.id))
 
     // Moderator gets user and content management permissions
-    const moderatorPermissions = permissions.filter(p =>
-      p.slug.includes('users.read') ||
-      p.slug.includes('users.update') ||
-      p.slug.includes('projects') ||
-      p.slug.includes('notes') ||
-      p.slug.includes('admin.dashboard')
+    const moderatorPermissions = permissions.filter(
+      (p) =>
+        p.slug.includes('users.read') ||
+        p.slug.includes('users.update') ||
+        p.slug.includes('projects') ||
+        p.slug.includes('notes') ||
+        p.slug.includes('admin.dashboard')
     )
-    await moderatorRole.related('permissions').attach(moderatorPermissions.map(p => p.id))
+    await moderatorRole.related('permissions').attach(moderatorPermissions.map((p) => p.id))
 
     // User gets basic read permissions
-    const userPermissions = permissions.filter(p =>
-      p.slug.includes('read') && !p.slug.includes('admin')
+    const userPermissions = permissions.filter(
+      (p) => p.slug.includes('read') && !p.slug.includes('admin')
     )
-    await userRole.related('permissions').attach(userPermissions.map(p => p.id))
+    await userRole.related('permissions').attach(userPermissions.map((p) => p.id))
 
     // Create default admin user
     const adminUser = await User.firstOrCreate(

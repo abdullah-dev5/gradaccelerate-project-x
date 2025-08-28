@@ -24,7 +24,7 @@ export default class ErrorHandlerMiddleware {
    */
   private handleError(error: any, ctx: HttpContext) {
     const isInertiaRequest = ctx.request.header('x-inertia') === 'true'
-    const acceptsHtml = ctx.request.header('accept')?.includes('text/html')
+
     const isApiRequest = ctx.request.url().startsWith('/api/')
 
     // Log error for debugging
@@ -43,9 +43,11 @@ export default class ErrorHandlerMiddleware {
     }
 
     // Handle authentication errors
-    if (error.message?.includes('Authentication required') || 
-        error.message?.includes('Unauthorized') ||
-        error.code === 'E_UNAUTHORIZED_ACCESS') {
+    if (
+      error.message?.includes('Authentication required') ||
+      error.message?.includes('Unauthorized') ||
+      error.code === 'E_UNAUTHORIZED_ACCESS'
+    ) {
       return this.handleAuthError(ctx, isInertiaRequest, isApiRequest)
     }
 
@@ -76,13 +78,18 @@ export default class ErrorHandlerMiddleware {
   /**
    * Handle validation errors
    */
-  private handleValidationError(error: errors.E_VALIDATION_ERROR, ctx: HttpContext, isInertia: boolean, isApi: boolean) {
+      private handleValidationError(
+      error: any,
+      ctx: HttpContext,
+      isInertia: boolean,
+      isApi: boolean
+    ) {
     if (isApi) {
       return ctx.response.status(422).json({
         success: false,
         message: 'Validation failed',
         errors: error.messages,
-        status: 422
+        status: 422,
       })
     }
 
@@ -97,7 +104,7 @@ export default class ErrorHandlerMiddleware {
       success: false,
       message: 'Validation failed',
       errors: error.messages,
-      status: 422
+      status: 422,
     })
   }
 
@@ -109,7 +116,7 @@ export default class ErrorHandlerMiddleware {
       return ctx.response.status(401).json({
         success: false,
         message: 'Unauthorized',
-        status: 401
+        status: 401,
       })
     }
 
@@ -120,7 +127,7 @@ export default class ErrorHandlerMiddleware {
     return ctx.response.status(401).json({
       success: false,
       message: 'Unauthorized',
-      status: 401
+      status: 401,
     })
   }
 
@@ -132,7 +139,7 @@ export default class ErrorHandlerMiddleware {
       return ctx.response.status(404).json({
         success: false,
         message: 'Resource not found',
-        status: 404
+        status: 404,
       })
     }
 
@@ -143,7 +150,7 @@ export default class ErrorHandlerMiddleware {
     return ctx.response.status(404).json({
       success: false,
       message: 'Resource not found',
-      status: 404
+      status: 404,
     })
   }
 
@@ -151,15 +158,14 @@ export default class ErrorHandlerMiddleware {
    * Handle database errors
    */
   private handleDatabaseError(error: any, ctx: HttpContext, isInertia: boolean, isApi: boolean) {
-    const message = process.env.NODE_ENV === 'production' 
-      ? 'Database error occurred' 
-      : error.message
+    const message =
+      process.env.NODE_ENV === 'production' ? 'Database error occurred' : error.message
 
     if (isApi) {
       return ctx.response.status(500).json({
         success: false,
         message,
-        status: 500
+        status: 500,
       })
     }
 
@@ -171,7 +177,7 @@ export default class ErrorHandlerMiddleware {
     return ctx.response.status(500).json({
       success: false,
       message,
-      status: 500
+      status: 500,
     })
   }
 
@@ -179,15 +185,13 @@ export default class ErrorHandlerMiddleware {
    * Handle file upload errors
    */
   private handleFileError(error: any, ctx: HttpContext, isInertia: boolean, isApi: boolean) {
-    const message = error.code === 'E_FILE_TOO_LARGE' 
-      ? 'File size too large' 
-      : 'Invalid file type'
+    const message = error.code === 'E_FILE_TOO_LARGE' ? 'File size too large' : 'Invalid file type'
 
     if (isApi) {
       return ctx.response.status(400).json({
         success: false,
         message,
-        status: 400
+        status: 400,
       })
     }
 
@@ -199,7 +203,7 @@ export default class ErrorHandlerMiddleware {
     return ctx.response.status(400).json({
       success: false,
       message,
-      status: 400
+      status: 400,
     })
   }
 
@@ -213,7 +217,7 @@ export default class ErrorHandlerMiddleware {
       return ctx.response.status(429).json({
         success: false,
         message,
-        status: 429
+        status: 429,
       })
     }
 
@@ -225,7 +229,7 @@ export default class ErrorHandlerMiddleware {
     return ctx.response.status(429).json({
       success: false,
       message,
-      status: 429
+      status: 429,
     })
   }
 
@@ -233,15 +237,13 @@ export default class ErrorHandlerMiddleware {
    * Handle general server errors
    */
   private handleServerError(error: any, ctx: HttpContext, isInertia: boolean, isApi: boolean) {
-    const message = process.env.NODE_ENV === 'production' 
-      ? 'Internal server error' 
-      : error.message
+    const message = process.env.NODE_ENV === 'production' ? 'Internal server error' : error.message
 
     if (isApi) {
       return ctx.response.status(500).json({
         success: false,
         message,
-        status: 500
+        status: 500,
       })
     }
 
@@ -253,7 +255,7 @@ export default class ErrorHandlerMiddleware {
     return ctx.response.status(500).json({
       success: false,
       message,
-      status: 500
+      status: 500,
     })
   }
 }

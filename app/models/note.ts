@@ -34,7 +34,7 @@ export default class Note extends BaseModel {
   @column()
   declare imagePublicId: string | null
 
-  @column()
+  @column({ columnName: 'share_uuid' })
   declare shareUuid: string | null
 
   @column.dateTime()
@@ -43,13 +43,12 @@ export default class Note extends BaseModel {
   @belongsTo(() => User)
   declare user: BelongsTo<typeof User>
 
-
   @column({
     consume: (value) => (typeof value === 'string' ? JSON.parse(value) : value),
     prepare: (value) => (value ? JSON.stringify(value) : null),
     serialize: (value) => value,
   })
-  declare labels: { id: number; name: string; color?: string }[] | null;
+  declare labels: { id: number; name: string; color?: string }[] | null
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -63,10 +62,9 @@ export default class Note extends BaseModel {
       try {
         await cloudinary.uploader.destroy(note.imagePublicId)
       } catch (error) {
-        throw new Exception(
-          `Failed to cleanup Cloudinary assets: ${error.message}`,
-          { status: 500 }
-        )
+        throw new Exception(`Failed to cleanup Cloudinary assets: ${error.message}`, {
+          status: 500,
+        })
       }
     }
   }
@@ -94,8 +92,8 @@ export default class Note extends BaseModel {
     const match = this.gif_url.match(/_(\d+)x(\d+)\.gif$/i)
     if (match) {
       return {
-        width: parseInt(match[1]),
-        height: parseInt(match[2])
+        width: Number.parseInt(match[1]),
+        height: Number.parseInt(match[2]),
       }
     }
 

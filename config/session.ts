@@ -7,16 +7,16 @@ const sessionConfig = defineConfig({
   cookieName: 'adonis-session',
 
   /**
-   * When set to true, the session id cookie will be deleted
-   * once the user closes the browser.
+   * When set to false, the session will persist even after browser closes
+   * for better user experience and session persistence.
    */
-  clearWithBrowser: true, // ✅ ENHANCED: Clear session when browser closes
+  clearWithBrowser: false, // ✅ FIXED: Keep session alive after browser closes
 
   /**
    * Define how long to keep the session data alive without
    * any activity.
    */
-  age: '2h',
+  age: '7d', // ✅ ENHANCED: Extended session duration to 7 days
 
   /**
    * Configuration for session cookie and the

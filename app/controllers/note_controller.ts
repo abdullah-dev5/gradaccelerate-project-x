@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto'
 import app from '@adonisjs/core/services/app'
 import cloudinary from '#config/cloudinary'
 import { DateTime } from 'luxon'
-import fs from 'fs' // Import Node.js file system module
+import fs from 'node:fs' // Import Node.js file system module
 import logger from '@adonisjs/core/services/logger'
 import { createNoteValidator } from '#validators/notes/create_note_validator'
 import { updateNoteValidator } from '#validators/notes/update_note_validator'
@@ -18,8 +18,6 @@ import type { MultipartFile } from '@adonisjs/core/types/bodyparser' // Import M
 import env from '#start/env'
 import axios from 'axios'
 
-
-
 export default class NotesController {
   private isInertiaRequest(request: HttpContext['request']) {
     return request.header('x-inertia') === 'true'
@@ -27,14 +25,21 @@ export default class NotesController {
 
   // Alias method for backward compatibility - redirect to index
   async indexPage(context: HttpContext) {
-    return this.index(context);
+    return this.index(context)
   }
 
   async index({ request, inertia, response, auth }: HttpContext) {
     try {
       await auth.authenticate()
       const user = auth.getUserOrFail()
-      const { sort = 'created_at', order = 'desc', search = '', page = 1, limit = 10, pinned } = request.qs()
+      const {
+        sort = 'created_at',
+        order = 'desc',
+        search = '',
+        page = 1,
+        limit = 10,
+        pinned,
+      } = request.qs()
 
       const query = Note.query()
         .where('userId', user.id)
@@ -57,7 +62,19 @@ export default class NotesController {
       // Always render Inertia page for browser requests (even if not X-Inertia)
       if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
         return inertia.render('notes/index', {
-          notes: notes.serialize().data,
+          notes: notes.serialize().data.map(note => ({
+            id: note.id,
+            title: note.title,
+            content: note.content,
+            createdAt: note.createdAt,
+            updatedAt: note.updatedAt,
+            pinned: note.pinned,
+            imageUrl: note.imageUrl,
+            gif_url: note.gif_url,
+            gif_slug: note.gif_slug,
+            labels: note.labels,
+            userId: note.userId,
+          })),
           meta: notes.getMeta(),
           sortOptions: { currentSort: sort, currentOrder: order, searchQuery: search },
         })
@@ -71,7 +88,7 @@ export default class NotesController {
         }
         // Render a consistent error page for Inertia
         return inertia.render('errors/server_error', {
-          error: error.message || 'Failed to fetch notes'
+          error: error.message || 'Failed to fetch notes',
         })
       }
       // For API requests, return JSON error
@@ -95,7 +112,22 @@ export default class NotesController {
         .firstOrFail()
 
       if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
-        return inertia.render('notes/show', { note: note.serialize() })
+        return inertia.render('notes/show', { 
+          note: {
+            id: note.id,
+            title: note.title,
+            content: note.content,
+            createdAt: note.createdAt,
+            updatedAt: note.updatedAt,
+            pinned: note.pinned,
+            imageUrl: note.imageUrl,
+            gif_url: note.gif_url,
+            gif_slug: note.gif_slug,
+            labels: note.labels,
+            userId: note.userId,
+            shareUuid: note.shareUuid,
+          }
+        })
       }
       return response.ok(note)
     } catch (error) {
@@ -103,12 +135,12 @@ export default class NotesController {
         if (error.message?.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
           return inertia.render('errors/unauthorized', {
             message: 'You need to be authenticated to view this note.',
-            redirectUrl: '/login'
+            redirectUrl: '/login',
           })
         }
         return inertia.render('errors/not_found', {
           error: error.message || 'Note not found',
-          message: 'This note may have been deleted or you do not have permission to view it.'
+          message: 'This note may have been deleted or you do not have permission to view it.',
         })
       }
       if (error.message?.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
@@ -134,8 +166,19 @@ export default class NotesController {
 
       if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
         return inertia.render('notes/edit', {
-          note: note.serialize(),
-          // label logic removed
+          note: {
+            id: note.id,
+            title: note.title,
+            content: note.content,
+            createdAt: note.createdAt,
+            updatedAt: note.updatedAt,
+            pinned: note.pinned,
+            imageUrl: note.imageUrl,
+            gif_url: note.gif_url,
+            gif_slug: note.gif_slug,
+            labels: note.labels,
+            userId: note.userId,
+          },
         })
       }
       return response.ok({ note: note.serialize() })
@@ -144,12 +187,12 @@ export default class NotesController {
         if (error.message?.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
           return inertia.render('errors/unauthorized', {
             message: 'You need to be authenticated to edit this note.',
-            redirectUrl: '/login'
+            redirectUrl: '/login',
           })
         }
         return inertia.render('errors/not_found', {
           error: error.message || 'Note not found',
-          message: 'This note may have been deleted or you do not have permission to edit it.'
+          message: 'This note may have been deleted or you do not have permission to edit it.',
         })
       }
       if (error.message?.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
@@ -159,13 +202,12 @@ export default class NotesController {
     }
   }
 
-
-  async store({ request, response, auth, inertia }: HttpContext) {
+  async store({ request, response, auth }: HttpContext) {
     try {
       // ✅ FIXED: Ensure proper authentication
       await auth.authenticate()
       const user = auth.getUserOrFail()
-      
+
       if (!user || !user.id) {
         logger.error('User authentication failed - no user or user ID')
         if (this.isInertiaRequest(request)) {
@@ -178,12 +220,12 @@ export default class NotesController {
       const payload = await request.validateUsing(createNoteValidator)
 
       // Debug: log incoming payload and user
-      logger.info('DEBUG NOTE CREATION', { 
-        userId: user.id, 
+      logger.info('DEBUG NOTE CREATION', {
+        userId: user.id,
         userEmail: user.email,
         payload: payload,
         rawLabels: request.input('labels'),
-        allInputs: request.all()
+        allInputs: request.all(),
       })
       console.log('DEBUG NOTE CREATION - User:', user.id, user.email)
       console.log('DEBUG NOTE CREATION - Payload:', JSON.stringify(payload))
@@ -195,8 +237,8 @@ export default class NotesController {
         content: payload.content ? await marked.parse(payload.content) : '',
         pinned: payload.pinned ?? false,
         userId: user.id, // ✅ FIXED: Ensure user_id is set
-        imageUrl: null,
-        imagePublicId: null,
+        imageUrl: payload.imageUrl || null, // Use the uploaded image URL from payload
+        imagePublicId: null, // Will be set if we need to upload a new image
         gif_url: payload.gif_url || null,
         gif_slug: payload.gif_slug || null,
         labels: payload.labels || null, // ✅ FIXED: Handle undefined labels
@@ -206,7 +248,7 @@ export default class NotesController {
       logger.info('DEBUG NOTE DATA', { noteData })
       console.log('DEBUG NOTE DATA:', JSON.stringify(noteData))
 
-      // Handle image upload with cleanup on failure
+      // Handle image upload if a new file is provided (for updates)
       if (payload.image) {
         try {
           const uploadResult = await this.uploadToCloudinary(payload.image)
@@ -217,6 +259,9 @@ export default class NotesController {
           logger.error('Image upload failed', uploadError)
           throw new Error('Failed to process image upload')
         }
+      } else if (payload.imageUrl) {
+        // Use the already uploaded image URL
+        logger.info('Using existing image URL', { url: payload.imageUrl })
       }
 
       // Handle GIF tracking if provided
@@ -236,24 +281,24 @@ export default class NotesController {
         // ✅ FIXED: Ensure user_id is explicitly set
         note = await Note.create({
           ...noteData,
-          userId: user.id // Double-check user_id is set
+          userId: user.id, // Double-check user_id is set
         })
-        
-        logger.info('DEBUG NOTE CREATED SUCCESSFULLY', { 
-          noteId: note.id, 
+
+        logger.info('DEBUG NOTE CREATED SUCCESSFULLY', {
+          noteId: note.id,
           userId: note.userId,
-          title: note.title 
+          title: note.title,
         })
         console.log('DEBUG NOTE CREATED SUCCESSFULLY:', {
           id: note.id,
           userId: note.userId,
-          title: note.title
+          title: note.title,
         })
       } catch (err) {
-        logger.error('ERROR CREATING NOTE', { 
-          error: err.message, 
+        logger.error('ERROR CREATING NOTE', {
+          error: err.message,
           userId: user.id,
-          noteData: noteData 
+          noteData: noteData,
         })
         console.log('ERROR CREATING NOTE:', err.message)
         throw err
@@ -264,18 +309,29 @@ export default class NotesController {
         // For Inertia requests, redirect to notes page
         return response.redirect('/notes')
       } else {
-        // For API requests, return JSON
+        // For API requests, return JSON with complete note data
         return response.created({
           message: 'Note created successfully',
-          note: note.serialize()
+          note: {
+            id: note.id,
+            title: note.title,
+            content: note.content,
+            createdAt: note.createdAt,
+            updatedAt: note.updatedAt,
+            pinned: note.pinned,
+            imageUrl: note.imageUrl,
+            gif_url: note.gif_url,
+            gif_slug: note.gif_slug,
+            labels: note.labels,
+            userId: note.userId,
+          },
         })
       }
-
     } catch (error) {
       logger.error('Note creation failed', {
         error: error.message,
         stack: error.stack,
-        userId: auth.user?.id || 'unknown'
+        userId: auth.user?.id || 'unknown',
       })
 
       // ✅ FIXED: Better error handling for Inertia
@@ -283,13 +339,13 @@ export default class NotesController {
         if (error.message?.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
           return response.redirect('/login')
         }
-        
+
         // ✅ FIXED: Return proper Inertia response for validation errors
         if (error.messages) {
           // For Inertia requests, redirect back with validation errors
           return response.redirect().back()
         }
-        
+
         // Generic error for Inertia - redirect back
         return response.redirect().back()
       } else {
@@ -297,12 +353,11 @@ export default class NotesController {
         return response.status(400).json({
           message: 'Note creation failed',
           error: error.messages?.messages || error.message,
-          debug: error
+          debug: error,
         })
       }
     }
   }
-
 
   // Keep the existing uploadToCloudinary method exactly as is
   private async uploadToCloudinary(image: MultipartFile) {
@@ -310,13 +365,14 @@ export default class NotesController {
     const uploadPath = app.tmpPath('uploads', fileName)
 
     // Validate file size before processing
-    if (image.size > 5 * 1024 * 1024) { // 5MB
+    if (image.size > 5 * 1024 * 1024) {
+      // 5MB
       throw new Error('File size exceeds 5MB limit')
     }
 
     await image.move(app.tmpPath('uploads'), {
       name: fileName,
-      overwrite: false
+      overwrite: false,
     })
 
     try {
@@ -325,36 +381,27 @@ export default class NotesController {
         public_id: `note_${Date.now()}`,
         resource_type: 'auto',
         allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
-        timeout: 30000 // 30 second timeout
+        timeout: 30000, // 30 second timeout
       })
     } finally {
       // Cleanup temp file after upload
-      await fs.promises.unlink(uploadPath).catch(() => { })
+      await fs.promises.unlink(uploadPath).catch(() => {})
     }
   }
 
-
-
-
-
-
-
-
-  async update({ request, response, params, auth, inertia }: HttpContext) {
+  async update({ request, response, params, auth }: HttpContext) {
     try {
       await auth.authenticate()
       const user = auth.getUserOrFail()
-      const { note_id } = await request.validateUsing(noteIdValidator, { data: params })
+      const { id: noteId } = await request.validateUsing(noteIdValidator, { data: params })
       const payload = await request.validateUsing(updateNoteValidator)
-      const note = await Note.query()
-        .where('id', note_id)
-        .where('userId', user.id)
-        .firstOrFail()
+      const note = await Note.query().where('id', noteId).where('userId', user.id).firstOrFail()
 
       const updateData: Partial<Note> = {
         title: payload.title ?? note.title,
         content: payload.content ? await marked.parse(payload.content) : note.content,
         pinned: payload.pinned ?? note.pinned,
+        imageUrl: payload.imageUrl ?? note.imageUrl, // Handle imageUrl updates
         gif_url: payload.gif_url ?? note.gif_url,
         gif_slug: payload.gif_slug ?? note.gif_slug,
         labels: payload.labels ?? note.labels,
@@ -409,50 +456,50 @@ export default class NotesController {
       note.merge(updateData)
       await note.save()
 
-
-
-      if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
+      // For Inertia requests, redirect to the note show page
+      if (this.isInertiaRequest(request)) {
         return response.redirect(`/notes/${note.id}`)
       }
+      
+      // For API requests, return JSON response
       return response.ok({
         message: 'Note updated successfully',
-        note: note.serialize()
+        note: {
+          id: note.id,
+          title: note.title,
+          content: note.content,
+          createdAt: note.createdAt,
+          updatedAt: note.updatedAt,
+          pinned: note.pinned,
+          imageUrl: note.imageUrl,
+          gif_url: note.gif_url,
+          gif_slug: note.gif_slug,
+          labels: note.labels,
+          userId: note.userId,
+        },
       })
     } catch (error) {
       logger.error(error)
-      // Always return a valid Inertia response for browser/Inertia requests
-      if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
-        // If validation error, redirect back with errors (or render error page)
-        if (error.messages?.messages) {
-          // You can customize this to render a validation error page or redirect back
-          return response.redirect().back()
-        }
-        return inertia.render('errors/server_error', {
-          error: error.message || 'Failed to update note'
-        })
+      // For Inertia requests, redirect back
+      if (this.isInertiaRequest(request)) {
+        return response.redirect().back()
       }
+      
       // For API requests, return JSON error
       return response.status(400).send({
         message: 'Failed to update note',
-        error: error.messages?.messages || error.message
+        error: error.messages?.messages || error.message,
       })
     }
   }
-
-
-
-
-
-
-
 
   async destroy({ request, params, response, auth }: HttpContext) {
     try {
       await auth.authenticate() // Authenticate first
       const user = auth.getUserOrFail()
-      const { note_id } = await request.validateUsing(noteIdValidator, { data: params })
+      const { id: noteId } = await request.validateUsing(noteIdValidator, { data: params })
       const note = await Note.query()
-        .where('id', note_id)
+        .where('id', noteId)
         .where('userId', user.id) // Ensure user owns the note
         .firstOrFail()
 
@@ -461,7 +508,11 @@ export default class NotesController {
 
       return this.isInertiaRequest(request)
         ? response.redirect().toRoute('notes.index')
-        : response.ok({ message: 'Note moved to trash', success: true })
+        : response.ok({ 
+            message: 'Note moved to trash', 
+            success: true,
+            noteId: noteId
+          })
     } catch (error) {
       return response.status(400).send({ message: 'Failed to delete note', error: error.message })
     }
@@ -471,38 +522,66 @@ export default class NotesController {
     try {
       await auth.authenticate() // Authenticate first
       const user = auth.getUserOrFail()
-      const { note_id } = await request.validateUsing(noteIdValidator, { data: params })
+      const { id: noteId } = await request.validateUsing(noteIdValidator, { data: params })
       const note = await Note.query()
-        .where('id', note_id)
+        .where('id', noteId)
         .where('userId', user.id) // Ensure user owns the note
         .firstOrFail()
 
       note.deletedAt = null
       await note.save()
 
-      return response.ok({ message: 'Note restored successfully', note })
+      return response.ok({ 
+        message: 'Note restored successfully', 
+        note: {
+          id: note.id,
+          title: note.title,
+          content: note.content,
+          createdAt: note.createdAt,
+          updatedAt: note.updatedAt,
+          pinned: note.pinned,
+          imageUrl: note.imageUrl,
+          gif_url: note.gif_url,
+          gif_slug: note.gif_slug,
+          labels: note.labels,
+          userId: note.userId,
+        }
+      })
     } catch (error) {
       return response.status(400).send({ message: 'Restore failed', error: error.message })
     }
   }
 
-  async togglePin({ request, response, params, auth }: HttpContext) {
+  async togglePin({ request, response, params, auth, inertia }: HttpContext) {
     try {
-      await auth.authenticate() // Authenticate first
+      await auth.authenticate()
       const user = auth.getUserOrFail()
-      const { note_id } = await request.validateUsing(noteIdValidator, { data: params })
+      const { id: noteId } = await request.validateUsing(noteIdValidator, { data: params })
+      
       const note = await Note.query()
-        .where('id', note_id)
-        .where('userId', user.id) // Ensure user owns the note
+        .where('id', noteId)
+        .where('userId', user.id)
+        .whereNull('deleted_at')
         .firstOrFail()
 
       note.pinned = !note.pinned
       await note.save()
 
-      return this.isInertiaRequest(request)
-        ? response.redirect().back()
-        : response.ok({ message: 'Pin status updated', note })
+      // For Inertia requests, redirect back to refresh the page
+      if (this.isInertiaRequest(request)) {
+        return response.redirect().back()
+      }
+
+      // For API requests, return JSON
+      return response.ok({ 
+        success: true,
+        message: 'Pin status updated', 
+        note: note.serialize()
+      })
     } catch (error) {
+      if (this.isInertiaRequest(request)) {
+        return response.redirect().back()
+      }
       return response.status(400).send({ message: 'Failed to toggle pin', error: error.message })
     }
   }
@@ -527,7 +606,7 @@ export default class NotesController {
 
       return response.ok({
         message: 'Image uploaded successfully',
-        url: result.secure_url,
+        imageUrl: result.secure_url,
         public_id: result.public_id,
         asset_id: result.asset_id,
         bytes: result.bytes,
@@ -537,8 +616,6 @@ export default class NotesController {
     }
   }
 
-
-
   /**
    * Generate a unique share link for a note
    * Creates a UUID token that allows public access to the note
@@ -547,11 +624,11 @@ export default class NotesController {
     try {
       await auth.authenticate() // Ensure user is authenticated
       const user = auth.getUserOrFail()
-      const { note_id } = await request.validateUsing(noteIdValidator, { data: params })
+      const { id: noteId } = await request.validateUsing(noteIdValidator, { data: params })
 
       // Find note and ensure user owns it
       const note = await Note.query()
-        .where('id', note_id)
+        .where('id', noteId)
         .where('userId', user.id)
         .whereNull('deleted_at')
         .firstOrFail()
@@ -562,32 +639,33 @@ export default class NotesController {
 
       const shareUrl = `/notes/shared/${note.shareUuid}`
 
+      // For Inertia requests, redirect back to refresh the page
       if (this.isInertiaRequest(request)) {
-        return response.ok({
-          message: 'Share link generated successfully',
-          shareUrl,
-          shareUuid: note.shareUuid
-        })
+        return response.redirect().back()
       }
 
+      // For API/XMLHttpRequest requests, return JSON response
       return response.ok({
         message: 'Share link generated successfully',
-        url: shareUrl,
-        shareUuid: note.shareUuid
+        shareUrl,
+        shareUuid: note.shareUuid,
       })
     } catch (error) {
-      logger.error('Failed to generate share link:', error)
+      logger.error('Failed to generate share link:', {
+        error: error.message,
+        userId: auth.user?.id,
+        noteId: params.id,
+      })
 
+      // For Inertia requests, redirect back with error
       if (this.isInertiaRequest(request)) {
-        return response.status(400).send({
-          message: 'Failed to generate share link',
-          error: error.message
-        })
+        return response.redirect().back()
       }
 
+      // For API requests, return JSON error
       return response.status(400).send({
         message: 'Failed to generate share link',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -599,19 +677,34 @@ export default class NotesController {
   async viewSharedNote({ params, request, response, inertia }: HttpContext) {
     try {
       const { token } = await request.validateUsing(shareTokenValidator, { data: params })
+      
+      logger.info('Attempting to view shared note with token:', { token })
 
       // Find note by share UUID, ensure it's not deleted
       const note = await Note.query()
         .where('shareUuid', token)
         .whereNull('deleted_at')
-
         .preload('user', (userQuery) => {
           userQuery.select('id', 'fullName', 'email') // Use fullName instead of username
         })
         .firstOrFail()
 
-      // Process content if it's markdown
-      const processedContent = marked(note.content || '')
+      logger.info('Found shared note:', { noteId: note.id, title: note.title })
+
+      // Process content if it's markdown - handle both marked and marked.parse
+      let processedContent: string = note.content || ''
+      try {
+        if (marked.parse && typeof marked.parse === 'function') {
+          // marked.parse is async and returns a Promise<string>
+          const parsedContent = await marked.parse(note.content || '')
+          processedContent = parsedContent as string
+        } else if (typeof marked === 'function') {
+          processedContent = marked(note.content || '') as string
+        }
+      } catch (markdownError) {
+        logger.warn('Markdown processing failed, using raw content:', markdownError)
+        processedContent = note.content || ''
+      }
 
       // Prepare note data for sharing (remove sensitive information)
       const sharedNoteData = {
@@ -622,14 +715,15 @@ export default class NotesController {
         imageUrl: note.imageUrl,
         createdAt: note.createdAt,
         updatedAt: note.updatedAt,
-
         user: {
           fullName: note.user.fullName,
-          email: note.user.email
+          email: note.user.email,
         },
         isShared: true, // Flag to indicate this is a shared view
-        shareUuid: note.shareUuid
+        shareUuid: note.shareUuid,
       }
+
+      logger.info('Prepared shared note data:', { noteId: note.id, hasUser: !!note.user })
 
       // Always render the Inertia page for browser requests
       // Only return JSON for explicit API requests (with Accept: application/json header)
@@ -639,17 +733,22 @@ export default class NotesController {
       if (isApiRequest) {
         return response.ok({
           note: sharedNoteData,
-          isReadOnly: true
+          isReadOnly: true,
         })
       }
 
       // Default to Inertia rendering for all browser requests
       return inertia.render('notes/shared', {
         note: sharedNoteData,
-        isReadOnly: true // Ensure frontend knows this is read-only
+        isReadOnly: true, // Ensure frontend knows this is read-only
       })
     } catch (error) {
-      logger.error('Failed to retrieve shared note:', error)
+      logger.error('Failed to retrieve shared note:', {
+        error: error.message,
+        stack: error.stack,
+        token: params.token,
+        headers: request.headers(),
+      })
 
       // For browser requests, show custom 404 page
       const acceptsJson = request.header('accept')?.includes('application/json')
@@ -658,12 +757,12 @@ export default class NotesController {
       if (isApiRequest) {
         return response.status(404).send({
           message: 'Shared note not found or has been removed',
-          error: error.message
+          error: error.message,
         })
       }
 
       return inertia.render('errors/404', {
-        message: 'Shared note not found or has been removed'
+        message: 'Shared note not found or has been removed',
       })
     }
   }
@@ -675,11 +774,11 @@ export default class NotesController {
     try {
       await auth.authenticate()
       const user = auth.getUserOrFail()
-      const { note_id } = await request.validateUsing(noteIdValidator, { data: params })
+      const { id: noteId } = await request.validateUsing(noteIdValidator, { data: params })
 
       // Find note and ensure user owns it
       const note = await Note.query()
-        .where('id', note_id)
+        .where('id', noteId)
         .where('userId', user.id)
         .whereNull('deleted_at')
         .firstOrFail()
@@ -688,22 +787,44 @@ export default class NotesController {
       note.shareUuid = null
       await note.save()
 
+      // For Inertia requests, redirect back to refresh the page
       if (this.isInertiaRequest(request)) {
-        return response.ok({
-          message: 'Share link revoked successfully'
-        })
+        return response.redirect().back()
       }
 
+      // For API requests, return JSON response
       return response.ok({
         message: 'Share link revoked successfully',
-        note: note.serialize()
+        note: {
+          id: note.id,
+          title: note.title,
+          content: note.content,
+          createdAt: note.createdAt,
+          updatedAt: note.updatedAt,
+          pinned: note.pinned,
+          imageUrl: note.imageUrl,
+          gif_url: note.gif_url,
+          gif_slug: note.gif_slug,
+          labels: note.labels,
+          userId: note.userId,
+        },
       })
     } catch (error) {
-      logger.error('Failed to revoke share link:', error)
+      logger.error('Failed to revoke share link:', {
+        error: error.message,
+        userId: auth.user?.id,
+        noteId: params.id,
+      })
 
+      // For Inertia requests, redirect back with error
+      if (this.isInertiaRequest(request)) {
+        return response.redirect().back()
+      }
+
+      // For API requests, return JSON error
       return response.status(400).send({
         message: 'Failed to revoke share link',
-        error: error.message
+        error: error.message,
       })
     }
   }
@@ -715,11 +836,11 @@ export default class NotesController {
     try {
       await auth.authenticate()
       const user = auth.getUserOrFail()
-      const { note_id } = await request.validateUsing(noteIdValidator, { data: params })
+      const { id: noteId } = await request.validateUsing(noteIdValidator, { data: params })
 
       // Find note and ensure user owns it
       const note = await Note.query()
-        .where('id', note_id)
+        .where('id', noteId)
         .where('userId', user.id)
         .whereNull('deleted_at')
         .firstOrFail()
@@ -727,33 +848,31 @@ export default class NotesController {
       const shareData = {
         isShared: !!note.shareUuid,
         shareUrl: note.shareUuid ? `/notes/shared/${note.shareUuid}` : null,
-        shareUuid: note.shareUuid
+        shareUuid: note.shareUuid,
       }
 
+      // For Inertia requests, redirect back to refresh the page
       if (this.isInertiaRequest(request)) {
-        return response.ok(shareData)
+        return response.redirect().back()
       }
 
+      // For API requests, return JSON response
       return response.ok(shareData)
     } catch (error) {
       logger.error('Failed to get share status:', error)
 
+      // For Inertia requests, redirect back with error
+      if (this.isInertiaRequest(request)) {
+        return response.redirect().back()
+      }
+
+      // For API requests, return JSON error
       return response.status(400).send({
         message: 'Failed to get share status',
-        error: error.message
+        error: error.message,
       })
     }
   }
-
-
-
-
-
-
-
-
-
-
 
   public async searchGifs({ request, response, auth }: HttpContext) {
     try {
@@ -761,18 +880,15 @@ export default class NotesController {
       const user = auth.getUserOrFail()
 
       const apiKey = env.get('KLIPY_API_KEY')
-      const { data } = await axios.get(
-        `https://api.klipy.com/api/v1/${apiKey}/gifs/search`,
-        {
-          params: {
-            q: request.input('q'),
-            page: request.input('page', 1),
-            per_page: request.input('limit', 5),
-            content_filter: 'high',
-            customer_id: user.id
-          }
-        }
-      )
+      const { data } = await axios.get(`https://api.klipy.com/api/v1/${apiKey}/gifs/search`, {
+        params: {
+          q: request.input('q'),
+          page: request.input('page', 1),
+          per_page: request.input('limit', 5),
+          content_filter: 'high',
+          customer_id: user.id,
+        },
+      })
 
       if (data?.result && Array.isArray(data?.data?.data)) {
         return response.ok({
@@ -783,21 +899,20 @@ export default class NotesController {
             preview: gif.blur_preview || gif.file?.sm?.gif?.url || '',
             title: gif.title,
             width: gif.file?.md?.gif?.width || 300,
-            height: gif.file?.md?.gif?.height || 200
-          }))
+            height: gif.file?.md?.gif?.height || 200,
+          })),
         })
       }
 
       return response.status(502).json({
         message: 'Unexpected Klipy API response',
-        raw: data
+        raw: data,
       })
-
     } catch (error) {
       logger.error('Klipy API failed', error)
       return response.status(error.response?.status || 500).json({
         message: 'Failed to search GIFs',
-        error: error.response?.data?.message || error.message
+        error: error.response?.data?.message || error.message,
       })
     }
   }
@@ -810,34 +925,42 @@ export default class NotesController {
       await auth.authenticate()
       const user = auth.getUserOrFail()
 
-      const { gif_url, gif_slug } = request.only(['gif_url', 'gif_slug'])
+      const { gif_url: gifUrl, gif_slug: gifSlug } = request.only(['gif_url', 'gif_slug'])
 
-      const note = await Note.query()
-        .where('id', params.id)
-        .where('userId', user.id)
-        .firstOrFail()
+      const note = await Note.query().where('id', params.id).where('userId', user.id).firstOrFail()
 
-      note.gif_url = gif_url
-      note.gif_slug = gif_slug
+      note.gif_url = gifUrl
+      note.gif_slug = gifSlug
       await note.save()
 
       // Track view in Klipy
       try {
         await axios.post(
-          `https://api.klipy.com/api/v1/${env.get('KLIPY_API_KEY')}/gifs/view/${gif_slug}`,
+          `https://api.klipy.com/api/v1/${env.get('KLIPY_API_KEY')}/gifs/view/${gifSlug}`,
           { customer_id: user.id }
         )
       } catch (trackError) {
         logger.warn('GIF view tracking failed', trackError)
       }
 
-      return response.ok(note.serialize())
-
+      return response.ok({
+        id: note.id,
+        title: note.title,
+        content: note.content,
+        createdAt: note.createdAt,
+        updatedAt: note.updatedAt,
+        pinned: note.pinned,
+        imageUrl: note.imageUrl,
+        gif_url: note.gif_url,
+        gif_slug: note.gif_slug,
+        labels: note.labels,
+        userId: note.userId,
+      })
     } catch (error) {
       logger.error('GIF attachment failed', error)
       return response.status(error.response?.status || 500).json({
         message: 'Failed to attach GIF',
-        error: error.response?.data?.message || error.message
+        error: error.response?.data?.message || error.message,
       })
     }
   }
@@ -850,27 +973,31 @@ export default class NotesController {
       await auth.authenticate()
       const user = auth.getUserOrFail()
 
-      const note = await Note.query()
-        .where('id', params.id)
-        .where('userId', user.id)
-        .firstOrFail()
+      const note = await Note.query().where('id', params.id).where('userId', user.id).firstOrFail()
 
       note.gif_url = null
       note.gif_slug = null
       await note.save()
 
-      return response.ok(note.serialize())
-
+      return response.ok({
+        id: note.id,
+        title: note.title,
+        content: note.content,
+        createdAt: note.createdAt,
+        updatedAt: note.updatedAt,
+        pinned: note.pinned,
+        imageUrl: note.imageUrl,
+        gif_url: note.gif_url,
+        gif_slug: note.gif_slug,
+        labels: note.labels,
+        userId: note.userId,
+      })
     } catch (error) {
       logger.error('GIF removal failed', error)
       return response.status(500).json({
         message: 'Failed to remove GIF',
-        error: error.message
+        error: error.message,
       })
     }
   }
-
-
-
-
 }

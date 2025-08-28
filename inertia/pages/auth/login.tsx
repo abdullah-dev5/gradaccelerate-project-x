@@ -5,7 +5,8 @@ import { useAuth } from '../../contexts/AuthContext'
 export default function Login() {
   const [formData, setFormData] = useState({
     email: '',
-    password: ''
+    password: '',
+    remember_me: false
   })
   const [errors, setErrors] = useState<any>({})
   const [isLoading, setIsLoading] = useState(false)
@@ -154,6 +155,21 @@ export default function Login() {
                 {errors.password && (
                   <p className="text-red-400 text-sm mt-1">{errors.password}</p>
                 )}
+              </div>
+
+              {/* Remember Me Checkbox */}
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="remember_me"
+                  name="remember_me"
+                  checked={formData.remember_me}
+                  onChange={(e) => setFormData({ ...formData, remember_me: e.target.checked })}
+                  className="h-4 w-4 text-yellow-500 focus:ring-yellow-500 border-gray-600 rounded bg-[#3A3A3C]"
+                />
+                <label htmlFor="remember_me" className="ml-2 block text-sm text-gray-300">
+                  Remember me
+                </label>
               </div>
 
               <button

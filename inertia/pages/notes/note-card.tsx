@@ -53,15 +53,25 @@ export default function NoteCard({ note, viewType, onPinToggle, onDelete }: Note
     <Link href={`/notes/${note.id}`}>
       <motion.div
         className={`group relative overflow-hidden backdrop-blur-sm bg-[#2C2C2E]/80 border ${
-          note.pinned ? 'border-yellow-400/30' : 'border-[#3A3A3C]'
+          note.pinned ? 'border-yellow-400/50 bg-gradient-to-br from-[#2C2C2E]/90 to-yellow-400/5' : 'border-[#3A3A3C]'
         } ${viewType === 'grid' ? 'rounded-xl' : 'rounded-lg'} cursor-pointer`}
         style={{
-          boxShadow: '0 4px 30px rgba(0, 0, 0, 0.1)'
+          boxShadow: note.pinned 
+            ? '0 8px 40px rgba(0, 0, 0, 0.15), 0 2px 8px rgba(234, 179, 8, 0.1)' 
+            : '0 4px 30px rgba(0, 0, 0, 0.1)'
         }}
         whileHover={{ y: -2, scale: 1.01 }}
         whileTap={{ scale: 0.98 }}
         transition={{ duration: 0.2 }}
       >
+        {/* Pinned Badge */}
+        {note.pinned && (
+          <div className="absolute top-3 left-3 z-20 bg-yellow-500/20 border border-yellow-400/30 rounded-full px-2 py-1 flex items-center gap-1">
+            <Pin size={12} className="text-yellow-400" />
+            <span className="text-xs font-medium text-yellow-400">Pinned</span>
+          </div>
+        )}
+
         <button
           onClick={handlePinClick}
           className={`absolute top-3 right-10 z-10 p-1 rounded-full ${
@@ -111,14 +121,17 @@ export default function NoteCard({ note, viewType, onPinToggle, onDelete }: Note
 
           <div className={viewType === 'list' ? 'flex-1' : ''}>
             {note.labels && note.labels.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-2">
+              <div className={`flex flex-wrap gap-2 mb-2 ${note.pinned ? 'ml-20' : ''}`}>
                 {note.labels.map(label => (
                   <Label key={label.id} name={label.name} color={label.color} />
                 ))}
               </div>
             )}
             <div className="flex justify-between items-start mb-2 py-2">
-              <h2 className="text-lg font-medium text-white">{note.title}</h2>
+              <h2 className={`text-lg font-medium ${note.pinned ? 'text-yellow-100' : 'text-white'}`}>
+                {note.pinned && <span className="mr-2">📌</span>}
+                {note.title}
+              </h2>
               <span className="text-xs text-[#98989D]">{timeAgo}</span>
             </div>
 

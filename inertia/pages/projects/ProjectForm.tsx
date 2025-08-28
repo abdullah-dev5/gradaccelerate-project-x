@@ -4,7 +4,6 @@ import { motion } from 'framer-motion'
 import { Save, X, ArrowLeft } from 'lucide-react'
 import { Project, ProjectFormData, StatusLabels } from '../../types/project'
 import { useToast } from '../../hooks/useToast'
-import { ToastContainer } from '../../components/Toast'
 
 type Props = {
   project?: Partial<Project>
@@ -192,8 +191,6 @@ export default function ProjectForm({ project }: Props) {
           </Link>
         </div>
       </form>
-
-      <ToastContainer toasts={toasts} onClose={removeToast} />
     </motion.div>
   )
 }

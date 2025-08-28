@@ -1,15 +1,15 @@
 import { Head, Link, router, useForm } from '@inertiajs/react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeft, Plus, Clock, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import React from 'react'
 import { TodoCard } from './TodoCard'
 import { TodoForm } from './TodoForm'
 import { useToast } from '../../hooks/useToast'
-import { ToastContainer } from '../../components/Toast'
 import { TodosSearchFilter } from '../../components/TodosSearchFilter'
-import { TodoPriority, TodoStatus } from '../../stores/todosStore'
+import { TodoPriority, TodoStatus, useTodosStore } from '../../stores/todos_store'
 import { Card, CardContent } from '../../components/ui/card'
+import { useAuth } from '../../contexts/AuthContext'
 
 interface Todo {
   id: number
@@ -41,6 +41,7 @@ interface PaginatedTodos {
   data: Todo[]
   meta: PaginationMeta
 }
+
 interface TodosProps {
   todos: PaginatedTodos
   filters?: {
@@ -55,313 +56,473 @@ interface TodosProps {
 import { allLabels } from '../../components/Label';
 
 export default function Todos({ todos, error }: TodosProps) {
+  const { showToast } = useToast()
+  const { isAuthenticated, user } = useAuth()
+  const { 
+    allIds,
+    filteredIds,
+    isLoading, 
+    error: storeError, 
+    pagination,
+    fetchTodos,
+    setSearchQuery,
+    setSelectedLabels,
+    setSelectedStatuses,
+    clearFilters,
+    getFilteredTodos,
+    toggleStatus,
+    deleteTodo
+  } = useTodosStore()
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!isAuthenticated) {
+      console.log('User not authenticated, redirecting to login')
+      router.visit('/login')
+    }
+  }, [isAuthenticated])
+
   const [isCreating, setIsCreating] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
-  const { toasts, removeToast, success, error: toastError } = useToast()
 
   // Extract the actual todos array from paginated data
   const todosList = todos?.data || []
 
-  // Remove all useForm and form state for create/edit
+  // Initialize store with initial data
+  useEffect(() => {
+    console.log('Todos Index - Initial Data:', { todos, todosList })
+    if (todosList.length > 0) {
+      // Initialize the store with the initial data from the backend
+      console.log('Initializing todos store with:', todosList)
+      useTodosStore.getState().normalizeTodos(todosList)
+    } else {
+      console.log('No initial todos found, fetching manually...')
+      // Always fetch manually to ensure we have data
+      fetchTodos(1, 10)
+    }
+  }, [todosList, todos, fetchTodos])
+
+  // Debug store state
+  useEffect(() => {
+    const storeState = useTodosStore.getState()
+    console.log('Todos Store State:', {
+      allIds: storeState.allIds,
+      byId: storeState.byId,
+      filteredIds: storeState.filteredIds,
+      pagination: storeState.pagination
+    })
+  }, [allIds, filteredIds, pagination])
+
+  // Always fetch data on mount to ensure we have data
+  useEffect(() => {
+    console.log('Component mounted, fetching todos...')
+    console.log('Auth status:', { isAuthenticated, user })
+    fetchTodos(1, 10)
+  }, [fetchTodos, isAuthenticated, user])
+
+  // Simple test to see what's happening
+  console.log('Todos Index Render:', {
+    todos,
+    todosList,
+    isAuthenticated,
+    user,
+    allIds,
+    filteredIds,
+    isLoading,
+    error: storeError
+  })
+
 
   const handleToggleStatus = async (todoId: number) => {
     try {
-      const response = await fetch(`/todos/${todoId}/toggle-status`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          // Explicitly NOT including 'X-Inertia' header to get JSON response
-        },
-      })
+      console.log('handleToggleStatus called with todoId:', todoId)
       
-      if (response.ok) {
-        await response.json()
-        success('Todo status updated', 'Todo status has been successfully changed')
-        // Reload the page to get updated data
-        router.reload({ only: ['todos'] })
+      // Optimistic update - immediately update the UI
+      const currentTodos = useTodosStore.getState().byId
+      const currentTodo = currentTodos[todoId]
+      
+      console.log('Current todo from store:', currentTodo)
+      
+      if (currentTodo) {
+        const updatedTodo = { ...currentTodo, isCompleted: !currentTodo.isCompleted }
+        console.log('Updated todo:', updatedTodo)
+        
+        useTodosStore.setState(state => ({
+          byId: { ...state.byId, [todoId]: updatedTodo }
+        }))
+      }
+      
+      console.log('Calling toggleStatus from store...')
+      const success = await toggleStatus(todoId)
+      console.log('toggleStatus result:', success)
+      
+      if (success) {
+        showToast('Todo status updated successfully!', 'success')
+        // No need to refresh since we already updated the UI optimistically
       } else {
-        throw new Error('Failed to toggle status')
+        // Revert optimistic update on failure
+        if (currentTodo) {
+          useTodosStore.setState(state => ({
+            byId: { ...state.byId, [todoId]: currentTodo }
+          }))
+        }
+        showToast('Failed to update todo status', 'error')
       }
     } catch (error) {
+      console.error('Error in handleToggleStatus:', error)
+      
+      // Revert optimistic update on error
+      const currentTodos = useTodosStore.getState().byId
+      const currentTodo = currentTodos[todoId]
+      if (currentTodo) {
+        useTodosStore.setState(state => ({
+          byId: { ...state.byId, [todoId]: { ...currentTodo, isCompleted: !currentTodo.isCompleted } }
+        }))
+      }
+      
       console.error('Failed to toggle todo status:', error)
-      toastError('Failed to update status', 'Could not change todo status')
+      showToast('Could not update todo status', 'error')
     }
   }
 
-  const handleDelete = (todoId: number, todoTitle: string) => {
+  const handleDelete = async (todoId: number, todoTitle: string) => {
     if (confirm(`Are you sure you want to delete "${todoTitle}"?`)) {
-      router.delete(`/todos/${todoId}`, {
-        onSuccess: () => {
-          success('Todo deleted', `"${todoTitle}" has been successfully deleted`)
-        },
-        onError: (errors: any) => {
-          console.error('Failed to delete todo:', errors)
-          toastError('Failed to delete todo', 'Could not delete the todo item')
+      try {
+        // Optimistic update - immediately remove from UI
+        const currentTodos = useTodosStore.getState().byId
+        const currentTodo = currentTodos[todoId]
+        
+        if (currentTodo) {
+          useTodosStore.setState(state => {
+            const { [todoId]: deleted, ...remainingTodos } = state.byId
+            return {
+              byId: remainingTodos,
+              allIds: state.allIds.filter(id => id !== todoId)
+            }
+          })
         }
-      })
+        
+        const success = await deleteTodo(todoId)
+        if (success) {
+          showToast(`"${todoTitle}" has been successfully deleted`, 'success')
+          // No need to refresh since we already updated the UI optimistically
+        } else {
+          // Revert optimistic update on failure
+          if (currentTodo) {
+            useTodosStore.setState(state => ({
+              byId: { ...state.byId, [todoId]: currentTodo },
+              allIds: [...state.allIds, todoId].sort((a, b) => a - b)
+            }))
+          }
+          showToast('Failed to delete todo', 'error')
+        }
+      } catch (error) {
+        // Revert optimistic update on error
+        const currentTodos = useTodosStore.getState().byId
+        const currentTodo = currentTodos[todoId]
+        if (currentTodo) {
+          useTodosStore.setState(state => ({
+            byId: { ...state.byId, [todoId]: currentTodo },
+            allIds: [...state.allIds, todoId].sort((a, b) => a - b)
+          }))
+        }
+        
+        console.error('Failed to delete todo:', error)
+        showToast('Could not delete the todo item', 'error')
+      }
     }
   }
 
-  // Remove all form change/submit/cancel handlers for create/edit
-  const handleEditStart = (todo: Todo) => {
+  const handleEdit = (todo: Todo) => {
     setEditingId(todo.id)
   }
+
   const handleEditCancel = () => {
     setEditingId(null)
   }
 
-  const handleTodoUpdate = async (id: number, updates: Partial<Todo>) => {
-    try {
-      // Show success message
-      success('Todo updated', 'Priority/Status has been successfully updated');
-      
-      // Reload the todos data to show the updated values
-      router.reload({ only: ['todos'] });
-      
-    } catch (error) {
-      console.error('Failed to update todo:', error);
-      toastError('Failed to update todo', 'Could not update the priority/status');
+  const handleUpdate = (id: number, updates: Partial<Todo>) => {
+    // Immediately update the store state for optimistic updates
+    const currentTodos = useTodosStore.getState().byId
+    const currentTodo = currentTodos[id]
+    
+    if (currentTodo) {
+      const updatedTodo = { ...currentTodo, ...updates }
+      useTodosStore.setState(state => ({
+        byId: { ...state.byId, [id]: updatedTodo }
+      }))
     }
-  };
+  }
+
+  const handleEditSuccess = () => {
+    setEditingId(null)
+    showToast('Todo updated successfully!', 'success')
+    
+    // Refresh data to show the updated todo
+    fetchTodos(pagination.currentPage, pagination.perPage)
+  }
+
+  const handleCreateSuccess = () => {
+    setIsCreating(false)
+    showToast('Todo created successfully!', 'success')
+    
+    // Refresh data to show the new todo
+    fetchTodos(pagination.currentPage, pagination.perPage)
+  }
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query)
+    
+    // Use manual fetching for search to ensure it works properly
+    fetchTodos(1, pagination.perPage)
+  }
+
+  const handleLabelSelect = (labelIds: number[]) => {
+    setSelectedLabels(labelIds)
+    
+    // Use manual fetching for label filtering to ensure it works properly
+    fetchTodos(1, pagination.perPage)
+  }
+
+  const handleStatusFilter = (status: TodoStatus | 'all') => {
+    if (status === 'all') {
+      setSelectedStatuses([])
+    } else {
+      setSelectedStatuses([status])
+    }
+    
+    // Use manual fetching for status filtering to ensure it works properly
+    fetchTodos(1, pagination.perPage)
+  }
+
+  const handlePageChange = (page: number) => {
+    // Use manual fetching for pagination to ensure it works properly
+    fetchTodos(page, pagination.perPage)
+  }
+
+  // Get current todos to display
+  const currentTodos = getFilteredTodos()
+  const hasTodos = currentTodos.length > 0
 
   return (
     <>
       <Head title="Todos" />
-      <ToastContainer toasts={toasts} onClose={removeToast} />
-      <div className="min-h-screen bg-[#1C1C1E] text-white">
-        <div className="max-w-4xl mx-auto p-6">
-          {/* Error Display */}
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mb-6 flex items-center gap-3"
-            >
-              <AlertCircle size={20} className="text-red-400" />
-              <p className="text-red-400">{error}</p>
-            </motion.div>
-          )}
+      
 
-          <motion.div 
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-between mb-8"
-          >
-            <div className="flex items-center gap-3">
+
+      <div className="min-h-screen bg-gradient-to-br from-[#1C1C1E] to-[#2C2C2E]">
+        {/* Header */}
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-4">
               <Link 
                 href="/dashboard" 
-                className="p-2 hover:bg-[#2C2C2E] rounded-full transition-colors duration-200"
+                className="text-[#98989D] hover:text-white transition-colors p-4 hover:bg-[#3A3A3C] rounded-xl"
+                title="Back to Dashboard"
               >
-                <ArrowLeft size={24} />
+                <ArrowLeft className="w-5 h-5" />
               </Link>
-              <h1 className="text-3xl font-bold">Todos</h1>
-              {todos?.meta && (
-                <span className="text-sm text-[#98989D] bg-[#2C2C2E] px-3 py-1 rounded-full">
-                  {todos.meta.total} total
-                </span>
-              )}
+              <div>
+                <h1 className="text-3xl font-bold text-white">Todos</h1>
+                <p className="text-[#98989D] text-sm mt-1">Track your tasks and stay organized</p>
+              </div>
             </div>
-            <button 
-              onClick={() => setIsCreating(!isCreating)}
-              className="bg-[#007AFF] hover:bg-[#0056CC] px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center gap-2"
-            >
-              <Plus size={20} />
-              Add Todo
-            </button>
-          </motion.div>
-
-          {/* Search and Filter Section */}
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="mb-6"
-          >
-            <Card variant="default" size="default">
-              <CardContent>
-                <TodosSearchFilter 
-                  labels={allLabels} 
-                />
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          {/* Create Form */}
-          {isCreating && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-              className="mb-6"
-            >
-              <Card variant="form" size="default">
-                <CardContent>
-                  <TodoForm
-                    onSuccess={() => {
-                      setIsCreating(false);
-                      success('Todo created', 'Todo has been successfully created');
-                    }}
-                    onCancel={() => setIsCreating(false)}
-                    submitLabel="Create"
-                    allLabels={allLabels}
-                  />
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-
-          {todosList.length === 0 ? (
-            <div className="flex items-center justify-center h-[60vh]">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="text-center"
+              
+            <div className="flex items-center space-x-4">
+              <button 
+                onClick={() => setIsCreating(true)}
+                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-200 font-medium shadow-lg hover:shadow-blue-500/25"
               >
-                <Clock size={64} className="text-[#98989D] mx-auto mb-4" />
-                <p className="text-2xl text-[#98989D] font-medium">
-                  No todos yet
-                </p>
-                <p className="text-[#98989D] mt-2">
-                  Create your first todo to get started
-                </p>
-              </motion.div>
+                <Plus className="w-4 h-4" />
+                New Todo
+              </button>
             </div>
-          ) : (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.1 }}
-              className="space-y-3"
-            >
-              {todosList.map((todo, index) => (
-                <motion.div
-                  key={todo.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                >
-                  <Card variant="interactive" size="sm">
-                    <CardContent>
-                      <TodoCard
-                        todo={todo}
-                        isEditing={editingId === todo.id}
-                        onEditStart={handleEditStart}
-                        onDelete={handleDelete}
-                        onToggleStatus={handleToggleStatus}
-                        onUpdate={handleTodoUpdate}
-                      >
-                        {editingId === todo.id && (
-                          <TodoForm
-                            initialData={{
-                              title: todo.title,
-                              description: todo.description || '',
-                              isCompleted: todo.isCompleted,
-                              priority: todo.priority,
-                              status: todo.status,
-                              labels: todo.labels || [],
-                            }}
-                            todoId={todo.id}
-                            onCancel={handleEditCancel}
-                            onSuccess={() => {
-                              setEditingId(null);
-                              success('Todo updated', 'Todo has been successfully updated');
-                            }}
-                            submitLabel="Update"
-                            allLabels={allLabels}
-                          />
-                        )}
-                      </TodoCard>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
-            </motion.div>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="max-w-7xl mx-auto px-6">
+          {/* Filters */}
+          <div className="mb-8 bg-[#2C2C2E]/50 backdrop-blur-sm border border-[#3A3A3C]/50 rounded-2xl p-6">
+            <TodosSearchFilter 
+              labels={allLabels} 
+            />
+          </div>
+
+          {/* Loading State */}
+          {isLoading && (
+            <div className="flex justify-center items-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <span className="ml-3 text-[#98989D]">Loading todos...</span>
+            </div>
           )}
 
-          {/* Pagination */}
-        
-{todos?.meta && todos.meta.last_page > 1 && (
+          {/* Error State */}
+          {(storeError || error) && (
+            <div className="bg-red-400/10 border border-red-400/20 rounded-xl p-4 mb-6">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <AlertCircle className="w-5 h-5 text-red-400" />
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-400">
+                    Error
+                  </h3>
+                  <div className="mt-2 text-sm text-red-400/80">
+                    {storeError || error}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Todos List */}
+          {!isLoading && (
+            <>
+              {hasTodos ? (
+                <div className="space-y-4">
+                  <AnimatePresence>
+                    {currentTodos.map((todo) => (
+                  <TodoCard
+                    key={todo.id}
+                    todo={todo}
+                    isEditing={editingId === todo.id}
+                    onEditStart={handleEdit}
+                    onDelete={handleDelete}
+                    onToggleStatus={handleToggleStatus}
+                    onUpdate={handleUpdate}
+                    onRefresh={fetchTodos}
+                    currentPage={pagination.currentPage}
+                    perPage={pagination.perPage}
+                  >
+                    <TodoForm
+                      initialData={{
+                        title: todo.title,
+                        description: todo.description || '',
+                        isCompleted: todo.isCompleted,
+                        priority: todo.priority,
+                        status: todo.status,
+                        labels: todo.labels || []
+                      }}
+                      onSuccess={handleEditSuccess}
+                      onCancel={handleEditCancel}
+                      onRefresh={fetchTodos}
+                      currentPage={pagination.currentPage}
+                      perPage={pagination.perPage}
+                    />
+                  </TodoCard>
+                ))}
+                  </AnimatePresence>
+                </div>
+              ) : (
+                <div className="text-center py-16">
+                  <div className="max-w-md mx-auto">
+                    <div className="w-24 h-24 bg-[#2C2C2E] rounded-full flex items-center justify-center mx-auto mb-6">
+                      <svg className="h-12 w-12 text-[#98989D]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                      </svg>
+                    </div>
+                    <h3 className="text-xl font-semibold text-white mb-2">No todos yet</h3>
+                    <p className="text-[#98989D] mb-6">Get started by creating your first todo.</p>
+                    <button
+                      onClick={() => setIsCreating(true)}
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-200 font-medium"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Create Todo
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+                    {/* Pagination */}
+          {!isLoading && hasTodos && pagination.total > pagination.perPage && (
+            <div className="mt-8 w-full">
+              <div className="flex flex-col items-center gap-4 p-6 bg-[#2C2C2E]/50 backdrop-blur-sm border border-[#3A3A3C]/50 rounded-2xl">
+                <div className="flex items-center gap-2 text-sm text-[#98989D]">
+                  <span>Page</span>
+                  <span className="font-semibold text-white">{pagination.currentPage}</span>
+                  <span>of</span>
+                  <span className="font-semibold text-white">{Math.ceil(pagination.total / pagination.perPage)}</span>
+                  <span className="mx-2">•</span>
+                  <span className="font-semibold text-white">{pagination.total}</span>
+                  <span>total todos</span>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap justify-center">
+                  <button
+                    onClick={() => handlePageChange(pagination.currentPage - 1)}
+                    disabled={pagination.currentPage === 1}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+                      pagination.currentPage === 1
+                        ? 'bg-[#2C2C2E] text-[#98989D] cursor-not-allowed'
+                        : 'bg-[#3A3A3C] text-white hover:bg-[#48484A]'
+                    }`}
+                  >
+                    <ChevronLeft className="w-4 h-4 mr-1" />
+                    Previous
+                  </button>
+                  
+                  <span className="px-3 py-2 text-sm text-[#98989D]">
+                    Page {pagination.currentPage} of {Math.ceil(pagination.total / pagination.perPage)}
+                  </span>
+                  
+                  <button
+                    onClick={() => handlePageChange(pagination.currentPage + 1)}
+                    disabled={pagination.currentPage >= Math.ceil(pagination.total / pagination.perPage)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+                      pagination.currentPage >= Math.ceil(pagination.total / pagination.perPage)
+                        ? 'bg-[#2C2C2E] text-[#98989D] cursor-not-allowed'
+                        : 'bg-[#3A3A3C] text-white hover:bg-[#48484A]'
+                    }`}
+                  >
+                    Next
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Create Todo Modal */}
+        <AnimatePresence>
+          {isCreating && (
     <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 0.3 }}
-        className="mt-8 flex items-center justify-center gap-2"
-    >
-        {/* Previous Button */}
-        <Link
-            href={todos.meta.previous_page_url || '#'}
-            className={`p-2 rounded-lg flex items-center gap-2 ${
-                todos.meta.previous_page_url
-                    ? 'bg-[#2C2C2E] hover:bg-[#3A3A3C] text-white'
-                    : 'bg-[#1C1C1E] text-[#98989D] cursor-not-allowed'
-            }`}
-            preserveState
-            preserveScroll
-            only={['todos', 'filters']}
-            replace
-        >
-            <ChevronLeft size={16} />
-            Previous
-        </Link>
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="bg-[#2C2C2E] rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-[#3A3A3C]"
+              >
+                <div className="flex items-center justify-between p-6 border-b border-[#3A3A3C]">
+                  <h2 className="text-xl font-semibold text-white">Create New Todo</h2>
+                  <button
+                    onClick={() => setIsCreating(false)}
+                    className="text-[#98989D] hover:text-white transition-colors"
+                  >
+                    <Plus className="w-6 h-6 rotate-45" />
+                  </button>
+                </div>
 
-        {/* Page Numbers */}
-        <div className="flex items-center gap-1">
-            {Array.from({ length: todos.meta.last_page }, (_, i) => i + 1)
-                .filter(page => {
-                    const current = todos.meta.current_page
-                    const last = todos.meta.last_page
-                    return (
-                        page === 1 ||
-                        page === last ||
-                        (page >= current - 1 && page <= current + 1)
-                    )
-                })
-                .map((page, i, arr) => (
-                    <React.Fragment key={page}>
-                        {i > 0 && arr[i - 1] !== page - 1 && (
-                            <span className="px-2 text-[#98989D]">...</span>
-                        )}
-                        <Link
-                            href={`/todos?page=${page}`}
-                            className={`px-3 py-1 rounded ${
-                                page === todos.meta.current_page
-                                    ? 'bg-[#007AFF] text-white'
-                                    : 'bg-[#2C2C2E] hover:bg-[#3A3A3C] text-[#98989D] hover:text-white'
-                            }`}
-                            preserveState
-                            preserveScroll
-                            only={['todos', 'filters']}
-                            replace
-                        >
-                            {page}
-                        </Link>
-                    </React.Fragment>
-                ))}
-        </div>
-
-        {/* Next Button */}
-        <Link
-            href={todos.meta.next_page_url || '#'}
-            className={`p-2 rounded-lg flex items-center gap-2 ${
-                todos.meta.next_page_url
-                    ? 'bg-[#2C2C2E] hover:bg-[#3A3A3C] text-white'
-                    : 'bg-[#1C1C1E] text-[#98989D] cursor-not-allowed'
-            }`}
-            preserveState
-            preserveScroll
-            only={['todos', 'filters']}
-            replace
-        >
-            Next
-            <ChevronRight size={16} />
-        </Link>
+                <TodoForm
+                  onSuccess={handleCreateSuccess}
+                  onCancel={() => setIsCreating(false)}
+                  onRefresh={fetchTodos}
+                  currentPage={pagination.currentPage}
+                  perPage={pagination.perPage}
+                  allLabels={allLabels}
+                />
+              </motion.div>
     </motion.div>
 )}
-         
-        </div>
+        </AnimatePresence>
       </div>
     </>
   )

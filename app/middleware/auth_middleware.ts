@@ -21,13 +21,13 @@ export default class AuthMiddleware {
     } = {}
   ) {
     await ctx.auth.authenticateUsing(options.guards, { loginRoute: this.redirectTo })
-    
+
     // ✅ STANDARD: Add cache control headers for authenticated routes
     // This prevents browser caching of authenticated content
     ctx.response.header('Cache-Control', 'no-cache, no-store, must-revalidate, private')
     ctx.response.header('Pragma', 'no-cache')
     ctx.response.header('Expires', '0')
-    
+
     return next()
   }
 }

@@ -20,7 +20,7 @@ export default class OAuthSecurityMiddleware {
       // Validate the request origin (optional but recommended)
       const origin = request.header('origin')
       const referer = request.header('referer')
-      
+
       // Log OAuth callback attempts for security monitoring
       console.log('🔒 OAuth Security: Callback attempt', {
         url: request.url(),
@@ -28,7 +28,7 @@ export default class OAuthSecurityMiddleware {
         referer,
         ip: request.ip(),
         userAgent: request.header('user-agent'),
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       })
 
       // Add specific headers for OAuth callback

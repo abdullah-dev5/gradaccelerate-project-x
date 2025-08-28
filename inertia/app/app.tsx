@@ -6,6 +6,7 @@ import { hydrateRoot } from 'react-dom/client'
 import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from '@adonisjs/inertia/helpers'
 import { AuthProvider } from '../contexts/AuthContext'
+import { ToastProvider } from '../contexts/ToastContext'
 
 const appName = import.meta.env.VITE_APP_NAME || 'AdonisJS'
 
@@ -24,9 +25,11 @@ createInertiaApp({
   setup({ el, App, props }) {
     
     hydrateRoot(el, (
-      <AuthProvider>
-        <App {...props} />
-      </AuthProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <App {...props} />
+        </AuthProvider>
+      </ToastProvider>
     ))
     
   },

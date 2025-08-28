@@ -1,6 +1,7 @@
 import ReactDOMServer from 'react-dom/server'
 import { createInertiaApp } from '@inertiajs/react'
 import { AuthProvider } from '../contexts/AuthContext'
+import { ToastProvider } from '../contexts/ToastContext'
 
 export default function render(page: any) {
   return createInertiaApp({
@@ -11,9 +12,11 @@ export default function render(page: any) {
       return pages[`../pages/${name}.tsx`]
     },
     setup: ({ App, props }) => (
-      <AuthProvider>
-        <App {...props} />
-      </AuthProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <App {...props} />
+        </AuthProvider>
+      </ToastProvider>
     ),
   })
 }

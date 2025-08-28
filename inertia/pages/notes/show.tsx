@@ -11,6 +11,8 @@ interface Note {
   updatedAt: string | null
   pinned?: boolean
   imageUrl: string | null
+  gif_url?: string | null
+  gif_slug?: string | null
   shareUuid?: string | null
 }
 
@@ -42,20 +44,28 @@ export default function Show({ note }: { note: Note }) {
   const handleGenerateShare = async () => {
     setIsGeneratingShare(true)
     try {
+      // Get CSRF token from Inertia's meta tag
+      const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+      
       const response = await fetch(`/notes/${note.id}/share`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRF-TOKEN': csrfToken || ''
         }
       })
 
       if (response.ok) {
         const data = await response.json()
-        setShareUrl(data.shareUrl)
-        setShowShareModal(true)
+        if (data.shareUrl) {
+          setShareUrl(data.shareUrl)
+          setShowShareModal(true)
+        }
       } else {
+        const errorData = await response.json()
+        console.error('Error generating share link:', errorData)
         alert('Failed to generate share link')
       }
     } catch (error) {
@@ -68,12 +78,16 @@ export default function Show({ note }: { note: Note }) {
 
   const handleRevokeShare = async () => {
     try {
+      // Get CSRF token from Inertia's meta tag
+      const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+      
       const response = await fetch(`/notes/${note.id}/share`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRF-TOKEN': csrfToken || ''
         }
       })
 
@@ -81,6 +95,8 @@ export default function Show({ note }: { note: Note }) {
         setShareUrl(null)
         setShowShareModal(false)
       } else {
+        const errorData = await response.json()
+        console.error('Error revoking share link:', errorData)
         alert('Failed to revoke share link')
       }
     } catch (error) {
@@ -211,6 +227,19 @@ export default function Show({ note }: { note: Note }) {
                   src={note.imageUrl}
                   alt="Note attachment"
                   className="max-w-full h-auto rounded-lg"
+                />
+              </div>
+            )}
+
+            {/* GIF */}
+            {note.gif_url && (
+              <div className="mb-6 flex justify-center">
+                <img
+                  src={note.gif_url}
+                  alt="GIF"
+                  className="rounded-lg max-h-80 border border-[#3A3A3C]/50"
+                  loading="lazy"
+                  style={{ maxWidth: '100%' }}
                 />
               </div>
             )}

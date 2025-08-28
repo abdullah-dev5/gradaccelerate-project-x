@@ -6,7 +6,10 @@ export default class extends BaseSchema {
   async up() {
     this.schema.alterTable(this.tableName, (table) => {
       table.enum('priority', ['low', 'medium', 'high']).defaultTo('medium').notNullable()
-      table.enum('status', ['pending', 'in_progress', 'completed']).defaultTo('pending').notNullable()
+      table
+        .enum('status', ['pending', 'in_progress', 'completed'])
+        .defaultTo('pending')
+        .notNullable()
     })
   }
 

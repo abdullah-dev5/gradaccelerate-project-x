@@ -4,7 +4,7 @@ import { Input } from './ui/input'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
-import { useTodosStore, TodoPriority, TodoStatus } from '../stores/todosStore'
+import { useTodosStore, TodoPriority, TodoStatus } from '../stores/todos_store'
 
 interface Label {
   id: number

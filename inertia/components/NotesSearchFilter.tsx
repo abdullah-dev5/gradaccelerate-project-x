@@ -3,7 +3,7 @@ import { Search, X, Filter } from 'lucide-react'
 import { Input } from './ui/input'
 import { Button } from './ui/button'
 import { Badge } from './ui/badge'
-import { useNotesStore } from '../stores/notesStore'
+import { useNotesStore } from '../stores/notes_store'
 
 interface Label {
   id: number

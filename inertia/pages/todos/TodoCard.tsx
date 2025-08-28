@@ -3,7 +3,9 @@ import { CheckCircle, Circle, Edit, Trash2, Target, Clock } from 'lucide-react'
 import { Label } from '../../components/Label';
 import { Badge } from '../../components/ui/badge';
 import React from 'react'
-import { TodoPriority, TodoStatus } from '../../stores/todosStore';
+import { TodoPriority, TodoStatus } from '../../stores/todos_store';
+import { apiService } from '../../services/api';
+import { router } from '@inertiajs/react';
 
 interface Todo {
   id: number;
@@ -20,12 +22,15 @@ interface Todo {
 
 interface TodoCardProps {
   todo: Todo
-  isEditing: boolean
+  isEditing?: boolean
   onEditStart: (todo: Todo) => void
   onDelete: (id: number, title: string) => void
   onToggleStatus: (id: number) => void
   onUpdate?: (id: number, updates: Partial<Todo>) => void
-  children?: React.ReactNode // For edit form
+  onRefresh: (page: number, perPage: number) => void
+  currentPage: number
+  perPage: number
+  children?: React.ReactNode
 }
 
 const priorityColors: Record<TodoPriority, string> = {
@@ -40,47 +45,36 @@ const statusColors: Record<TodoStatus, string> = {
   completed: '#10B981'
 }
 
-export function TodoCard({ todo, isEditing, onEditStart, onDelete, onToggleStatus, onUpdate, children }: TodoCardProps) {
+export function TodoCard({ todo, isEditing, onEditStart, onDelete, onToggleStatus, onUpdate, onRefresh, currentPage, perPage, children }: TodoCardProps) {
   if (isEditing) {
     return <>{children}</>
   }
 
   const updatePriorityStatus = async (field: 'priority' | 'status', value: any) => {
     try {
+      // Optimistic update - immediately update the UI
+      const updatedTodo = { ...todo, [field]: value }
+      if (onUpdate) {
+        onUpdate(todo.id, { [field]: value })
+      }
+      
       const requestBody = { [field]: value };
       console.log(`Sending request to update ${field}:`, requestBody);
+      console.log(`Todo ID:`, todo.id);
+      console.log(`Full URL:`, `/todos/${todo.id}/workflow-status`);
       
-      const response = await fetch(`/todos/${todo.id}/priority-status`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      console.log(`Response status: ${response.status}`);
+      const response = await apiService.patch(`/todos/${todo.id}/workflow-status`, requestBody);
+      console.log(`${field} updated successfully:`, response);
       
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Response error:', errorText);
-        throw new Error(`Failed to update ${field}: ${response.status} ${errorText}`);
-      }
-
-      const result = await response.json();
-      console.log(`${field} updated successfully:`, result);
-      
-      // Update local state through the callback if provided
-      if (onUpdate) {
-        onUpdate(todo.id, { [field]: value });
-      } else {
-        // Fallback to page reload if no callback provided
-        window.location.reload();
-      }
+      // If the API call fails, we can revert the optimistic update here
+      // For now, we'll just log any errors
       
     } catch (error) {
       console.error(`Failed to update ${field}:`, error);
+      // Revert optimistic update on error
+      if (onUpdate) {
+        onUpdate(todo.id, { [field]: todo[field as keyof Todo] })
+      }
       alert(`Failed to update ${field}. Please try again. Check console for details.`);
     }
   };
@@ -100,15 +94,23 @@ export function TodoCard({ todo, isEditing, onEditStart, onDelete, onToggleStatu
   };
   
   return (
-    <div className="flex items-start gap-3">
+    <div className={`flex items-start gap-3 transition-all duration-300 ${
+      todo.isCompleted ? 'opacity-80' : 'opacity-100'
+    }`}>
       <button 
         onClick={() => onToggleStatus(todo.id)}
-        className="mt-1 hover:scale-110 transition-transform duration-200"
+        className="mt-1 hover:scale-110 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-400/50 rounded-full p-1"
+        title={todo.isCompleted ? 'Mark as incomplete' : 'Mark as complete'}
       >
         {todo.isCompleted ? (
-          <CheckCircle size={20} className="text-green-500" />
+          <div className="relative">
+            <Circle size={20} className="text-green-500 drop-shadow-sm" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-green-500 text-xs font-bold">✓</span>
+            </div>
+          </div>
         ) : (
-          <Circle size={20} className="text-[#98989D] hover:text-green-400" />
+          <Circle size={20} className="text-[#98989D] hover:text-green-400 transition-colors duration-200" />
         )}
       </button>
       <div className="flex-1">
@@ -164,11 +166,19 @@ export function TodoCard({ todo, isEditing, onEditStart, onDelete, onToggleStatu
         {/* Title and Description */}
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <h3 className={`text-lg font-medium ${todo.isCompleted ? 'line-through text-[#98989D]' : 'text-white'}`}>
+            <h3 className={`text-lg font-medium transition-all duration-300 ${
+              todo.isCompleted 
+                ? 'line-through text-[#98989D] opacity-60 bg-green-500/5 px-2 py-1 rounded' 
+                : 'text-white'
+            }`}>
               {todo.title}
             </h3>
             {todo.description && (
-              <p className={`text-sm mt-1 ${todo.isCompleted ? 'line-through text-[#6D6D70]' : 'text-[#98989D]'}`}>
+              <p className={`text-sm mt-1 transition-all duration-300 ${
+                todo.isCompleted 
+                  ? 'line-through text-[#6D6D70] opacity-60' 
+                  : 'text-[#98989D]'
+              }`}>
                 {todo.description}
               </p>
             )}

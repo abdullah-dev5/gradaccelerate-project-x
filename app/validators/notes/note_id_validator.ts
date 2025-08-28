@@ -2,7 +2,7 @@
 import vine from '@vinejs/vine'
 
 export const noteIdValidator = vine.compile(
-    vine.object({
-        note_id: vine.number().positive(),
-    })
+  vine.object({
+    id: vine.number().positive(),
+  })
 )

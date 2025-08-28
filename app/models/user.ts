@@ -134,9 +134,15 @@ export default class User extends compose(BaseModel, AuthFinder) {
   // ✅ ENHANCED: Get user statistics
   async getStats() {
     const [notesCount, todosCount, projectsCount] = await Promise.all([
-      this.related('notes' as any).query().count('* as total'),
-      this.related('todos' as any).query().count('* as total'),
-      this.related('projects' as any).query().count('* as total'),
+      this.related('notes' as any)
+        .query()
+        .count('* as total'),
+      this.related('todos' as any)
+        .query()
+        .count('* as total'),
+      this.related('projects' as any)
+        .query()
+        .count('* as total'),
     ])
 
     return {
