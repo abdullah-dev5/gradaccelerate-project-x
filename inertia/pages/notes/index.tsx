@@ -1,158 +1,444 @@
-import { Head, useForm, Link } from '@inertiajs/react'
+import { Head, Link, router } from '@inertiajs/react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { PlusIcon, XIcon, ArrowLeft } from 'lucide-react'
 import NoteCard from './note-card'
 import NoteForm from './note-form'
 import ViewSwitcher from './view-switcher'
+import { NotesSearchFilter } from '../../components/NotesSearchFilter'
+import { allLabels } from '../../components/Label'
+import { Card, CardContent } from '../../components/ui/card'
+import { useNotesStore } from '../../stores/notes_store'
+import { useToast } from '../../hooks/useToast'
+import { useAuth } from '../../contexts/AuthContext'
 
 interface Note {
-  id: number;
-  title: string;
-  content: string;
-  createdAt: string;
-  updatedAt: string | null;
+  id: number
+  title: string
+  content: string
+  createdAt: string
+  updatedAt: string | null
+  pinned: boolean
+  imageUrl: string | null
+  labels?: { id: number; name: string; color?: string }[]
 }
 
-type ViewType = 'grid' | 'list'
+interface Meta {
+  currentPage: number
+  lastPage: number
+  perPage: number
+  total: number
+  firstPage: number
+  firstPageUrl: string
+  lastPageUrl: string
+  nextPageUrl: string | null
+  previousPageUrl: string | null
+}
 
-export default function Index({ notes: initialNotes }: { notes: Note[] }) {
-  const [notes, setNotes] = useState(initialNotes)
+interface SortOptions {
+  currentSort: string
+  currentOrder: string
+  searchQuery: string
+}
+
+interface Filters {
+  searchQuery: string
+  sortBy: 'createdAt' | 'updatedAt' | 'title'
+  sortOrder: 'asc' | 'desc'
+  currentPage: number
+  selectedLabels: number[]
+}
+
+// Default filter values
+const DEFAULT_FILTERS: Filters = {
+  searchQuery: '',
+  sortBy: 'createdAt',
+  sortOrder: 'desc',
+  currentPage: 1,
+  selectedLabels: []
+}
+
+export default function Index({ 
+  notes: initialNotes = [], 
+  meta: initialMeta,
+  sortOptions 
+}: { 
+  notes: Note[]
+  meta?: Meta
+  sortOptions?: SortOptions
+}) {
+  const { showToast } = useToast()
+  const { isAuthenticated, user } = useAuth()
+  // Store is no longer needed since we're using Inertia.js data directly
+  // const { 
+  //   allIds,
+  //   filteredIds,
+  //   isLoading, 
+  //   error, 
+  //   pagination,
+  //   fetchNotes,
+  //   setSearchQuery,
+  //   setSelectedLabels,
+  //   clearFilters,
+  //   getFilteredNotes
+  // } = useNotesStore()
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!isAuthenticated) {
+      console.log('User not authenticated, redirecting to login')
+      router.visit('/login')
+    }
+  }, [isAuthenticated])
+
   const [isFormVisible, setIsFormVisible] = useState(false)
-  const [viewType, setViewType] = useState<ViewType>('grid')
-  const { data, setData, post, processing, reset } = useForm({
-    title: '',
-    content: ''
-  });
+  const [viewType, setViewType] = useState<'grid' | 'list'>('grid')
 
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const newNote: Note = {
-      id: Date.now(),
-      title: data.title,
-      content: data.content,
-      createdAt: new Date().toISOString(),
-      updatedAt: null
+  // Consolidated filters state with default values
+  const [filters, setFilters] = useState<Filters>({
+    ...DEFAULT_FILTERS,
+    searchQuery: sortOptions?.searchQuery || DEFAULT_FILTERS.searchQuery,
+    sortBy: (sortOptions?.currentSort === 'title' ? 'title' : DEFAULT_FILTERS.sortBy),
+    sortOrder: (sortOptions?.currentOrder === 'asc' ? 'asc' : DEFAULT_FILTERS.sortOrder),
+    currentPage: initialMeta?.currentPage || DEFAULT_FILTERS.currentPage
+  })
+
+  // Notes are now managed by Inertia.js - no manual store initialization needed
+  // The data comes directly from the backend via Inertia props
+
+  // Use Inertia.js data directly instead of store state
+  const currentNotes = initialNotes || []
+  const currentMeta = initialMeta || {
+    currentPage: 1,
+    perPage: 10,
+    total: 0,
+    lastPage: 1
+  }
+  
+  console.log('Notes Index Render:', {
+    notes: currentNotes,
+    meta: currentMeta,
+    isAuthenticated,
+    user
+  })
+
+  // Callback functions for note actions
+  const handlePinToggle = async (noteId: number) => {
+    try {
+      // Use Inertia.js router.visit for proper navigation and state management
+      await router.patch(`/notes/${noteId}/pin`)
+      showToast('Note pin status updated!', 'success')
+    } catch (error) {
+      console.error('Error toggling pin:', error)
+      showToast('Failed to update pin status', 'error')
     }
-    
-    setNotes([newNote, ...notes])
-    
-    post('/notes', {
-      onSuccess: () => {
-        reset()
-        setIsFormVisible(false)
+  }
+
+  const handleDeleteNote = async (noteId: number) => {
+    if (confirm('Are you sure you want to delete this note? This action cannot be undone.')) {
+      try {
+        // Use Inertia.js router.delete for proper navigation and state management
+        await router.delete(`/notes/${noteId}`)
+        showToast('Note deleted successfully!', 'success')
+      } catch (error) {
+        console.error('Error deleting note:', error)
+        showToast('Failed to delete note', 'error')
       }
-    });
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-      submit(e as any);
     }
-  };
+  }
+
+  // Helper function to update filters
+  const updateFilter = <K extends keyof Filters>(key: K, value: Filters[K]) => {
+    setFilters(prev => ({ ...prev, [key]: value }))
+  }
+
+  // Handle search - use Inertia.js router for proper navigation
+  const handleSearch = (query: string) => {
+    updateFilter('searchQuery', query)
+    router.get('/notes', { search: query }, { 
+      preserveState: true,
+      preserveScroll: true 
+    })
+  }
+
+  // Handle label selection - use Inertia.js router
+  const handleLabelSelect = (labelIds: number[]) => {
+    updateFilter('selectedLabels', labelIds)
+    router.get('/notes', { labels: labelIds.join(',') }, { 
+      preserveState: true,
+      preserveScroll: true 
+    })
+  }
+
+  // Handle sort change - use Inertia.js router
+  const handleSortChange = (sortBy: 'createdAt' | 'updatedAt' | 'title', sortOrder: 'asc' | 'desc') => {
+    updateFilter('sortBy', sortBy)
+    updateFilter('sortOrder', sortOrder)
+    router.get('/notes', { sort: sortBy, order: sortOrder }, { 
+      preserveState: true,
+      preserveScroll: true 
+    })
+  }
+
+  // Handle page change - use Inertia.js router
+  const handlePageChange = (page: number) => {
+    router.get('/notes', { page }, { 
+      preserveState: true,
+      preserveScroll: true 
+    })
+  }
+
+  // Handle form success - redirect to notes page to refresh data
+  const handleFormSuccess = (note: Note) => {
+    setIsFormVisible(false)
+    showToast('Note saved successfully!', 'success')
+    
+    // Redirect to notes page to refresh data
+    router.visit('/notes')
+  }
+
+  // Get current notes to display from Inertia.js props
+  const hasNotes = currentNotes.length > 0
 
   return (
     <>
       <Head title="Notes" />
-      <div className="min-h-screen bg-[#1C1C1E] text-white">
-        <div className="max-w-4xl mx-auto p-6">
-          <motion.div 
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex justify-between items-center mb-8"
-          >
-            <div className="flex items-center gap-3">
-              <Link 
-                href="/" 
-                className="p-2 hover:bg-[#2C2C2E] rounded-full transition-colors duration-200"
-              >
-                <ArrowLeft size={24} />
-              </Link>
-              <svg width="32" height="32" viewBox="0 0 188 354" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-8 h-8">
-                <path d="M69.8447 1.82232C87.701 1.82232 109.843 1.2517 127.692 0.933476L166.846 0.247858C173.654 0.163964 180.756 -0.346625 187.5 0.401914C187.471 2.1514 186.276 3.12195 185.245 4.48958C168.635 31.5433 149.663 57.6453 131.887 83.9635C125.465 93.4754 118.291 102.926 112.571 112.87C113.996 113.818 115.199 113.894 116.845 114.129C122.086 112.258 175.336 112.98 184.257 113.504L173.06 128.764L111.361 210.908C106.357 217.569 96.2051 233.408 90.8141 238.123L85.6237 245.276C83.254 248.378 80.963 251.857 78.2354 254.634C61.9276 278.442 50.5433 291.46 35.244 316.629C28.7568 325.064 14.7477 348.616 5.72741 353.296C4.47767 353.945 1.80906 352.966 1.00125 351.988C-0.241596 350.484 -0.126339 348.336 0.278159 346.542C0.978659 343.451 2.42368 340.794 3.49196 337.842C22.6108 284.507 44.2408 230.055 66.8593 178.063C59.7859 178.032 52.7126 177.961 45.6392 177.849C33.2465 178.311 20.7107 177.936 8.29798 177.937C11.1224 153.688 60.4958 26.7594 69.8447 1.82232Z" fill="url(#paint0_linear_99_30)"/>
-                <defs>
-                  <linearGradient id="paint0_linear_99_30" x1="-135.668" y1="210.459" x2="25.2897" y2="30.4275" gradientUnits="userSpaceOnUse">
-                    <stop offset="0.035" stopColor="#FFB30F"/>
-                    <stop offset="0.505" stopColor="#FFBA06"/>
-                    <stop offset="1" stopColor="#D73E47"/>
-                  </linearGradient>
-                </defs>
-              </svg>
-              <h1 className="text-3xl font-bold">Notes</h1>
-            </div>
-            <div className="flex items-center gap-3">
-              <ViewSwitcher currentView={viewType} onChange={setViewType} />
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setIsFormVisible(!isFormVisible)}
-                className="bg-[#0A84FF] text-white p-3 rounded-full shadow-lg hover:bg-[#0A74FF] transition-colors duration-200"
-              >
-                {isFormVisible ? <XIcon size={20} /> : <PlusIcon size={20} />}
-              </motion.button>
-            </div>
-          </motion.div>
+      
 
-          <AnimatePresence>
-            {isFormVisible && (
-              <motion.div
-                initial={{
-                  opacity: 0,
-                  y: 20,
-                  height: 0
-                }}
-                animate={{
-                  opacity: 1,
-                  y: 0,
-                  height: 'auto'
-                }}
-                exit={{
-                  opacity: 0,
-                  y: -20,
-                  height: 0
-                }}
-                transition={{ duration: 0.3 }}
-                className="overflow-hidden mb-8"
+
+      <div className="min-h-screen bg-gradient-to-br from-[#1C1C1E] to-[#2C2C2E]">
+        {/* Header */}
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-4">
+              <Link 
+                href="/dashboard" 
+                className="text-[#98989D] hover:text-white transition-colors p-4 hover:bg-[#3A3A3C] rounded-xl"
+                title="Back to Dashboard"
               >
-                <NoteForm 
-                  data={data}
-                  setData={setData}
-                  submit={submit}
-                  processing={processing}
-                  handleKeyDown={handleKeyDown}
+                <ArrowLeft className="w-5 h-5" />
+              </Link>
+              <div>
+                <h1 className="text-3xl font-bold text-white">Notes</h1>
+                <p className="text-[#98989D] text-sm mt-1">Organize your thoughts and ideas</p>
+              </div>
+            </div>
+              
+            <div className="flex items-center space-x-4">
+              <ViewSwitcher 
+                currentView={viewType} 
+                onChange={setViewType}
+                sortBy={filters.sortBy}
+                setSortBy={(value) => updateFilter('sortBy', value)}
+                sortOrder={filters.sortOrder}
+                setSortOrder={(value) => updateFilter('sortOrder', value)}
+                searchQuery={filters.searchQuery}
+                setSearchQuery={(value) => updateFilter('searchQuery', value)}
+              />
+                
+              <button
+                onClick={() => setIsFormVisible(true)}
+                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-200 font-medium shadow-lg hover:shadow-blue-500/25"
+              >
+                <PlusIcon className="w-4 h-4" />
+                New Note
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="max-w-7xl mx-auto px-6">
+          {/* Filters */}
+          <div className="mb-8 bg-[#2C2C2E]/50 backdrop-blur-sm border border-[#3A3A3C]/50 rounded-2xl p-6">
+            <NotesSearchFilter 
+              labels={allLabels} 
+            />
+          </div>
+
+          {/* Loading and error states handled by Inertia.js */}
+          {/* Notes Grid/List */}
+          {(
+            <>
+              {hasNotes ? (
+                <>
+                  {/* Pinned Notes Section */}
+                  {currentNotes.filter(note => note.pinned).length > 0 && (
+                    <div className="mb-8">
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="w-8 h-8 bg-yellow-500/20 rounded-full flex items-center justify-center">
+                          <svg className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
+                          </svg>
+                        </div>
+                        <h2 className="text-2xl font-bold text-white">Pinned Notes</h2>
+                        <span className="text-sm text-[#98989D] bg-[#3A3A3C] px-2 py-1 rounded-full">
+                          {currentNotes.filter(note => note.pinned).length}
+                        </span>
+                      </div>
+                      <div className={viewType === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
+                        <AnimatePresence>
+                          {currentNotes.filter(note => note.pinned).map((note) => (
+                            <motion.div
+                              key={note.id}
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -20 }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              <NoteCard 
+                                note={note} 
+                                viewType={viewType} 
+                                onPinToggle={handlePinToggle}
+                                onDelete={handleDeleteNote}
+                              />
+                            </motion.div>
+                          ))}
+                        </AnimatePresence>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Regular Notes Section */}
+                  {currentNotes.filter(note => !note.pinned).length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="w-8 h-8 bg-[#3A3A3C] rounded-full flex items-center justify-center">
+                          <svg className="w-5 h-5 text-[#98989D]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </div>
+                        <h2 className="text-2xl font-bold text-white">All Notes</h2>
+                        <span className="text-sm text-[#98989D] bg-[#3A3A3C] px-2 py-1 rounded-full">
+                          {currentNotes.filter(note => !note.pinned).length}
+                        </span>
+                      </div>
+                      <div className={viewType === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
+                        <AnimatePresence>
+                          {currentNotes.filter(note => !note.pinned).map((note) => (
+                            <motion.div
+                              key={note.id}
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -20 }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              <NoteCard 
+                                note={note} 
+                                viewType={viewType} 
+                                onPinToggle={handlePinToggle}
+                                onDelete={handleDeleteNote}
+                              />
+                            </motion.div>
+                          ))}
+                        </AnimatePresence>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-center py-16">
+                  <div className="max-w-md mx-auto">
+                    <div className="w-24 h-24 bg-[#2C2C2E] rounded-full flex items-center justify-center mx-auto mb-6">
+                      <svg className="h-12 w-12 text-[#98989D]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-xl font-semibold text-white mb-2">No notes yet</h3>
+                    <p className="text-[#98989D] mb-6">Get started by creating your first note.</p>
+                    <button
+                      onClick={() => setIsFormVisible(true)}
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-200 font-medium"
+                    >
+                      <PlusIcon className="w-4 h-4" />
+                      Create Note
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+                  {/* Pagination */}
+        {hasNotes && currentMeta.total > currentMeta.perPage && (
+          <div className="mt-8 w-full">
+            <div className="flex flex-col items-center gap-4 p-6 bg-[#2C2C2E]/50 backdrop-blur-sm border border-[#3A3A3C]/50 rounded-2xl">
+              <div className="flex items-center gap-2 text-sm text-[#98989D]">
+                <span>Page</span>
+                <span className="font-semibold text-white">{currentMeta.currentPage}</span>
+                <span>of</span>
+                <span className="font-semibold text-white">{Math.ceil(currentMeta.total / currentMeta.perPage)}</span>
+                <span className="mx-2">•</span>
+                <span className="font-semibold text-white">{currentMeta.total}</span>
+                <span>total notes</span>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap justify-center">
+                <button
+                  onClick={() => handlePageChange(currentMeta.currentPage - 1)}
+                  disabled={currentMeta.currentPage === 1}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+                    currentMeta.currentPage === 1
+                      ? 'bg-[#2C2C2E] text-[#98989D] cursor-not-allowed'
+                      : 'bg-[#3A3A3C] text-white hover:bg-[#48484A]'
+                  }`}
+                >
+                  Previous
+                </button>
+                
+                <span className="px-3 py-2 text-sm text-[#98989D]">
+                  Page {currentMeta.currentPage} of {Math.ceil(currentMeta.total / currentMeta.perPage)}
+                </span>
+                
+                <button
+                  onClick={() => handlePageChange(currentMeta.currentPage + 1)}
+                  disabled={currentMeta.currentPage >= Math.ceil(currentMeta.total / currentMeta.perPage)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+                    currentMeta.currentPage >= Math.ceil(currentMeta.total / currentMeta.perPage)
+                      ? 'bg-[#2C2C2E] text-[#98989D] cursor-not-allowed'
+                      : 'bg-[#3A3A3C] text-white hover:bg-[#48484A]'
+                  }`}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+            </div>
+            
+        {/* Note Form Modal */}
+                  <AnimatePresence>
+          {isFormVisible && (
+                      <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+            >
+                  <motion.div 
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="bg-[#2C2C2E] rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-[#3A3A3C]"
+              >
+                                  <div className="flex items-center justify-between p-6 border-b border-[#3A3A3C]">
+                    <h2 className="text-xl font-semibold text-white">Create New Note</h2>
+                    <button
+                      onClick={() => setIsFormVisible(false)}
+                      className="text-[#98989D] hover:text-white transition-colors"
+                    >
+                      <XIcon className="w-6 h-6" />
+                    </button>
+                  </div>
+                        
+                <NoteForm
+                  onSuccess={handleFormSuccess}
+                  onCancel={() => setIsFormVisible(false)}
                 />
               </motion.div>
-            )}
-          </AnimatePresence>
-
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className={viewType === 'grid' 
-              ? "grid grid-cols-1 md:grid-cols-2 gap-4"
-              : "flex flex-col gap-3"
-            }
-          >
-            <AnimatePresence>
-              {notes.map((note, index) => (
-                <motion.div
-                  key={note.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ 
-                    opacity: 1, 
-                    y: 0,
-                    transition: { delay: index * 0.05 }
-                  }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  className={viewType === 'list' ? 'w-full' : ''}
-                >
-                  <NoteCard note={note} viewType={viewType} />
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </motion.div>
-        </div>
+                  </motion.div>
+                )}
+        </AnimatePresence>
       </div>
     </>
   )
