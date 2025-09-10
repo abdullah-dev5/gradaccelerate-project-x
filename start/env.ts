@@ -48,4 +48,11 @@ export default await Env.create(new URL('../', import.meta.url), {
   | Variables for configuring GIPHY API TESTING 
   |----------------------------------------------------------
   */
+
+  /*
+  |----------------------------------------------------------
+  | Variables for configuring Google Gemini AI API
+  |----------------------------------------------------------
+  */
+  GOOGLE_GEMINI_API_KEY: Env.schema.string.optional(),
 })

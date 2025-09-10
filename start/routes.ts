@@ -88,6 +88,12 @@ router
     router.get('/todos/create', ({ inertia }) => inertia.render('todos/create'))
     router.get('/todos/:id', '#controllers/todo_controller.show')
     router.get('/todos/:id/edit', '#controllers/todo_controller.edit')
+
+    // Bookmarks pages (Web/Inertia only)
+    router.get('/bookmarks', '#controllers/bookmark_controller.index')
+    router.get('/bookmarks/create', '#controllers/bookmark_controller.create')
+    router.get('/bookmarks/:id', '#controllers/bookmark_controller.show')
+    router.get('/bookmarks/:id/edit', '#controllers/bookmark_controller.edit')
   })
   .use(middleware.auth({ guards: ['web'] }))
 
@@ -140,6 +146,29 @@ router
   .prefix('/todos')
   .use(middleware.auth({ guards: ['web', 'api'] }))
 
+// Bookmarks API routes
+router
+  .group(() => {
+    router.post('/', '#controllers/bookmark_controller.store')
+    router.post('/validate-url', '#controllers/bookmark_controller.validateUrl')
+    router.put('/:id', '#controllers/bookmark_controller.update')
+    router.delete('/:id', '#controllers/bookmark_controller.destroy')
+    router.patch('/:id/favorite', '#controllers/bookmark_controller.toggleFavorite')
+    router.patch('/:id/archive', '#controllers/bookmark_controller.archive')
+    router.post('/:id/summary', '#controllers/bookmark_controller.generateSummary')
+    router.post('/:id/labels', '#controllers/bookmark_controller.regenerateLabels')
+  })
+  .prefix('/bookmarks')
+  .use(middleware.auth({ guards: ['web', 'api'] }))
+
+// Labels API routes
+router
+  .group(() => {
+    router.get('/', '#controllers/label_controller.index')
+  })
+  .prefix('/api/labels')
+  .use(middleware.auth({ guards: ['web', 'api'] }))
+
 // ========================
 // API v1 Routes (New Development)
 // ========================
@@ -160,18 +189,18 @@ router
     router.post('/logout', '#controllers/auth_controller.logout')
 
     // Notes API - Remove duplicate routes to avoid conflicts
-    // router.get('/notes', '#controllers/note_controller.index')
-    // router.post('/notes', '#controllers/note_controller.store')
-    // router.put('/notes/:id', '#controllers/note_controller.update')
-    // router.delete('/notes/:id', '#controllers/note_controller.destroy')
-    // router.patch('/notes/:id/pin', '#controllers/note_controller.togglePin')
-    // router.patch('/notes/:id/restore', '#controllers/note_controller.restore')
-    // router.post('/notes/:id/image', '#controllers/note_controller.uploadImage')
-    // router.patch('/notes/:id/gif', '#controllers/note_controller.attachGif')
-    // router.delete('/notes/:id/gif', '#controllers/note_controller.removeGif')
-    // router.post('/notes/:id/share', '#controllers/note_controller.generateShareLink')
-    // router.delete('/notes/:id/share', '#controllers/note_controller.revokeShareLink')
-    // router.get('/notes/:id/share/status', '#controllers/note_controller.getShareStatus')
+    router.get('/notes', '#controllers/note_controller.index')
+    router.post('/notes', '#controllers/note_controller.store')
+    router.put('/notes/:id', '#controllers/note_controller.update')
+    router.delete('/notes/:id', '#controllers/note_controller.destroy')
+    router.patch('/notes/:id/pin', '#controllers/note_controller.togglePin')
+    router.patch('/notes/:id/restore', '#controllers/note_controller.restore')
+    router.post('/notes/:id/image', '#controllers/note_controller.uploadImage')
+    router.patch('/notes/:id/gif', '#controllers/note_controller.attachGif')
+    router.delete('/notes/:id/gif', '#controllers/note_controller.removeGif')
+    router.post('/notes/:id/share', '#controllers/note_controller.generateShareLink')
+    router.delete('/notes/:id/share', '#controllers/note_controller.revokeShareLink')
+    router.get('/notes/:id/share/status', '#controllers/note_controller.getShareStatus')
 
     // Projects API (CRUD Operations)
     router.get('/projects', '#controllers/project_controller.index')
@@ -188,6 +217,17 @@ router
     router.patch('/todos/:id/complete', '#controllers/todo_controller.toggleStatus')
     router.patch('/todos/:id/workflow-status', '#controllers/todo_controller.updatePriorityStatus')
     router.delete('/todos/:id', '#controllers/todo_controller.destroy')
+
+    // Bookmarks API (CRUD Operations)
+    router.get('/bookmarks', '#controllers/bookmark_controller.apiIndex')
+    router.post('/bookmarks', '#controllers/bookmark_controller.store')
+    router.get('/bookmarks/:id', '#controllers/bookmark_controller.show')
+    router.put('/bookmarks/:id', '#controllers/bookmark_controller.update')
+    router.delete('/bookmarks/:id', '#controllers/bookmark_controller.destroy')
+    router.patch('/bookmarks/:id/favorite', '#controllers/bookmark_controller.toggleFavorite')
+    router.patch('/bookmarks/:id/archive', '#controllers/bookmark_controller.archive')
+    router.post('/bookmarks/:id/summary', '#controllers/bookmark_controller.generateSummary')
+    router.post('/bookmarks/:id/labels', '#controllers/bookmark_controller.regenerateLabels')
   })
   .prefix('/api/v1')
   .use(middleware.auth({ guards: ['web', 'api'] }))

@@ -10,6 +10,7 @@ import Role from './role.js'
 import Note from './note.js'
 import Todo from './todo.js'
 import Project from './project.js'
+import Bookmark from './bookmark.js'
 
 const AuthFinder = withAuthFinder(() => hash.use('bcrypt'), {
   uids: ['email'],
@@ -64,6 +65,11 @@ export default class User extends compose(BaseModel, AuthFinder) {
     foreignKey: 'userId',
   })
   declare projects: HasMany<typeof Project>
+
+  @hasMany(() => Bookmark, {
+    foreignKey: 'userId',
+  })
+  declare bookmarks: HasMany<typeof Bookmark>
 
   @manyToMany(() => Role, {
     pivotTable: 'user_roles',

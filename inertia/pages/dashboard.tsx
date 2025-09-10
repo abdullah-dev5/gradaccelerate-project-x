@@ -15,11 +15,12 @@ interface DashboardStats {
   notes: number
   todos: number
   projects: number
+  bookmarks: number
 }
 
 export default function Dashboard() {
   const { user, logout } = useAuth()
-  const [stats, setStats] = useState<DashboardStats>({ notes: 0, todos: 0, projects: 0 })
+  const [stats, setStats] = useState<DashboardStats>({ notes: 0, todos: 0, projects: 0, bookmarks: 0 })
   const [isLoading, setIsLoading] = useState(true)
 
   // Handle OAuth token from URL parameters
@@ -44,50 +45,87 @@ export default function Dashboard() {
       try {
         setIsLoading(true)
         
-        console.log('Fetching dashboard stats...')
-        
         // Use manual fetch calls to get real-time data
-        const notesResponse = await fetch('/notes?perPage=1', {
+        const notesResponse = await fetch('/api/v1/notes?perPage=1', {
           headers: { 
             'Accept': 'application/json',
             'X-Requested-With': 'XMLHttpRequest'
           },
           credentials: 'include'
         })
+        
+        if (!notesResponse.ok) {
+          throw new Error(`Notes API error: ${notesResponse.status}`)
+        }
         const notesData = await notesResponse.json()
         
-        const todosResponse = await fetch('/todos?perPage=1', {
+        const todosResponse = await fetch('/api/v1/todos?perPage=1', {
           headers: { 
             'Accept': 'application/json',
             'X-Requested-With': 'XMLHttpRequest'
           },
           credentials: 'include'
         })
+        
+        if (!todosResponse.ok) {
+          throw new Error(`Todos API error: ${todosResponse.status}`)
+        }
         const todosData = await todosResponse.json()
         
-        const projectsResponse = await fetch('/projects?perPage=1', {
+        const projectsResponse = await fetch('/api/v1/projects?perPage=1', {
           headers: { 
             'Accept': 'application/json',
             'X-Requested-With': 'XMLHttpRequest'
           },
           credentials: 'include'
         })
+        
+        if (!projectsResponse.ok) {
+          throw new Error(`Projects API error: ${projectsResponse.status}`)
+        }
         const projectsData = await projectsResponse.json()
+        
+        // For bookmarks, we'll use a fallback since the API might not be ready yet
+        let bookmarksData = { meta: { total: 0 } }
+        try {
+          const bookmarksResponse = await fetch('/api/v1/bookmarks?perPage=1', {
+            headers: { 
+              'Accept': 'application/json',
+              'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'include'
+          })
+          
+          if (bookmarksResponse.ok) {
+            bookmarksData = await bookmarksResponse.json()
+          }
+        } catch (bookmarkError) {
+          console.log('Bookmarks API not ready yet, using fallback:', bookmarkError.message)
+        }
         
         setStats({
           notes: notesData.meta?.total || 0,
           todos: todosData.meta?.total || 0,
-          projects: projectsData.meta?.total || 0
+          projects: projectsData.meta?.total || 0,
+          bookmarks: bookmarksData.meta?.total || 0
         })
         
         console.log('Final stats:', {
           notes: notesData.meta?.total || 0,
           todos: todosData.meta?.total || 0,
-          projects: projectsData.meta?.total || 0
+          projects: projectsData.meta?.total || 0,
+          bookmarks: bookmarksData.meta?.total || 0
         })
         
       } catch (error) {
         console.error('Error fetching dashboard stats:', error)
+        // Set fallback stats on error
+        setStats({
+          notes: 0,
+          todos: 0,
+          projects: 0,
+          bookmarks: 0
+        })
       } finally {
         setIsLoading(false)
       }
@@ -138,7 +176,7 @@ export default function Dashboard() {
 
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Stats Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <Card variant="dashboard" size="default">
               <CardContent>
                 <div className="flex items-center justify-between">
@@ -155,8 +193,6 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
-            
-
             <Card variant="dashboard" size="default">
               <CardContent>
                 <div className="flex items-center justify-between">
@@ -172,6 +208,7 @@ export default function Dashboard() {
                 </div>
               </CardContent>
             </Card>
+
             <Card variant="dashboard" size="default">
               <CardContent>
                 <div className="flex items-center justify-between">
@@ -187,12 +224,29 @@ export default function Dashboard() {
                 </div>
               </CardContent>
             </Card>
-          
+
+            <Card variant="dashboard" size="default">
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-400">Bookmarks</p>
+                    <p className="text-2xl font-bold text-white">
+                      {isLoading ? '...' : stats.bookmarks}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-orange-500 rounded-lg">
+                    <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                    </svg>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
           
 
           {/* Quick Actions */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <Link href="/notes">
               <Card variant="dashboard" size="default">
                 <CardContent>
@@ -228,6 +282,20 @@ export default function Dashboard() {
                     <div>
                       <h3 className="text-lg font-semibold text-white">Todos</h3>
                       <p className="text-gray-400">Manage your daily tasks</p>
+                    </div>
+                    <ArrowRight className="h-5 w-5 text-gray-400" />
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href="/bookmarks">
+              <Card variant="dashboard" size="default">
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">Bookmarks</h3>
+                      <p className="text-gray-400">Save and organize your links with AI</p>
                     </div>
                     <ArrowRight className="h-5 w-5 text-gray-400" />
                   </div>
