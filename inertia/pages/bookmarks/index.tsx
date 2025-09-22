@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { Head, Link, router } from '@inertiajs/react'
 import { Plus, Search, Filter, Star, Archive, Trash2, ExternalLink, RefreshCw, ArrowLeft } from 'lucide-react'
 import { Button } from '../../components/ui/button'

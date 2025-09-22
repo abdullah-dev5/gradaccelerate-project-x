@@ -1,4 +1,5 @@
 import { defineConfig } from '@adonisjs/inertia'
+import env from '#start/env'
 import type { InferSharedProps } from '@adonisjs/inertia/types'
 
 const inertiaConfig = defineConfig({
@@ -16,6 +17,8 @@ const inertiaConfig = defineConfig({
     success: (ctx) => ctx.session.flashMessages.get('success'),
     error: (ctx) => ctx.session.flashMessages.get('error'),
     csrf: (ctx) => ctx.request.csrfToken,
+    pusherKey: () => env.get('PUSHER_APP_KEY') || '',
+    pusherCluster: () => env.get('PUSHER_CLUSTER') || '',
   },
 
   /**

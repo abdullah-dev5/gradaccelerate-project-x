@@ -39,6 +39,18 @@ export default class User extends compose(BaseModel, AuthFinder) {
   @column({ columnName: 'avatar_url' })
   declare avatarUrl: string | null
 
+  @column({ columnName: 'email_notifications_enabled' })
+  declare emailNotificationsEnabled: boolean
+
+  @column({ columnName: 'web_notifications_enabled' })
+  declare webNotificationsEnabled: boolean
+
+  @column({ columnName: 'reminder_emails_enabled' })
+  declare reminderEmailsEnabled: boolean
+
+  @column({ columnName: 'reminder_web_enabled' })
+  declare reminderWebEnabled: boolean
+
   @column.dateTime()
   declare deletedAt: DateTime | null
 

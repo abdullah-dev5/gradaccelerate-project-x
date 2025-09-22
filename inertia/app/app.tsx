@@ -5,8 +5,9 @@ import '../css/app.css';
 import { hydrateRoot } from 'react-dom/client'
 import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from '@adonisjs/inertia/helpers'
-import { AuthProvider } from '../contexts/AuthContext'
+import { AuthProvider, useAuth } from '../contexts/AuthContext'
 import { ToastProvider } from '../contexts/ToastContext'
+import { useReminderNotifications } from '../hooks/useReminderNotifications'
 
 const appName = import.meta.env.VITE_APP_NAME || 'AdonisJS'
 
@@ -24,9 +25,16 @@ createInertiaApp({
 
   setup({ el, App, props }) {
     
+    const ReminderListener: React.FC = () => {
+      const { user } = useAuth()
+      useReminderNotifications(user?.id)
+      return null
+    }
+
     hydrateRoot(el, (
       <ToastProvider>
         <AuthProvider>
+          <ReminderListener />
           <App {...props} />
         </AuthProvider>
       </ToastProvider>

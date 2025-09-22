@@ -1,3 +1,4 @@
+import React from 'react'
 import { Head, Link, router } from '@inertiajs/react'
 import { ArrowLeft, Star, Archive, Trash2, ExternalLink, RefreshCw, Edit } from 'lucide-react'
 import { Button } from '../../components/ui/button'
@@ -18,6 +19,7 @@ interface Bookmark {
   aiGeneratedSummary: string | null
   createdAt: string
   labels?: Array<{ id: number; name: string; color: string }>
+
 }
 
 interface Props {

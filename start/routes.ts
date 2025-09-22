@@ -94,6 +94,9 @@ router
     router.get('/bookmarks/create', '#controllers/bookmark_controller.create')
     router.get('/bookmarks/:id', '#controllers/bookmark_controller.show')
     router.get('/bookmarks/:id/edit', '#controllers/bookmark_controller.edit')
+
+    // Reminders test page
+    router.get('/reminders/test', ({ inertia }) => inertia.render('reminders/test'))
   })
   .use(middleware.auth({ guards: ['web'] }))
 
@@ -167,6 +170,29 @@ router
     router.get('/', '#controllers/label_controller.index')
   })
   .prefix('/api/labels')
+  .use(middleware.auth({ guards: ['web', 'api'] }))
+
+// Reminders API routes
+router
+  .group(() => {
+    router.get('/', '#controllers/reminder_controller.index')
+    router.get('/:id', '#controllers/reminder_controller.show')
+    router.post('/', '#controllers/reminder_controller.store')
+    router.put('/:id', '#controllers/reminder_controller.update')
+    router.delete('/:id', '#controllers/reminder_controller.destroy')
+    router.post('/trigger', '#controllers/reminder_controller.trigger')
+    // SMTP test endpoint (send test email)
+    router.post('/test-email', '#controllers/reminder_controller.testEmail')
+  })
+  .prefix('/reminders')
+  .use(middleware.auth({ guards: ['web', 'api'] }))
+
+// Pusher auth endpoint (for private channels)
+router
+  .group(() => {
+    router.post('/auth', '#controllers/pusher_controller.auth')
+  })
+  .prefix('/pusher')
   .use(middleware.auth({ guards: ['web', 'api'] }))
 
 // ========================
@@ -244,3 +270,12 @@ router
   })
   .prefix('/api/v1/admin')
   .use(middleware.auth({ guards: ['api'] }))
+
+// User preferences
+router
+  .group(() => {
+    router.get('/preferences', '#controllers/user_preferences_controller.show')
+    router.post('/preferences', '#controllers/user_preferences_controller.update')
+  })
+  .prefix('/user')
+  .use(middleware.auth())

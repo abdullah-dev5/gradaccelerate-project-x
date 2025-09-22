@@ -55,4 +55,27 @@ export default await Env.create(new URL('../', import.meta.url), {
   |----------------------------------------------------------
   */
   GOOGLE_GEMINI_API_KEY: Env.schema.string.optional(),
+
+  /*
+  |----------------------------------------------------------
+  | Pusher (real-time notifications)
+  |----------------------------------------------------------
+  */
+  PUSHER_APP_ID: Env.schema.string.optional(),
+  PUSHER_APP_KEY: Env.schema.string.optional(),
+  PUSHER_APP_SECRET: Env.schema.string.optional(),
+  PUSHER_CLUSTER: Env.schema.string.optional(),
+
+  /*
+  |----------------------------------------------------------
+  | SMTP (email notifications)
+  |----------------------------------------------------------
+  */
+  SMTP_HOST: Env.schema.string.optional(),
+  SMTP_PORT: Env.schema.string.optional(),
+  SMTP_SECURE: Env.schema.string.optional(),
+  SMTP_USER: Env.schema.string.optional(),
+  SMTP_PASS: Env.schema.string.optional(),
+  SMTP_FROM_EMAIL: Env.schema.string.optional(),
+  SMTP_FROM_NAME: Env.schema.string.optional(),
 })

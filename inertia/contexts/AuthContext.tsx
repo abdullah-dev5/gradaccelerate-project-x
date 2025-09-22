@@ -6,6 +6,11 @@ interface User {
   email: string
   createdAt: string
   updatedAt: string
+  // Notification preferences
+  emailNotificationsEnabled?: boolean
+  webNotificationsEnabled?: boolean
+  reminderEmailsEnabled?: boolean
+  reminderWebEnabled?: boolean
 }
 
 interface AuthContextType {
@@ -15,6 +20,7 @@ interface AuthContextType {
   login: (token: string, user: User) => void
   logout: () => void
   clearAuth: () => void
+  updateUser: (updates: Partial<User>) => void
   loading: boolean
 }
 
@@ -198,6 +204,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }
 
+  // ✅ NEW: Update current user (merge) and persist to localStorage
+  const updateUser = (updates: Partial<User>) => {
+    setUser((prev) => {
+      const next = { ...(prev || {} as User), ...updates } as User
+      try {
+        localStorage.setItem('auth_user', JSON.stringify(next))
+      } catch {}
+      return next
+    })
+  }
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -206,6 +223,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       login,
       logout,
       clearAuth,
+      updateUser,
       loading
     }}>
       {children}
@@ -225,6 +243,7 @@ export const useAuth = () => {
         login: () => {},
         logout: () => {},
         clearAuth: () => {},
+        updateUser: () => {},
         loading: true
       }
     }

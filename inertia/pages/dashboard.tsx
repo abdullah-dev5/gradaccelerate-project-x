@@ -1,14 +1,15 @@
-import { Head, Link, router } from '@inertiajs/react'
-import { motion } from 'framer-motion'
+import { Head, Link } from '@inertiajs/react'
 import { 
   FileText, 
   CheckSquare, 
   FolderOpen, 
   ArrowRight,
-  LogOut
+  Clock,
+  Settings
 } from 'lucide-react'
 import { Card, CardContent } from '../components/ui/card'
 import { useAuth } from '../contexts/AuthContext'
+import Header from '../components/Header'
 import { useEffect, useState } from 'react'
 
 interface DashboardStats {
@@ -16,11 +17,12 @@ interface DashboardStats {
   todos: number
   projects: number
   bookmarks: number
+  reminders: number
 }
 
 export default function Dashboard() {
-  const { user, logout } = useAuth()
-  const [stats, setStats] = useState<DashboardStats>({ notes: 0, todos: 0, projects: 0, bookmarks: 0 })
+  const { user } = useAuth()
+  const [stats, setStats] = useState<DashboardStats>({ notes: 0, todos: 0, projects: 0, bookmarks: 0, reminders: 0 })
   const [isLoading, setIsLoading] = useState(true)
 
   // Handle OAuth token from URL parameters
@@ -102,19 +104,39 @@ export default function Dashboard() {
         } catch (bookmarkError) {
           console.log('Bookmarks API not ready yet, using fallback:', bookmarkError.message)
         }
+
+        // For reminders
+        let remindersData = { meta: { total: 0 } }
+        try {
+          const remindersResponse = await fetch('/reminders?limit=1', {
+            headers: { 
+              'Accept': 'application/json',
+              'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'include'
+          })
+          
+          if (remindersResponse.ok) {
+            remindersData = await remindersResponse.json()
+          }
+        } catch (reminderError) {
+          console.log('Reminders API not ready yet, using fallback:', reminderError.message)
+        }
         
         setStats({
           notes: notesData.meta?.total || 0,
           todos: todosData.meta?.total || 0,
           projects: projectsData.meta?.total || 0,
-          bookmarks: bookmarksData.meta?.total || 0
+          bookmarks: bookmarksData.meta?.total || 0,
+          reminders: remindersData.meta?.total || 0
         })
         
         console.log('Final stats:', {
           notes: notesData.meta?.total || 0,
           todos: todosData.meta?.total || 0,
           projects: projectsData.meta?.total || 0,
-          bookmarks: bookmarksData.meta?.total || 0
+          bookmarks: bookmarksData.meta?.total || 0,
+          reminders: remindersData.meta?.total || 0
         })
         
       } catch (error) {
@@ -124,7 +146,8 @@ export default function Dashboard() {
           notes: 0,
           todos: 0,
           projects: 0,
-          bookmarks: 0
+          bookmarks: 0,
+          reminders: 0
         })
       } finally {
         setIsLoading(false)
@@ -134,54 +157,24 @@ export default function Dashboard() {
     fetchStats()
   }, [])
 
-  const handleLogout = () => {
-    // Clear any OAuth tokens stored in dashboard
-    localStorage.removeItem('auth_token')
-    
-    // Call the main logout function
-    logout()
-    
-    // Use router.visit to home page instead of login
-    router.visit('/')
-  }
 
   return (
     <>
       <Head title="Dashboard - Race Track" />
       <div className="min-h-screen bg-[#1C1C1E] text-white">
-        {/* Header */}
-        <header className="bg-[#2C2C2E] border-b border-gray-700">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-6">
-              <div>
-                <h1 className="text-3xl font-bold text-white">Dashboard</h1>
-                <p className="text-gray-400 mt-2">Welcome back, {user?.fullName || 'User'}!</p>
-              </div>
-              <div className="flex items-center space-x-4">
-                <div className="text-right">
-                  <p className="text-sm text-gray-400">Today</p>
-                  <p className="text-lg font-semibold text-white">{new Date().toLocaleDateString()}</p>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors duration-200"
-                >
-                  <LogOut size={16} />
-                  Logout
-                </button>
-              </div>
-            </div>
-          </div>
-        </header>
+        <Header 
+          title="Dashboard" 
+          subtitle={`Welcome back, ${user?.fullName || 'User'}!`}
+        />
 
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Stats Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
             <Card variant="dashboard" size="default">
               <CardContent>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-400">Total Notes</p>
+                    <p className="text-sm font-medium text-white">Total Notes</p>
                     <p className="text-2xl font-bold text-white">
                       {isLoading ? '...' : stats.notes}
                     </p>
@@ -197,7 +190,7 @@ export default function Dashboard() {
               <CardContent>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-400">Projects</p>
+                    <p className="text-sm font-medium text-white">Projects</p>
                     <p className="text-2xl font-bold text-white">
                       {isLoading ? '...' : stats.projects}
                     </p>
@@ -213,7 +206,7 @@ export default function Dashboard() {
               <CardContent>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-400">Active Todos</p>
+                    <p className="text-sm font-medium text-white">Active Todos</p>
                     <p className="text-2xl font-bold text-white">
                       {isLoading ? '...' : stats.todos}
                     </p>
@@ -229,7 +222,7 @@ export default function Dashboard() {
               <CardContent>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-400">Bookmarks</p>
+                    <p className="text-sm font-medium text-white">Bookmarks</p>
                     <p className="text-2xl font-bold text-white">
                       {isLoading ? '...' : stats.bookmarks}
                     </p>
@@ -242,20 +235,36 @@ export default function Dashboard() {
                 </div>
               </CardContent>
             </Card>
+
+            <Card variant="dashboard" size="default">
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-white">Reminders</p>
+                    <p className="text-2xl font-bold text-white">
+                      {isLoading ? '...' : stats.reminders}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-indigo-500 rounded-lg">
+                    <Clock className="h-6 w-6 text-white" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
           
 
           {/* Quick Actions */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
             <Link href="/notes">
               <Card variant="dashboard" size="default">
                 <CardContent>
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-lg font-semibold text-white">Notes</h3>
-                      <p className="text-gray-400">Create and manage your notes</p>
+                      <p className="text-white">Create and manage your notes</p>
                     </div>
-                    <ArrowRight className="h-5 w-5 text-gray-400" />
+                    <ArrowRight className="h-5 w-5 text-white" />
                   </div>
                 </CardContent>
               </Card>
@@ -267,9 +276,9 @@ export default function Dashboard() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-lg font-semibold text-white">Projects</h3>
-                      <p className="text-gray-400">Track your project progress</p>
+                      <p className="text-white">Track your project progress</p>
                     </div>
-                    <ArrowRight className="h-5 w-5 text-gray-400" />
+                    <ArrowRight className="h-5 w-5 text-white" />
                   </div>
                 </CardContent>
               </Card>
@@ -281,9 +290,9 @@ export default function Dashboard() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-lg font-semibold text-white">Todos</h3>
-                      <p className="text-gray-400">Manage your daily tasks</p>
+                      <p className="text-white">Manage your daily tasks</p>
                     </div>
-                    <ArrowRight className="h-5 w-5 text-gray-400" />
+                    <ArrowRight className="h-5 w-5 text-white" />
                   </div>
                 </CardContent>
               </Card>
@@ -295,9 +304,37 @@ export default function Dashboard() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-lg font-semibold text-white">Bookmarks</h3>
-                      <p className="text-gray-400">Save and organize your links with AI</p>
+                      <p className="text-white">Save and organize your links with AI</p>
                     </div>
-                    <ArrowRight className="h-5 w-5 text-gray-400" />
+                    <ArrowRight className="h-5 w-5 text-white" />
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href="/reminders">
+              <Card variant="dashboard" size="default">
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">Reminders</h3>
+                      <p className="text-white">Set and manage your reminders</p>
+                    </div>
+                    <ArrowRight className="h-5 w-5 text-white" />
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href="/user/preferences">
+              <Card variant="dashboard" size="default">
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">Preferences</h3>
+                      <p className="text-white">Manage notification settings</p>
+                    </div>
+                    <Settings className="h-5 w-5 text-white" />
                   </div>
                 </CardContent>
               </Card>
