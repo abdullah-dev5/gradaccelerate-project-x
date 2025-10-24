@@ -2,6 +2,7 @@ import { Head, Link } from '@inertiajs/react'
 
 import { useAuth } from '../contexts/AuthContext.js'
 import WeatherCard from '../components/WeatherCard.js'
+import ErrorTestComponent from '../components/ErrorTestComponent.js'
 
 export default function Home() {
   const { isAuthenticated, user } = useAuth()
@@ -88,6 +89,11 @@ export default function Home() {
                   <p className="text-gray-400">Manage your projects and track progress</p>
                 </div>
               </Link>
+            </div>
+
+            {/* Error Boundary Test Component */}
+            <div className="mt-8">
+              <ErrorTestComponent />
             </div>
           </div>
         </div>

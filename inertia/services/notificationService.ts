@@ -1,4 +1,6 @@
 // Browser Notification Service
+type ExtendedNotificationOptions = NotificationOptions & { image?: string }
+
 export class NotificationService {
   private static instance: NotificationService
   private permission: NotificationPermission = 'default'
@@ -50,7 +52,7 @@ export class NotificationService {
     }
   }
 
-  async showNotification(title: string, options: NotificationOptions = {}): Promise<boolean> {
+  async showNotification(title: string, options: ExtendedNotificationOptions = {}): Promise<boolean> {
     if (typeof window === 'undefined' || !('Notification' in window)) {
       console.warn('This browser does not support notifications')
       return false
@@ -65,11 +67,10 @@ export class NotificationService {
     }
 
     try {
-      const notification = new Notification(title, {
+      const notification = new Notification(title, ({
         // Visuals
         icon: '/favicon.svg',
         badge: '/favicon.svg',
-        image: options.image,
         dir: 'auto',
         lang: 'en',
         // Behavior
@@ -78,8 +79,9 @@ export class NotificationService {
         vibrate: [200, 100, 200],
         requireInteraction: true,
         // Merge caller options last to allow overrides
+        ...(options.image ? { image: options.image } : {}),
         ...options,
-      })
+      } as unknown) as NotificationOptions)
 
       // Auto-close after 10 seconds
       setTimeout(() => {
@@ -130,7 +132,6 @@ export class NotificationService {
       {
         body: reminder.message ? `${reminder.message}\n📅 ${remindTime}` : `📅 ${remindTime}`,
         tag: `reminder-${(reminder as any).id ?? reminder.title}`,
-        timestamp: Date.now() as any,
         data: { reminder, timestamp: Date.now() },
       })
     

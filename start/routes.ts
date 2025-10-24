@@ -55,6 +55,13 @@ if (process.env.NODE_ENV === 'development') {
   router.get('/oauth/test', '#controllers/auth_controller.oauthTest')
 }
 
+// Dev-only: Force an error to test global error handling and Sentry reporting
+if (process.env.NODE_ENV === 'development') {
+  router.get('/dev/error', () => {
+    throw new Error('Intentional test error from /dev/error')
+  })
+}
+
 // Protected auth routes
 router
   .group(() => {
