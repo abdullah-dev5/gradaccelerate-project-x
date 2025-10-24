@@ -5,6 +5,12 @@ import '../css/app.css';
 import { hydrateRoot } from 'react-dom/client'
 import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from '@adonisjs/inertia/helpers'
+import { AuthProvider, useAuth } from '../contexts/AuthContext'
+import { ToastProvider } from '../contexts/ToastContext'
+import ErrorBoundary from '../components/ErrorBoundary'
+import { FeedbackButton } from '../components/FeedbackButton'
+import { frontendErrorReporter } from '../services/errorReporter'
+import { useReminderNotifications } from '../hooks/useReminderNotifications'
 
 const appName = import.meta.env.VITE_APP_NAME || 'AdonisJS'
 
@@ -21,8 +27,26 @@ createInertiaApp({
   },
 
   setup({ el, App, props }) {
+    // Initialize frontend error reporter (no-op when DSN missing)
+    void frontendErrorReporter.init()
     
-    hydrateRoot(el, <App {...props} />)
+    const ReminderListener: React.FC = () => {
+      const { user } = useAuth()
+      useReminderNotifications(user?.id)
+      return null
+    }
+
+    hydrateRoot(el, (
+      <ToastProvider>
+        <AuthProvider>
+          <ErrorBoundary>
+            <ReminderListener />
+            <App {...props} />
+            <FeedbackButton className="fixed bottom-4 right-4 z-50" />
+          </ErrorBoundary>
+        </AuthProvider>
+      </ToastProvider>
+    ))
     
   },
 });

@@ -1,3 +1,5 @@
+// Initialize Sentry as early as possible
+import '#start/instrument'
 /*
 |--------------------------------------------------------------------------
 | HTTP server entrypoint
