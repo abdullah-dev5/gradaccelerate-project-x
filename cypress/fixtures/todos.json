@@ -1,0 +1,20 @@
+[
+  {
+    "id": 1,
+    "title": "Sample Todo 1",
+    "description": "This is the first sample todo item.",
+    "priority": "high",
+    "status": "pending",
+    "created_at": "2024-01-15T10:00:00Z",
+    "updated_at": "2024-01-15T10:00:00Z"
+  },
+  {
+    "id": 2,
+    "title": "Sample Todo 2",
+    "description": "This is the second sample todo item.",
+    "priority": "medium",
+    "status": "completed",
+    "created_at": "2024-01-15T11:00:00Z",
+    "updated_at": "2024-01-15T11:00:00Z"
+  }
+]

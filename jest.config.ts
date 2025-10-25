@@ -82,21 +82,18 @@ const config: Config = {
   // ],
 
   // An array of file extensions your modules use
-  // moduleFileExtensions: [
-  //   "js",
-  //   "mjs",
-  //   "cjs",
-  //   "jsx",
-  //   "ts",
-  //   "tsx",
-  //   "json",
-  //   "node"
-  // ],
+  moduleFileExtensions: [
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "json",
+    "node"
+  ],
 
   // A map from regular expressions to module names or to arrays of module names that allow to stub out resources with a single module
   moduleNameMapper: {
     '^#inertia/(.*)$': '<rootDir>/inertia/$1',
-    '^(\\.{1,2}/.*)\\.js$': '$1',
   },
   extensionsToTreatAsEsm: ['.ts'],
 
@@ -134,7 +131,20 @@ const config: Config = {
   // rootDir: undefined,
 
   // A list of paths to directories that Jest should use to search for files in
+<<<<<<< HEAD
   roots: ['<rootDir>/tests/pages'],
+=======
+  roots: ['<rootDir>/tests'],
+  testMatch: [
+    '<rootDir>/tests/**/*.(spec|test).ts?(x)'
+  ],
+  testPathIgnorePatterns: [
+    '<rootDir>/tests/controllers/',
+    '<rootDir>/tests/integration/',
+    '<rootDir>/tests/unit/',
+    '<rootDir>/tests/services/reminder_service.spec.ts'
+  ],
+>>>>>>> c27353e (feat: Implement comprehensive E2E testing with Cypress)
 
   // Allows you to use a custom runner instead of Jest's default test runner
   // runner: "jest-runner",
