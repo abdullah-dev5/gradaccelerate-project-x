@@ -174,7 +174,7 @@ test.group('Todos Controller', (group) => {
     })
   })
 
-  test('GET /api/v1/todos/:id - should return specific todo', async ({ client, assert }) => {
+  test('GET /api/v1/todos/:id - should return specific todo', async ({ client }) => {
     const authCookie = await authenticateUser(client, testUser)
     
     const todo = await Todo.create({
@@ -323,7 +323,7 @@ test.group('Todos Controller', (group) => {
     })
   })
 
-  test('GET /api/v1/todos/stats - should return todo statistics', async ({ client, assert }) => {
+  test('GET /api/v1/todos/stats - should return todo statistics', async ({ client }) => {
     const authCookie = await authenticateUser(client, testUser)
     
     await Todo.createMany([

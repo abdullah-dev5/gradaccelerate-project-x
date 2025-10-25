@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { apiService, ApiResponse } from '../../../inertia/services/api'
+import { apiService, ApiResponse } from '../../../inertia/services/api.js'
 
 // Mock axios
 jest.mock('axios')

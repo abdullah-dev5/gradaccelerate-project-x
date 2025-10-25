@@ -1,6 +1,6 @@
 import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { Header } from '../../../inertia/components/Header'
+import Header from '#inertia/components/Header'
 
 // Mock the AuthContext
 const mockAuthContext = {
@@ -31,7 +31,7 @@ describe('Header Component', () => {
 
   describe('Unauthenticated User', () => {
     it('renders login and signup buttons when not authenticated', () => {
-      render(<Header />)
+      render(<Header title="Test App" />)
       
       expect(screen.getByText('Sign In')).toBeInTheDocument()
       expect(screen.getByText('Sign Up')).toBeInTheDocument()
@@ -39,7 +39,7 @@ describe('Header Component', () => {
     })
 
     it('renders navigation links for unauthenticated users', () => {
-      render(<Header />)
+      render(<Header title="Test App" />)
       
       expect(screen.getByText('Home')).toBeInTheDocument()
       expect(screen.getByText('About')).toBeInTheDocument()
@@ -47,7 +47,7 @@ describe('Header Component', () => {
     })
 
     it('has correct href attributes for navigation links', () => {
-      render(<Header />)
+      render(<Header title="Test App" />)
       
       const homeLink = screen.getByText('Home').closest('a')
       const aboutLink = screen.getByText('About').closest('a')
@@ -70,7 +70,7 @@ describe('Header Component', () => {
     })
 
     it('renders user menu when authenticated', () => {
-      render(<Header />)
+      render(<Header title="Test App" />)
       
       expect(screen.getByText('John Doe')).toBeInTheDocument()
       expect(screen.getByText('Dashboard')).toBeInTheDocument()
@@ -79,7 +79,7 @@ describe('Header Component', () => {
     })
 
     it('renders dashboard and profile links for authenticated users', () => {
-      render(<Header />)
+      render(<Header title="Test App" />)
       
       expect(screen.getByText('Dashboard')).toBeInTheDocument()
       expect(screen.getByText('Profile')).toBeInTheDocument()
@@ -87,7 +87,7 @@ describe('Header Component', () => {
     })
 
     it('calls logout function when logout button is clicked', async () => {
-      render(<Header />)
+      render(<Header title="Test App" />)
       
       const logoutButton = screen.getByText('Logout')
       fireEvent.click(logoutButton)
@@ -98,7 +98,7 @@ describe('Header Component', () => {
     it('shows user avatar when user has avatar', () => {
       mockAuthContext.user.avatarUrl = 'https://example.com/avatar.jpg'
       
-      render(<Header />)
+      render(<Header title="Test App" />)
       
       const avatar = screen.getByAltText('User avatar')
       expect(avatar).toBeInTheDocument()
@@ -108,7 +108,7 @@ describe('Header Component', () => {
     it('shows default avatar when user has no avatar', () => {
       mockAuthContext.user.avatarUrl = null
       
-      render(<Header />)
+      render(<Header title="Test App" />)
       
       const avatar = screen.getByAltText('User avatar')
       expect(avatar).toBeInTheDocument()
@@ -118,7 +118,7 @@ describe('Header Component', () => {
 
   describe('Mobile Menu', () => {
     it('toggles mobile menu when hamburger button is clicked', () => {
-      render(<Header />)
+      render(<Header title="Test App" />)
       
       const hamburgerButton = screen.getByLabelText('Toggle mobile menu')
       const mobileMenu = screen.getByTestId('mobile-menu')
@@ -136,7 +136,7 @@ describe('Header Component', () => {
     })
 
     it('closes mobile menu when clicking outside', () => {
-      render(<Header />)
+      render(<Header title="Test App" />)
       
       const hamburgerButton = screen.getByLabelText('Toggle mobile menu')
       const mobileMenu = screen.getByTestId('mobile-menu')
@@ -153,21 +153,21 @@ describe('Header Component', () => {
 
   describe('Accessibility', () => {
     it('has proper ARIA labels', () => {
-      render(<Header />)
+      render(<Header title="Test App" />)
       
       expect(screen.getByLabelText('Toggle mobile menu')).toBeInTheDocument()
       expect(screen.getByRole('navigation')).toBeInTheDocument()
     })
 
     it('has proper heading structure', () => {
-      render(<Header />)
+      render(<Header title="Test App" />)
       
       const logo = screen.getByText('Race Track')
       expect(logo.tagName).toBe('H1')
     })
 
     it('supports keyboard navigation', () => {
-      render(<Header />)
+      render(<Header title="Test App" />)
       
       const homeLink = screen.getByText('Home')
       homeLink.focus()
@@ -188,7 +188,7 @@ describe('Header Component', () => {
         value: 1024,
       })
 
-      render(<Header />)
+      render(<Header title="Test App" />)
       
       const desktopNav = screen.getByTestId('desktop-nav')
       expect(desktopNav).toBeInTheDocument()
@@ -202,7 +202,7 @@ describe('Header Component', () => {
         value: 768,
       })
 
-      render(<Header />)
+      render(<Header title="Test App" />)
       
       const hamburgerButton = screen.getByLabelText('Toggle mobile menu')
       expect(hamburgerButton).toBeInTheDocument()
@@ -218,7 +218,7 @@ describe('Header Component', () => {
         email: 'john@example.com'
       }
 
-      render(<Header />)
+      render(<Header title="Test App" />)
       
       expect(screen.getByText('john@example.com')).toBeInTheDocument()
     })
@@ -231,7 +231,7 @@ describe('Header Component', () => {
         email: 'john@example.com'
       }
 
-      render(<Header />)
+      render(<Header title="Test App" />)
       
       expect(screen.getByText('john@example.com')).toBeInTheDocument()
     })

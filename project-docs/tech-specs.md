@@ -51,15 +51,26 @@ VITE_SENTRY_TRACES_SAMPLE_RATE=0
 ## Testing
 - Frontend Jest + RTL with comprehensive component and API testing
 - Backend Japa tests via ace with full API endpoint coverage
+- **End-to-End (E2E) testing with Cypress** for complete user journey validation
 - Error handling tests for both frontend and backend
 - Mocking strategies for external services and database operations
-- Commands: `npm run test:frontend`, `npm run test:backend`, or `npm run test`
+- Commands: `npm run test:frontend`, `npm run test:backend`, `npm run test:e2e`, or `npm run test:all-with-e2e`
 
 ### Test Coverage
 - **Frontend Tests**: Component rendering, user interactions, error boundaries, API mocking
 - **Backend Tests**: API endpoints, validation, authentication, database operations, error handling
+- **E2E Tests**: Complete user workflows, cross-browser compatibility, responsive design, API integration
 - **Error Handling Tests**: Error boundary recovery, error reporting, validation error handling
 - **Integration Tests**: End-to-end API workflows, authentication flows, file uploads
+
+### E2E Testing with Cypress
+- **Comprehensive Test Suite**: Authentication, CRUD operations for all modules (Notes, Todos, Projects, Bookmarks)
+- **API Integration Testing**: Direct API endpoint testing with proper error handling
+- **Cross-Browser Compatibility**: Tests across different viewport sizes and user agents
+- **Performance Testing**: Page load time validation and timeout handling
+- **Error Scenario Testing**: Network failures, server errors, validation errors
+- **Custom Commands**: Reusable commands for login, registration, and data creation
+- **Test Fixtures**: Mock data for consistent testing scenarios
 
 ### Testing Best Practices
 - Mock external dependencies (APIs, databases, file systems)
@@ -67,5 +78,8 @@ VITE_SENTRY_TRACES_SAMPLE_RATE=0
 - Verify error reporting and user feedback
 - Test accessibility and responsive design
 - Use realistic test data and scenarios
+- **E2E Testing**: Simulate real user interactions and validate complete workflows
+- **API Testing**: Test both success and failure scenarios for all endpoints
+- **Cross-Platform Testing**: Ensure compatibility across different devices and browsers
 
 

@@ -1,6 +1,6 @@
 import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { Button } from '../../../inertia/components/ui/button'
+import { Button } from '../../../inertia/components/ui/button.js'
 
 describe('Button Component', () => {
   it('renders with default props', () => {

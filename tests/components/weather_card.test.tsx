@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { WeatherCard } from '../../../inertia/components/WeatherCard.js'
+import WeatherCard from '#inertia/components/WeatherCard'
 
 // Mock the weather service
 const mockWeatherService = {

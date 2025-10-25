@@ -162,7 +162,7 @@ test.group('Notes Controller', (group) => {
     })
   })
 
-  test('GET /api/v1/notes/:id - should return specific note', async ({ client, assert }) => {
+  test('GET /api/v1/notes/:id - should return specific note', async ({ client }) => {
     const authCookie = await authenticateUser(client, testUser)
     
     const note = await Note.create({

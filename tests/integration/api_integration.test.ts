@@ -383,7 +383,7 @@ test.group('API Integration Tests', (group) => {
     assert.equal(projectsStats.active, 1)
   })
 
-  test('Authentication flow integration', async ({ client, assert }) => {
+  test('Authentication flow integration', async ({ client }) => {
     const authCookie = await authenticateUser(client, testUser)
     
     // Test logout

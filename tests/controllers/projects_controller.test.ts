@@ -174,14 +174,14 @@ test.group('Projects Controller', (group) => {
     })
   })
 
-  test('GET /api/v1/projects/:id - should return specific project', async ({ client, assert }) => {
+  test('GET /api/v1/projects/:id - should return specific project', async ({ client }) => {
     const authCookie = await authenticateUser(client, testUser)
     
     const project = await Project.create({
       title: 'Specific Project',
       description: 'Specific description',
       userId: testUser.id,
-      status: 'active'
+      status: 'pending'
     })
 
     const response = await client.get(`/api/v1/projects/${project.id}`)
@@ -225,7 +225,7 @@ test.group('Projects Controller', (group) => {
       title: 'Other User Project',
       description: 'Other user project',
       userId: otherUser.id,
-      status: 'active'
+      status: 'pending'
     })
 
     const response = await client.get(`/api/v1/projects/${otherProject.id}`)
@@ -248,7 +248,7 @@ test.group('Projects Controller', (group) => {
       title: 'Original Title',
       description: 'Original description',
       userId: testUser.id,
-      status: 'active'
+      status: 'pending'
     })
 
     const updateData = {
@@ -286,7 +286,7 @@ test.group('Projects Controller', (group) => {
       title: 'Project to Delete',
       description: 'This project will be deleted',
       userId: testUser.id,
-      status: 'active'
+      status: 'pending'
     })
 
     const response = await client.delete(`/api/v1/projects/${project.id}`)
@@ -309,7 +309,7 @@ test.group('Projects Controller', (group) => {
       title: 'Status Test Project',
       description: 'Testing status update',
       userId: testUser.id,
-      status: 'active'
+      status: 'pending'
     })
 
     const response = await client.patch(`/api/v1/projects/${project.id}/status`)
@@ -330,7 +330,7 @@ test.group('Projects Controller', (group) => {
     assert.equal(project.status, 'completed')
   })
 
-  test('GET /api/v1/projects/stats - should return project statistics', async ({ client, assert }) => {
+  test('GET /api/v1/projects/stats - should return project statistics', async ({ client }) => {
     const authCookie = await authenticateUser(client, testUser)
     
     await Project.createMany([
