@@ -12,6 +12,10 @@
     "fix": "eslint --fix .",
     "typecheck": "tsc --noEmit",
     "test:frontend": "jest",
+<<<<<<< HEAD
+    "test:backend": "c8 --config .c8rc.json node ace test unit",
+    "test": "npm run test:frontend && npm run test:backend"
+=======
     "test:backend": "node ace test",
     "test:unit": "node ace test unit",
     "test:oauth": "node ace test oauth",
@@ -26,6 +30,7 @@
     "test:e2e:open": "cypress open",
     "test:e2e:headless": "cypress run --headless",
     "test:all-with-e2e": "npm run test:frontend && npm run test:backend && npm run test:e2e"
+>>>>>>> c27353e (feat: Implement comprehensive E2E testing with Cypress)
   },
   "imports": {
     "#controllers/*": "./app/controllers/*.js",

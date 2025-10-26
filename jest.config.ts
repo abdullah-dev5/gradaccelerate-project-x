@@ -131,6 +131,9 @@ const config: Config = {
   // rootDir: undefined,
 
   // A list of paths to directories that Jest should use to search for files in
+<<<<<<< HEAD
+  roots: ['<rootDir>/tests/pages'],
+=======
   roots: ['<rootDir>/tests'],
   testMatch: [
     '<rootDir>/tests/**/*.(spec|test).ts?(x)'
@@ -141,6 +144,7 @@ const config: Config = {
     '<rootDir>/tests/unit/',
     '<rootDir>/tests/services/reminder_service.spec.ts'
   ],
+>>>>>>> c27353e (feat: Implement comprehensive E2E testing with Cypress)
 
   // Allows you to use a custom runner instead of Jest's default test runner
   // runner: "jest-runner",
