@@ -55,19 +55,15 @@ npm run test:e2e      # Run Cypress tests
 - Only on release/* and main
 - Validates full user flows
 
-### 7-8. Deploy (3-5 min)
-- Automatic to Vercel
-- Staging: `staging` branch
-- Production: `main` branch
+### 7. Deploy
+- Handled by Railway via Git integration
+- Automatic on push to any branch
+- Railway Dashboard for configuration
 
 ## 🔧 Configuration
 
-### Secrets Required (GitHub Settings)
-```
-VERCEL_TOKEN
-VERCEL_ORG_ID
-VERCEL_PROJECT_ID
-```
+### No Secrets Required
+Railway uses Git integration - no additional secrets needed!
 
 ### Coverage Threshold
 ```
@@ -104,7 +100,6 @@ Average runtime:
 ## 🔗 Links
 
 - **Workflow File**: `.github/workflows/ci.yml`
-- **Documentation**: `.github/CICD_README.md`
-- **Setup Guide**: `CICD_SETUP_GUIDE.md`
+- **Railway**: https://railway.app
 - **GitHub Actions**: `https://github.com/your-repo/actions`
 
