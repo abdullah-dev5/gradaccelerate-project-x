@@ -1,15 +1,13 @@
 import React, { useState, useEffect } from 'react'
-const DEBUG_REMINDERS = false
-const SKIP_RELOAD_AFTER_TRIGGER = true
 import { DateTime } from 'luxon'
-import { Head, Link, router } from '@inertiajs/react'
+import { Head, router } from '@inertiajs/react'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { useToast } from '../../hooks/useToast'
 import { useReminderNotifications } from '../../hooks/useReminderNotifications'
-import { notificationService } from '../../services/notificationService'
-import { Trash2, Edit, Bell, Mail, Globe, ArrowLeft } from 'lucide-react'
+import { Trash2, Edit, Bell, Mail, Globe, Plus } from 'lucide-react'
+import Header from '../../components/Header'
 
 interface Reminder {
   id: number
@@ -40,45 +38,17 @@ interface RemindersPageProps {
 }
 
 export default function RemindersIndex({ reminders = [], user }: RemindersPageProps) {
-  if (DEBUG_REMINDERS) {
-    console.log('Reminders received:', reminders)
-    console.log('User received:', user)
-  }
-  
-  // Debug: Check the format of remindAt values
-  if (DEBUG_REMINDERS) {
-    if (reminders && reminders.length > 0) {
-      console.log('=== FRONTEND DEBUG ===')
-      console.log('First reminder remindAt format:', reminders[0].remindAt)
-      console.log('First reminder full object:', reminders[0])
-      console.log('All remindAt formats:', reminders.map(r => ({ id: r.id, title: r.title, remindAt: r.remindAt, remind_at: r.remind_at })))
-      const testDate = reminders[0].remindAt || reminders[0].remind_at
-      if (testDate) {
-        console.log('Testing conversion for:', testDate)
-        let dt
-        if (testDate.includes(' ') && !testDate.includes('T')) {
-          const iso = testDate.replace(' ', 'T') + 'Z'
-          dt = DateTime.fromISO(iso, { zone: 'utc' })
-          console.log('Converted SQL format to:', iso)
-        } else {
-          dt = DateTime.fromISO(testDate, { zone: 'utc' })
-        }
-        const local = dt.setZone('Asia/Karachi')
-        console.log('Should display as:', local.toFormat('MMM dd, yyyy, hh:mm a'))
-      }
-    }
-  }
   const { success, error } = useToast()
   const [loading, setLoading] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null)
-  const [isClient, setIsClient] = useState(false)
   // Local copy for live UI updates
   const [items, setItems] = useState<Reminder[]>(reminders)
   // SweetAlert replaces banner
   useEffect(() => {
     setItems(reminders)
   }, [reminders])
+
   const [formData, setFormData] = useState<ReminderFormData>({
     title: '',
     message: '',
@@ -91,7 +61,7 @@ export default function RemindersIndex({ reminders = [], user }: RemindersPagePr
     return 'Asia/Karachi'
   }
 
-  const [tz, setTz] = useState<string>(getPreferredTimeZone())
+  const tz = 'Asia/Karachi' // Fixed timezone
 
   // Quick time preset function - always in user's timezone
   const setQuickTime = (minutes: number) => {
@@ -108,24 +78,8 @@ export default function RemindersIndex({ reminders = [], user }: RemindersPagePr
     })
   }
 
-  // Set client-side flag to prevent hydration mismatch
-  useEffect(() => {
-    setIsClient(true)
-  }, [])
-
   // Setup reminder notifications
   useReminderNotifications(user?.id)
-  
-  // Debug user and channel subscription
-  useEffect(() => {
-    if (DEBUG_REMINDERS) {
-      console.log('User object:', user)
-      console.log('User ID:', user?.id)
-      if (user?.id) {
-        console.log('Setting up reminder notifications for user:', user.id)
-      }
-    }
-  }, [user])
 
   // Initialize form with default time (15 minutes from now) - always in user's timezone
   const initializeForm = () => {
@@ -176,19 +130,16 @@ export default function RemindersIndex({ reminders = [], user }: RemindersPagePr
   useEffect(() => {
     const onTriggered = async (e: any) => {
       const reminder: Reminder = e.detail.reminder
-      console.log('[Reminder UI] on reminder:triggered event', reminder)
       // Top toast
       await showTopAlert(`⏰ ${reminder.title}`, reminder.message || 'Reminder is due now', 'info')
       // Update local list flags
       setItems((prev) => prev.map((r) => r.id === reminder.id ? { ...r, sentWeb: true } : r))
     }
     if (typeof window !== 'undefined') {
-      console.log('[Reminder UI] Adding listener for reminder:triggered')
       window.addEventListener('reminder:triggered', onTriggered as EventListener)
     }
     return () => {
       if (typeof window !== 'undefined') {
-        console.log('[Reminder UI] Removing listener for reminder:triggered')
         window.removeEventListener('reminder:triggered', onTriggered as EventListener)
       }
     }
@@ -199,16 +150,6 @@ export default function RemindersIndex({ reminders = [], user }: RemindersPagePr
     setLoading(true)
 
     try {
-      if (DEBUG_REMINDERS) console.log('[Reminder UI] handleSubmit() raw formData:', formData)
-      if (formData.remindAt) {
-        const local = new Date(formData.remindAt)
-        if (DEBUG_REMINDERS) console.log('[Reminder UI] Parsed local date from input:', {
-          input: formData.remindAt,
-          localISO: local.toISOString(),
-          localString: local.toString(),
-          tzOffsetMinutes: local.getTimezoneOffset(),
-        })
-      }
       const url = editingReminder ? `/reminders/${editingReminder.id}` : '/reminders'
       const method = editingReminder ? 'PUT' : 'POST'
       
@@ -235,7 +176,6 @@ export default function RemindersIndex({ reminders = [], user }: RemindersPagePr
       
       // Send local time directly to server (simpler approach)
       const tzPref = tz || getPreferredTimeZone()
-      if (DEBUG_REMINDERS) console.log('[Reminder UI] Sending local time to server:', { tz: tzPref, input: formData.remindAt })
       
       // Create ISO string with timezone info
       const localDateTime = DateTime.fromISO(formData.remindAt, { zone: tzPref })
@@ -247,24 +187,10 @@ export default function RemindersIndex({ reminders = [], user }: RemindersPagePr
       
       const remindAtWithTz = localDateTime.toISO()
       
-      // Debug: Show what we're sending
-      if (DEBUG_REMINDERS) console.log('[Reminder UI] Form submission (local time):', {
-        input: formData.remindAt,
-        timezone: tzPref,
-        localDateTime: localDateTime.toISO(),
-        output: remindAtWithTz
-      })
-      
       const payload = {
         ...formData,
         remindAt: remindAtWithTz,
       }
-      if (DEBUG_REMINDERS) console.log('[Reminder UI] Local time conversion:', {
-        input: formData.remindAt,
-        parsedLocal: localDateTime.toISO(),
-        output: remindAtWithTz,
-        timezone: tzPref
-      })
       
       const response = await fetch(url, {
         method,
@@ -279,7 +205,6 @@ export default function RemindersIndex({ reminders = [], user }: RemindersPagePr
       })
 
       if (response.ok) {
-        console.log('[Reminder UI] Save OK for', method, 'Response status:', response.status)
         success(editingReminder ? 'Reminder updated!' : 'Reminder created!')
         setShowForm(false)
         setEditingReminder(null)
@@ -375,97 +300,8 @@ export default function RemindersIndex({ reminders = [], user }: RemindersPagePr
 
   // Removed testRealTimeNotification (no longer needed)
 
-  // Removed testChannelSubscription (no longer needed)
-
-  const processReminders = async () => {
-    console.log('[Reminder UI] ===== BUTTON CLICKED =====')
-    console.log('[Reminder UI] processReminders function called')
-    setLoading(true)
-    try {
-      console.log('[Reminder UI] Triggering /reminders/trigger now')
-      const response = await fetch('/reminders/trigger', {
-        method: 'POST',
-        headers: {
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-          'Accept': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest',
-        },
-        credentials: 'include'
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-      console.log('[Reminder UI] /reminders/trigger response:', data)
-        success(`Processed ${data.processed} reminders!`)
-        
-        // Show browser notifications for processed reminders as fallback
-        // Since Pusher might be failing, let's show notifications directly
-        if (data.processed > 0) {
-          console.log('[Reminder UI] Processing fallback notifications for', data.processed, 'reminders')
-          
-          const processedReminders = items.filter(reminder => {
-            const remindTime = DateTime.fromISO(reminder.remindAt)
-            const now = DateTime.now().setZone('Asia/Karachi')
-            const isOverdue = remindTime <= now
-            const notSent = !reminder.sentWeb
-            if (DEBUG_REMINDERS) console.log('[Reminder UI] Reminder check:', {
-              title: reminder.title,
-              remindTime: remindTime.toISO(),
-              now: now.toISO(),
-              isOverdue,
-              notSent,
-              shouldNotify: isOverdue && notSent
-            })
-            return isOverdue && notSent
-          })
-          
-          console.log('[Reminder UI] Found', processedReminders.length, 'reminders for fallback notifications')
-          
-          for (const reminder of processedReminders) {
-            try {
-              console.log('[Reminder UI] Attempting to show notification for:', reminder.title)
-              const result = await notificationService.showReminderNotification({
-                title: reminder.title,
-                message: reminder.message || '',
-                remindAt: reminder.remindAt
-              })
-              if (DEBUG_REMINDERS) console.log('[Reminder UI] Notification result for', reminder.title, ':', result)
-              // Mark as sent in UI
-              setItems((prev) => prev.map((r) => r.id === reminder.id ? { ...r, sentWeb: true } : r))
-            } catch (error) {
-              console.error('[Reminder UI] Failed to show fallback notification for', reminder.title, ':', error)
-            }
-          }
-        }
-        
-        // Optional auto-refresh (disabled while debugging)
-        if (!SKIP_RELOAD_AFTER_TRIGGER) {
-          setTimeout(() => {
-            try {
-              if (typeof window !== 'undefined') {
-                window.location.reload()
-              }
-            } catch {}
-          }, 3000)
-        }
-      } else {
-        const text = await response.text()
-        console.error('[Reminder UI] /reminders/trigger failed. Status:', response.status, 'Body:', text)
-        error('Failed to process reminders')
-      }
-    } catch (err) {
-      console.error('[Reminder UI] /reminders/trigger error:', err)
-      error('Network error: ' + err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const formatDateTime = (dateString: string) => {
     try {
-      if (DEBUG_REMINDERS) console.log('[Reminder UI] formatDateTime input:', { input: dateString })
-      
-      // Parse the date string (should already have timezone info)
       const dt = DateTime.fromISO(dateString)
       
       if (!dt.isValid) {
@@ -473,17 +309,7 @@ export default function RemindersIndex({ reminders = [], user }: RemindersPagePr
         return 'Invalid date'
       }
       
-      // Format in the same timezone it was stored
-      const out = dt.toFormat('MMM dd, yyyy, hh:mm a')
-      
-      if (DEBUG_REMINDERS) {
-        console.log('[Reminder UI] formatDateTime result:', { 
-          input: dateString, 
-          parsed: dt.toISO(),
-          output: out
-        })
-      }
-      return out
+      return dt.toFormat('MMM dd, yyyy, hh:mm a')
     } catch (error) {
       console.error('Error formatting date:', error)
       return 'Invalid date'
@@ -492,22 +318,11 @@ export default function RemindersIndex({ reminders = [], user }: RemindersPagePr
 
   const isOverdue = (dateString: string) => {
     try {
-      // Parse the date string (should already have timezone info)
       const dueTime = DateTime.fromISO(dateString)
       const now = DateTime.now()
-      const overdue = dueTime < now
-      
-      if (DEBUG_REMINDERS) {
-        console.debug('[Reminder UI] isOverdue check:', {
-          input: dateString,
-          dueTime: dueTime.toISO(),
-          now: now.toISO(),
-          overdue,
-        })
-      }
-      return overdue
+      return dueTime < now
     } catch (e) {
-      console.error('[Reminder UI] isOverdue error for', dateString, e)
+      console.error('[Reminder UI] isOverdue error:', e)
       return false
     }
   }
@@ -516,58 +331,30 @@ export default function RemindersIndex({ reminders = [], user }: RemindersPagePr
     <>
       <Head title="Reminders" />
       
-      <div className="container mx-auto px-4 py-8">
-        {/* SweetAlert replaces the banner UI */}
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-3">
-            <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700">
-              <ArrowLeft className="w-4 h-4" />
-              Back to Dashboard
-            </Link>
-            <h1 className="text-3xl font-bold">Reminders</h1>
-          </div>
-          <div className="flex gap-2">
-            <select
-              value={tz}
-              onChange={(e) => {
-                const v = e.target.value
-                setTz(v)
-                try { localStorage.setItem('reminder.tz', v) } catch {}
-              }}
-              className="border rounded px-2 py-1 text-sm"
-              title="Display & submit timezone"
+      <Header 
+        title="Reminders" 
+        subtitle={`${items.length} ${items.length === 1 ? 'reminder' : 'reminders'} ${items.length > 0 ? `- ${items.filter(r => !isOverdue(r.remind_at || r.remindAt)).length} pending` : ''}`}
+        showBackButton={true}
+        backHref="/dashboard"
+      />
+      
+      <div className="min-h-screen bg-gradient-to-br from-[#1C1C1E] to-[#2C2C2E] pb-8">
+        <div className="container mx-auto px-4 sm:px-6 py-6">
+          {/* Header Actions */}
+          <div className="flex justify-end mb-6">
+            <Button 
+              onClick={initializeForm}
+              className="flex items-center gap-2"
             >
-              {/* Minimal, extend as needed */}
-              <option value="Asia/Karachi">Asia/Karachi (UTC+05:00)</option>
-              <option value="UTC">UTC</option>
-              <option value="Asia/Kolkata">Asia/Kolkata (UTC+05:30)</option>
-              <option value="Asia/Dubai">Asia/Dubai (UTC+04:00)</option>
-              <option value="America/New_York">America/New_York</option>
-              <option value="Europe/London">Europe/London</option>
-            </select>
-            <Button onClick={() => {
-              try {
-                const maybePromise = processReminders()
-                if (maybePromise && typeof (maybePromise as any).catch === 'function') {
-                  ;(maybePromise as Promise<void>).catch((e) => {
-                    console.error('[Reminder UI] processReminders threw:', e)
-                  })
-                }
-              } catch (e) {
-                console.error('[Reminder UI] processReminders sync error:', e)
-              }
-            }} disabled={loading} variant="outline">
-              Process Reminders
-            </Button>
-            <Button onClick={initializeForm}>
-              Create Reminder
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Create Reminder</span>
+              <span className="sm:hidden">Create</span>
             </Button>
           </div>
-        </div>
 
         {/* Reminder Form */}
         {showForm && (
-          <Card className="mb-6">
+          <Card className="mb-6 bg-[#2C2C2E]/50 backdrop-blur-sm border-[#3A3A3C]/50">
             <CardHeader>
               <CardTitle>
                 {editingReminder ? 'Edit Reminder' : 'Create New Reminder'}
@@ -600,7 +387,7 @@ export default function RemindersIndex({ reminders = [], user }: RemindersPagePr
                   {/* Quick Presets */}
                   <div className="mb-3">
                     <p className="text-sm text-gray-600 mb-2">Quick presets:</p>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
                       <Button
                         type="button"
                         variant="outline"
@@ -685,11 +472,8 @@ export default function RemindersIndex({ reminders = [], user }: RemindersPagePr
                   {/* Current Selection Display */}
                   {formData.remindAt && (
                     <div className="mt-2 p-2 bg-blue-50 rounded text-sm text-blue-800">
-                      <div className="flex justify-between items-center">
-                        <span><strong>Selected:</strong> {formatDateTime(formData.remindAt)} ({tz})</span>
-                        <span className="text-xs text-gray-600">
-                          Current time: {DateTime.now().setZone(tz).toFormat('hh:mm a')} ({tz})
-                        </span>
+                      <div className="flex flex-col gap-1">
+                        <span><strong>Selected:</strong> {formatDateTime(formData.remindAt)}</span>
                       </div>
                     </div>
                   )}
@@ -750,33 +534,6 @@ export default function RemindersIndex({ reminders = [], user }: RemindersPagePr
           </Card>
         )}
 
-        {/* Debug Info */}
-        {process.env.NODE_ENV === 'development' && isClient && (
-          <div className="mb-4 p-3 bg-gray-100 rounded text-sm">
-            <div className="flex justify-between items-start">
-              <div>
-                <strong>Debug:</strong> {items.length} reminders loaded
-                <div className="mt-2">
-                  <div>Notification Support: {typeof window !== 'undefined' && 'Notification' in window ? '✅' : '❌'}</div>
-                  <div>Notification Permission: {typeof window !== 'undefined' && window.Notification ? window.Notification.permission : 'unknown'}</div>
-                  <div>Pusher Key: {typeof window !== 'undefined' && document.querySelector('meta[name="pusher-key"]')?.getAttribute('content') ? '✅' : '❌'}</div>
-                  <div>Pusher Cluster: {typeof window !== 'undefined' && document.querySelector('meta[name="pusher-cluster"]')?.getAttribute('content') ? '✅' : '❌'}</div>
-                </div>
-              </div>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                onClick={() => {
-                  if (typeof window !== 'undefined') {
-                    console.log('Available meta tags:', Array.from(document.querySelectorAll('meta')).map(m => ({ name: m.getAttribute('name'), content: m.getAttribute('content') })))
-                  }
-                }}
-              >
-                Log Meta Tags
-              </Button>
-            </div>
-          </div>
-        )}
 
         {/* Reminders List */}
         <div className="space-y-4">
@@ -798,38 +555,41 @@ export default function RemindersIndex({ reminders = [], user }: RemindersPagePr
                 }
               >
                 <CardContent className="p-4">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-lg">{reminder.title}</h3>
+                  <div className="flex flex-col sm:flex-row justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-base sm:text-lg break-words">{reminder.title}</h3>
                       {reminder.message && (
-                        <p className="text-gray-600 mt-1">{reminder.message}</p>
+                        <p className="text-gray-600 mt-1 break-words">{reminder.message}</p>
                       )}
-                      <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
-                        <span>⏰ {formatDateTime(reminder.remindAt)}</span>
-                        <div className="flex items-center gap-2">
-                          {reminder.channels.includes('web') && (
-                            <span className="flex items-center gap-1">
-                              <Globe className="w-3 h-3" />
-                              Web
-                            </span>
-                          )}
-                          {reminder.channels.includes('email') && (
-                            <span className="flex items-center gap-1">
-                              <Mail className="w-3 h-3" />
-                              Email
-                            </span>
-                          )}
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 mt-3 text-xs sm:text-sm text-gray-500">
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <span>⏰ {formatDateTime(reminder.remindAt)}</span>
+                          <div className="flex items-center gap-2">
+                            {reminder.channels.includes('web') && (
+                              <span className={`flex items-center gap-1 ${reminder.sentWeb ? 'text-green-600' : ''}`}>
+                                <Globe className="w-3 h-3" />
+                                <span className="hidden sm:inline">Web</span>
+                                {reminder.sentWeb && <span className="text-xs ml-1">✓</span>}
+                              </span>
+                            )}
+                            {reminder.channels.includes('email') && (
+                              <span className={`flex items-center gap-1 ${reminder.sentEmail ? 'text-green-600' : ''}`}>
+                                <Mail className="w-3 h-3" />
+                                <span className="hidden sm:inline">Email</span>
+                                {reminder.sentEmail && <span className="text-xs ml-1">✓</span>}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        {reminder.sentWeb && <span className="text-green-600">✓ Web sent</span>}
-                        {reminder.sentEmail && <span className="text-green-600">✓ Email sent</span>}
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 shrink-0">
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => handleEdit(reminder)}
                         disabled={loading}
+                        title="Edit"
                       >
                         <Edit className="w-4 h-4" />
                       </Button>
@@ -839,6 +599,7 @@ export default function RemindersIndex({ reminders = [], user }: RemindersPagePr
                         onClick={() => handleDelete(reminder.id)}
                         disabled={loading}
                         className="text-red-600 hover:text-red-700"
+                        title="Delete"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -848,6 +609,7 @@ export default function RemindersIndex({ reminders = [], user }: RemindersPagePr
               </Card>
             ))
           )}
+        </div>
         </div>
       </div>
     </>

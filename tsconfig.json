@@ -9,7 +9,8 @@
     "outDir": "./build",
     "jsx": "react-jsx",
     "types": ["jest", "node"],
-    "lib": ["dom", "esnext"]
+    "lib": ["dom", "esnext"],
+    "typeRoots": ["./types", "./node_modules/@types"]
   },
   "exclude": ["./inertia/**/*", "node_modules", "build"]
 }

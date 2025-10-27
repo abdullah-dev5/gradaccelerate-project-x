@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Head, Link, router } from '@inertiajs/react'
-import { useAuth } from '../../contexts/AuthContext'
+import { Head, Link, router, usePage } from '@inertiajs/react'
+import { Eye, EyeOff } from 'lucide-react'
 
 export default function Login() {
   const [formData, setFormData] = useState({
@@ -12,10 +12,32 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
   const [isMounted, setIsMounted] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   
-  // Always call useAuth hook (Rules of Hooks), but handle SSR safely
-  const auth = useAuth()
-  const { login } = auth
+  // Get flash errors from Inertia page props
+  const { errors: flashErrors } = usePage().props
+
+  // Client-side validation
+  const validateForm = () => {
+    const newErrors: any = {}
+    
+    // Email validation
+    if (!formData.email) {
+      newErrors.email = 'Email is required'
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = 'Please enter a valid email address'
+    }
+    
+    // Password validation
+    if (!formData.password) {
+      newErrors.password = 'Password is required'
+    } else if (formData.password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters'
+    }
+    
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
 
   // Set mounted state for client-side auth usage
   useEffect(() => {
@@ -35,40 +57,113 @@ export default function Login() {
     }
   }, [])
 
+  // Show SweetAlert for flash errors from server and set inline errors
+  useEffect(() => {
+    const showErrorAlert = async () => {
+      console.log('🔍 Login Page: Flash errors detected:', flashErrors)
+      
+      if (flashErrors) {
+        // Merge flash errors with existing errors
+        setErrors((prevErrors: any) => ({ ...prevErrors, ...flashErrors }))
+        
+        try {
+          const { default: Swal } = await import('sweetalert2')
+          
+          // Build error message
+          let errorMessage = ''
+          if (flashErrors.general) {
+            errorMessage = flashErrors.general
+          } else if (flashErrors.email) {
+            errorMessage = `Email: ${flashErrors.email}`
+          } else if (flashErrors.password) {
+            errorMessage = `Password: ${flashErrors.password}`
+          } else {
+            // If there are other field errors, format them
+            const errorKeys = Object.keys(flashErrors)
+            if (errorKeys.length > 0) {
+              errorMessage = Object.values(flashErrors).join('. ')
+            }
+          }
+          
+          console.log('📢 Showing error alert:', errorMessage)
+          
+          if (errorMessage) {
+            await Swal.fire({
+              title: 'Login Failed',
+              text: errorMessage,
+              icon: 'error',
+              confirmButtonText: 'Try Again',
+              confirmButtonColor: '#f59e0b',
+              background: '#2C2C2E',
+              color: '#ffffff',
+              customClass: {
+                popup: 'dark-popup',
+                title: 'dark-title',
+                confirmButton: 'dark-confirm-button'
+              }
+            })
+          }
+          // Always reset loading state when error is shown or when we get any response
+          setIsLoading(false)
+        } catch (swalError) {
+          console.error('Error showing SweetAlert:', swalError)
+          setIsLoading(false)
+        }
+      }
+    }
+    
+    if (isMounted) {
+      showErrorAlert()
+    }
+  }, [flashErrors, isMounted])
+
   // ✅ SIMPLIFIED: Use Inertia's built-in form handling
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
+    console.log('🚀 Submitting login form:', formData)
+    
+    // Clear previous errors
     setErrors({})
+    
+    // Validate form before submitting
+    if (!validateForm()) {
+      console.log('❌ Form validation failed:', errors)
+      setIsLoading(false) // Ensure loading is false on validation failure
+      return
+    }
+    
+    setIsLoading(true)
 
     // Use Inertia's router.post for session auth
+    // The backend will redirect to /dashboard on success
     router.post('/api/auth/login', formData, {
-      onSuccess: (page) => {
-        // ✅ SIMPLIFIED: Get user data from session after successful login
-        fetch('/api/auth/me', {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
-          },
-          credentials: 'include' // Include session cookies
-        })
-        .then(response => response.json())
-        .then(data => {
-          if (data.success && data.data.user && data.data.token) {
-            login(data.data.token, data.data.user) // Use the login method
-          }
-        })
-        .catch(error => console.warn('Could not retrieve user data:', error))
-        
-        // Navigate to dashboard
-        router.visit('/dashboard')
+      preserveState: true, // Preserve state during navigation
+      preserveScroll: true, // Preserve scroll position
+      onStart: () => {
+        console.log('🚀 Login request started')
+        setIsLoading(true)
       },
       onError: (errors) => {
+        console.log('❌ Login errors from backend:', errors)
         setErrors(errors)
         setIsLoading(false)
       },
       onFinish: () => {
+        console.log('✅ Login request finished (onFinish)')
+        // Don't clear loading here - let flash errors handle it or onSuccess
+      },
+      onSuccess: (page) => {
+        console.log('✅ Login successful:', page)
+        // If we're still on the login page, it means there was an error
+        // The flash errors useEffect will handle clearing the loading state
+        if (page.url === '/login' || page.url.includes('/login')) {
+          console.log('⚠️ Still on login page - likely an error occurred')
+          // Give a small delay to let flash errors process
+          setTimeout(() => setIsLoading(false), 100)
+        }
+      },
+      onCancel: () => {
+        console.log('🚫 Login request cancelled')
         setIsLoading(false)
       }
     })
@@ -129,12 +224,21 @@ export default function Login() {
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 bg-[#3A3A3C] border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-white placeholder-gray-400"
+                  className={`w-full px-4 py-3 bg-[#3A3A3C] border rounded-lg focus:outline-none focus:ring-2 text-white placeholder-gray-400 ${
+                    errors.email 
+                      ? 'border-red-500 focus:ring-red-500' 
+                      : 'border-gray-600 focus:ring-yellow-500 focus:border-transparent'
+                  }`}
                   placeholder="Enter your email"
                   required
                 />
                 {errors.email && (
-                  <p className="text-red-400 text-sm mt-1">{errors.email}</p>
+                  <p className="text-red-400 text-sm mt-1 flex items-center gap-1">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    {errors.email}
+                  </p>
                 )}
               </div>
 
@@ -142,18 +246,40 @@ export default function Login() {
                 <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
                   Password
                 </label>
-                <input
-                  type="password"
-                  id="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 bg-[#3A3A3C] border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent text-white placeholder-gray-400"
-                  placeholder="Enter your password"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    id="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    className={`w-full px-4 py-3 pr-12 bg-[#3A3A3C] border rounded-lg focus:outline-none focus:ring-2 text-white placeholder-gray-400 ${
+                      errors.password 
+                        ? 'border-red-500 focus:ring-red-500' 
+                        : 'border-gray-600 focus:ring-yellow-500 focus:border-transparent'
+                    }`}
+                    placeholder="Enter your password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
                 {errors.password && (
-                  <p className="text-red-400 text-sm mt-1">{errors.password}</p>
+                  <p className="text-red-400 text-sm mt-1 flex items-center gap-1">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    {errors.password}
+                  </p>
                 )}
               </div>
 
@@ -175,8 +301,14 @@ export default function Login() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-semibold py-3 px-4 rounded-lg hover:from-yellow-600 hover:to-orange-600 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-semibold py-3 px-4 rounded-lg hover:from-yellow-600 hover:to-orange-600 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2"
               >
+                {isLoading && (
+                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                )}
                 {isLoading ? 'Signing in...' : 'Sign In'}
               </button>
 
@@ -211,7 +343,7 @@ export default function Login() {
                       d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                     />
                   </svg>
-                  {isLoading ? 'Redirecting to Google...' : 'Continue with Google'}
+                  Continue with Google
                 </button>
               </div>
 

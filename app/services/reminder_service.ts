@@ -25,51 +25,33 @@ export default class ReminderService {
   }
 
   async processDueRemindersForUser(userId: number): Promise<ProcessResult> {
-    const now = DateTime.now().setZone('Asia/Karachi') // Use local timezone
-    console.log('[Reminder Service] ===== PROCESSING REMINDERS =====')
-    console.log('[Reminder Service] Processing due reminders for user:', userId)
-    console.log('[Reminder Service] Current time local (Asia/Karachi):', now.toISO())
-    console.log('[Reminder Service] Current time SQL format:', now.toSQL())
+    const now = DateTime.now()
     
-    // First, let's see ALL reminders for this user
+    // Get all reminders for comparison
     const allReminders = await Reminder.query()
       .where('user_id', userId)
       .orderBy('remind_at', 'desc')
     
-    console.log('[Reminder Service] All reminders for user:', allReminders.length)
-    for (const reminder of allReminders) {
-      console.log('[Reminder Service] All reminder:', {
-        id: reminder.id,
-        title: reminder.title,
-        remindAt: reminder.remindAt,
-        remindAtISO: reminder.remindAt?.toISO?.(),
-        sentWeb: reminder.sentWeb,
-        sentEmail: reminder.sentEmail
-      })
-    }
-    
-    // Convert current time to SQL format for database comparison
-    const nowSql = now.toFormat('yyyy-MM-dd HH:mm:ss')
-    console.log('[Reminder Service] Comparing against SQL format:', nowSql)
-    
-    const dueReminders = await Reminder.query()
-      .where('user_id', userId)
-      .where('remind_at', '<=', nowSql)
-      .where((q) => {
-        q.where('sent_web', false).orWhere('sent_email', false)
-      })
-    
-    console.log('[Reminder Service] Found due reminders:', dueReminders.length)
-    for (const reminder of dueReminders) {
-      console.log('[Reminder Service] Due reminder:', {
-        id: reminder.id,
-        title: reminder.title,
-        remindAt: reminder.remindAt,
-        remindAtISO: reminder.remindAt?.toISO?.(),
-        sentWeb: reminder.sentWeb,
-        sentEmail: reminder.sentEmail
-      })
-    }
+    // Filter due reminders using DateTime comparison (in memory)
+    // This ensures proper timezone handling
+    const dueReminders = allReminders.filter(reminder => {
+      const reminderTime = reminder.remindAt
+      if (!reminderTime) return false
+      
+      // Compare DateTime objects
+      const isDue = reminderTime <= now
+      
+      // IMPORTANT: Convert database 0/1 to boolean
+      const sentWebBool = Boolean(reminder.sentWeb)
+      const sentEmailBool = Boolean(reminder.sentEmail)
+      
+      // Check if reminder needs to be sent (either channel not sent yet)
+      const needsWeb = reminder.channels.includes('web') && !sentWebBool
+      const needsEmail = reminder.channels.includes('email') && !sentEmailBool
+      const needsSending = needsWeb || needsEmail
+      
+      return isDue && needsSending
+    })
 
     const pusher = this.getPusher()
     if (!pusher) {
@@ -81,10 +63,8 @@ export default class ReminderService {
     for (const reminder of dueReminders) {
       const sendWeb = reminder.channels.includes('web') && !reminder.sentWeb && (user.webNotificationsEnabled ?? true) && (user.reminderWebEnabled ?? true)
       const sendEmail = reminder.channels.includes('email') && !reminder.sentEmail && (user.emailNotificationsEnabled ?? true) && (user.reminderEmailsEnabled ?? true)
-      console.log('[Reminder Service] Delivery decision:', { id: reminder.id, sendWeb, sendEmail, channels: reminder.channels })
 
       if (sendWeb && pusher) {
-        console.log('[Reminder Service] Triggering Pusher event for user channel', `private-user.${reminder.userId}`)
         try {
         await pusher.trigger(`private-user.${reminder.userId}`, 'reminder.triggered', {
           reminder: {
@@ -102,27 +82,22 @@ export default class ReminderService {
       }
 
       if (sendEmail) {
-        console.log('[Reminder Service] Sending reminder email to', user.email)
         const emailSent = await this.emailService.sendReminderEmail(user.email, {
           title: reminder.title,
           message: reminder.message || undefined,
           remindAt: reminder.remindAt.toISO() || new Date().toISOString(),
         })
         if (emailSent) {
-          console.log('[Reminder Service] Email sent OK for reminder', reminder.id)
           reminder.sentEmail = true
         }
       }
 
       if (sendWeb || (sendEmail && reminder.sentEmail)) {
-        reminder.sentAt = DateTime.now().setZone('Asia/Karachi')
+        reminder.sentAt = DateTime.now()
         await reminder.save()
-        console.log('[Reminder Service] Marked reminder as sent:', { id: reminder.id, sentAt: reminder.sentAt.toISO() })
         processed += 1
       }
     }
-
-    console.log('[Reminder Service] Processing completed. Total processed:', processed)
     return { processedCount: processed }
   }
 }

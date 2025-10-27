@@ -31,6 +31,7 @@ const shieldConfig = defineConfig({
       '/api/auth/login', // API endpoints handled separately
       '/api/auth/register',
       '/api/auth/logout',
+      '/user/preferences', // User preferences endpoint
     ],
     enableXsrfCookie: true,
     methods: ['POST', 'PUT', 'PATCH', 'DELETE'],

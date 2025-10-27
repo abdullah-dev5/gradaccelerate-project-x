@@ -2,8 +2,10 @@ import React, { createContext, useContext, useEffect, useState } from 'react'
 
 interface User {
   id: number
-  fullName: string
+  fullName: string | null
   email: string
+  provider?: string | null
+  avatarUrl?: string | null
   createdAt: string
   updatedAt: string
   // Notification preferences
@@ -31,7 +33,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // ✅ SIMPLIFIED: Initialize auth state from localStorage
+  // ✅ IMPROVED: Initialize auth state from localStorage
   useEffect(() => {
     try {
       const storedToken = localStorage.getItem('auth_token')
@@ -40,9 +42,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (storedToken && storedUser) {
         try {
           setToken(storedToken)
-          setUser(JSON.parse(storedUser))
+          const parsedUser = JSON.parse(storedUser)
+          setUser(parsedUser)
         } catch (parseError) {
-          console.warn('AuthProvider: Failed to parse stored auth data')
+          console.warn('AuthProvider: Failed to parse stored auth data', parseError)
           // Clear invalid data
           localStorage.removeItem('auth_token')
           localStorage.removeItem('auth_user')
@@ -55,26 +58,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [])
 
-  // ✅ SIMPLIFIED: Check authentication status on mount
+  // ✅ IMPROVED: Check authentication status on mount
   useEffect(() => {
     const checkAuthStatus = async () => {
+      // Check if we just logged out
+      const urlParams = new URLSearchParams(window.location.search)
+      if (urlParams.get('logout') === 'success') {
+        setUser(null)
+        setToken(null)
+        setLoading(false)
+        return
+      }
+      
       try {
-        // First check if we have any stored auth data
-        const storedToken = localStorage.getItem('auth_token')
-        const storedUser = localStorage.getItem('auth_user')
-        
-        // If no stored data, user is definitely not authenticated
-        if (!storedToken && !storedUser) {
-          setUser(null)
-          setToken(null)
-          setLoading(false)
-          return
-        }
-        
-        // Check with backend to verify authentication status
+        // Try to fetch user data from backend (session-based)
         const response = await fetch('/api/auth/me', {
           headers: {
-            'Accept': 'application/json'
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
           },
           credentials: 'include'
         })
@@ -83,29 +84,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const data = await response.json()
           if (data.data && data.data.user) {
             setUser(data.data.user)
-            setToken(data.data.token || storedToken)
-            // Update stored data if it's different
-            if (data.data.token !== storedToken) {
+            if (data.data.token) {
+              setToken(data.data.token)
               localStorage.setItem('auth_token', data.data.token)
             }
-            if (JSON.stringify(data.data.user) !== storedUser) {
-              localStorage.setItem('auth_user', JSON.stringify(data.data.user))
-            }
+            localStorage.setItem('auth_user', JSON.stringify(data.data.user))
           } else {
-            // Backend says not authenticated, clear everything
             setUser(null)
             setToken(null)
             localStorage.removeItem('auth_token')
             localStorage.removeItem('auth_user')
           }
         } else if (response.status === 401) {
-          // Explicitly unauthorized, clear everything
           setUser(null)
           setToken(null)
           localStorage.removeItem('auth_token')
           localStorage.removeItem('auth_user')
         } else {
-          // Other error, clear local state
           setUser(null)
           setToken(null)
           localStorage.removeItem('auth_token')
@@ -134,15 +129,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   const logout = async () => {
-    let response: Response | undefined
+    // ✅ CRITICAL: Clear local state IMMEDIATELY to prevent race conditions
+    setToken(null)
+    setUser(null)
     
+    // Clear all storage and cookies
+    localStorage.clear()
+    sessionStorage.clear()
+    
+    // Clear all cookies
+    document.cookie.split(";").forEach(function(c) { 
+      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+    });
+    
+    // Call backend logout
     try {
-      // ✅ CRITICAL: Clear local state immediately to prevent race conditions
-      setToken(null)
-      setUser(null)
-      
-      // Call backend logout endpoint
-      response = await fetch('/logout', {
+      await fetch('/logout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -151,43 +153,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
         credentials: 'include'
       })
-
-      if (response.ok) {
-        console.log('Logout successful')
-        // Backend will handle the redirect to home page
-      } else {
-        console.warn('Logout request failed:', response.status)
-        // If backend fails, manually redirect to home page
-        window.location.replace('/')
-      }
     } catch (error) {
       console.error('Logout error:', error)
-      // On error, manually redirect to home page
-      window.location.replace('/')
-    } finally {
-      // ✅ CRITICAL: Clear all storage and cookies
-      localStorage.removeItem('auth_token')
-      localStorage.removeItem('auth_user')
-      sessionStorage.clear()
-      
-      // Clear any custom cookies
-      document.cookie.split(";").forEach(function(c) { 
-        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
-      });
-      
-      // Clear any remaining localStorage items that might contain auth data
-      Object.keys(localStorage).forEach(key => {
-        if (key.includes('auth') || key.includes('token') || key.includes('user')) {
-          localStorage.removeItem(key)
-        }
-      })
-      
-      // Don't redirect here - let the backend handle it
-      // If we get here, it means the backend didn't redirect, so we should
-      if (!response?.ok) {
-        window.location.replace('/')
-      }
     }
+    
+    // Hard redirect to clear everything
+    window.location.href = '/?logout=success&t=' + Date.now()
   }
 
   // ✅ NEW: Function to manually clear authentication state

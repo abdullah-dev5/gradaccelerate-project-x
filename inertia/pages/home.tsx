@@ -1,11 +1,21 @@
 import { Head, Link } from '@inertiajs/react'
+import { useEffect } from 'react'
 
 import { useAuth } from '../contexts/AuthContext.js'
 import WeatherCard from '../components/WeatherCard.js'
-import ErrorTestComponent from '../components/ErrorTestComponent.js'
 
 export default function Home() {
-  const { isAuthenticated, user } = useAuth()
+  const { isAuthenticated, user, clearAuth } = useAuth()
+
+  // Handle logout URL parameter
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    if (urlParams.get('logout') === 'success') {
+      clearAuth()
+      // Clean up URL
+      window.history.replaceState({}, '', '/')
+    }
+  }, [clearAuth])
 
   return (
     <>
@@ -65,36 +75,28 @@ export default function Home() {
               <WeatherCard />
             </div>
 
-            {/* Cards Container - Always show for demo purposes */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl w-full">
-              {/* Notes Card */}
-              <Link href={isAuthenticated ? "/notes" : "/login"} className="block">
-                <div className="bg-[#2C2C2E] p-6 rounded-xl hover:bg-[#3C3C3E] transition-colors duration-200">
+            {/* Cards Container - Show only when authenticated */}
+            {isAuthenticated && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl w-full">
+                {/* Notes Card */}
+                <div className="bg-[#2C2C2E] p-6 rounded-xl">
                   <h2 className="text-2xl font-semibold mb-3">Notes</h2>
                   <p className="text-gray-400">Manage your notes and thoughts in one place</p>
                 </div>
-              </Link>
 
-              {/* Todos Card */}
-              <Link href={isAuthenticated ? "/todos" : "/login"} className="block">
-                <div className="bg-[#2C2C2E] p-6 rounded-xl hover:bg-[#3C3C3E] transition-colors duration-200">
+                {/* Todos Card */}
+                <div className="bg-[#2C2C2E] p-6 rounded-xl">
                   <h2 className="text-2xl font-semibold mb-3">Todos</h2>
                   <p className="text-gray-400">Keep track of your tasks and stay organized</p>
                 </div>
-              </Link>
-              {/* Projects Card */}
-              <Link href={isAuthenticated ? "/projects" : "/login"} className="block">
-                <div className="bg-[#2C2C2E] p-6 rounded-xl hover:bg-[#3C3C3E] transition-colors duration-200">
+                
+                {/* Projects Card */}
+                <div className="bg-[#2C2C2E] p-6 rounded-xl">
                   <h2 className="text-2xl font-semibold mb-3">Projects</h2>
                   <p className="text-gray-400">Manage your projects and track progress</p>
                 </div>
-              </Link>
-            </div>
-
-            {/* Error Boundary Test Component */}
-            <div className="mt-8">
-              <ErrorTestComponent />
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

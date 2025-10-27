@@ -129,8 +129,8 @@ export default function NoteCard({ note, viewType, onPinToggle, onDelete }: Note
             )}
             <div className="flex justify-between items-start mb-2 py-2">
               <h2 className={`text-lg font-medium ${note.pinned ? 'text-yellow-100' : 'text-white'}`}>
-                {note.pinned && <span className="mr-2">📌</span>}
-                {note.title}
+                {note.pinned ? <span className="mr-2">📌</span> : null}
+                {note.title || 'Untitled Note'}
               </h2>
               <span className="text-xs text-[#98989D]">{timeAgo}</span>
             </div>

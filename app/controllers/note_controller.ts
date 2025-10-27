@@ -81,21 +81,24 @@ export default class NotesController {
       }
       return response.ok(notes)
     } catch (error) {
-      // JWT or session expired, or not authenticated
-      if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
-        if (error.message?.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
+      if (
+        request.header('x-inertia') === 'true' ||
+        request.header('accept')?.includes('text/html')
+      ) {
+        if (error.message.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
           return response.redirect('/login')
         }
-        // Render a consistent error page for Inertia
-        return inertia.render('errors/server_error', {
-          error: error.message || 'Failed to fetch notes',
+        return inertia.render('notes/index', {
+          notes: [],
+          meta: { total: 0, per_page: 10, current_page: 1, last_page: 1, first_page: 1, first_page_url: null, last_page_url: null, next_page_url: null, previous_page_url: null },
+          sortOptions: { currentSort: 'created_at', currentOrder: 'desc', searchQuery: '' },
+          error: 'Failed to fetch notes',
         })
       }
-      // For API requests, return JSON error
-      if (error.message?.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
-        return response.unauthorized({ message: 'Unauthorized', error: error.message })
-      }
-      return response.status(500).send({ message: 'Failed to fetch notes', error: error.message })
+      return response.status(500).json({
+        message: 'Failed to fetch notes',
+        error: error.message,
+      })
     }
   }
 
@@ -364,28 +367,65 @@ export default class NotesController {
     const fileName = `${cuid()}.${image.extname}` // Use extname instead of clientName
     const uploadPath = app.tmpPath('uploads', fileName)
 
+    logger.info('Starting Cloudinary upload', {
+      fileName,
+      uploadPath,
+      originalSize: image.size,
+      extname: image.extname,
+    })
+
     // Validate file size before processing
     if (image.size > 5 * 1024 * 1024) {
       // 5MB
       throw new Error('File size exceeds 5MB limit')
     }
 
-    await image.move(app.tmpPath('uploads'), {
-      name: fileName,
-      overwrite: false,
-    })
-
     try {
-      return await cloudinary.uploader.upload(uploadPath, {
+      await image.move(app.tmpPath('uploads'), {
+        name: fileName,
+        overwrite: false,
+      })
+
+      logger.info('File moved to temp directory', { uploadPath })
+
+      const uploadOptions = {
         folder: process.env.CLOUDINARY_FOLDER || 'notes',
         public_id: `note_${Date.now()}`,
-        resource_type: 'auto',
+        resource_type: 'auto' as const, // ✅ FIXED: Proper type casting
         allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
         timeout: 30000, // 30 second timeout
+      }
+
+      logger.info('Uploading to Cloudinary', uploadOptions)
+
+      const result = await cloudinary.uploader.upload(uploadPath, uploadOptions)
+
+      logger.info('Cloudinary upload successful', {
+        url: result.secure_url,
+        publicId: result.public_id,
+        bytes: result.bytes,
       })
+
+      return result
+    } catch (uploadError) {
+      logger.error('Cloudinary upload failed', {
+        error: uploadError.message,
+        stack: uploadError.stack,
+        fileName,
+        uploadPath,
+      })
+      throw uploadError
     } finally {
       // Cleanup temp file after upload
-      await fs.promises.unlink(uploadPath).catch(() => {})
+      try {
+        await fs.promises.unlink(uploadPath)
+        logger.info('Temp file cleaned up', { uploadPath })
+      } catch (cleanupError) {
+        logger.warn('Failed to cleanup temp file', {
+          uploadPath,
+          error: cleanupError.message,
+        })
+      }
     }
   }
 
@@ -402,9 +442,11 @@ export default class NotesController {
         content: payload.content ? await marked.parse(payload.content) : note.content,
         pinned: payload.pinned ?? note.pinned,
         imageUrl: payload.imageUrl ?? note.imageUrl, // Handle imageUrl updates
-        gif_url: payload.gif_url ?? note.gif_url,
-        gif_slug: payload.gif_slug ?? note.gif_slug,
-        labels: payload.labels ?? note.labels,
+        // ✅ FIXED: Handle GIF removal properly - only update if explicitly provided
+        gif_url: payload.gif_url !== undefined ? payload.gif_url : note.gif_url,
+        gif_slug: payload.gif_slug !== undefined ? payload.gif_slug : note.gif_slug,
+        // ✅ FIXED: Only update labels if they are explicitly provided and not null
+        labels: payload.labels !== undefined ? payload.labels : note.labels,
       }
 
       // Handle GIF tracking if new GIF is provided
@@ -507,7 +549,7 @@ export default class NotesController {
       await note.save()
 
       return this.isInertiaRequest(request)
-        ? response.redirect().toRoute('notes.index')
+        ? response.redirect('/notes')
         : response.ok({ 
             message: 'Note moved to trash', 
             success: true,
@@ -552,7 +594,7 @@ export default class NotesController {
     }
   }
 
-  async togglePin({ request, response, params, auth, inertia }: HttpContext) {
+  async togglePin({ request, response, params, auth }: HttpContext) {
     try {
       await auth.authenticate()
       const user = auth.getUserOrFail()
@@ -586,33 +628,91 @@ export default class NotesController {
     }
   }
 
-  async uploadImage({ request, response }: HttpContext) {
-    const { image } = await request.validateUsing(uploadImageValidator)
-
-    if (!image) {
-      return response.status(400).send({ message: 'No image provided' })
-    }
-
+  // ✅ DEBUG: Simple test endpoint to debug upload issues
+  async testUpload({ request, response, auth }: HttpContext) {
     try {
-      const fileName = `${randomUUID()}_${image.clientName}`
-      await image.move(app.tmpPath('uploads'), { name: fileName })
+      await auth.authenticate()
+      const user = auth.getUserOrFail()
 
-      const result = await cloudinary.uploader.upload(app.tmpPath('uploads', fileName), {
-        folder: 'notes',
-        public_id: `note_${Date.now()}`,
-        resource_type: 'auto',
-        timeout: 10000,
+      return response.ok({
+        message: 'Test endpoint working',
+        userId: user.id,
+        hasFile: !!request.file('image'),
+        contentType: request.header('content-type'),
+        allFiles: request.allFiles(),
+        body: request.all(),
+      })
+    } catch (error) {
+      return response.status(500).json({
+        message: 'Test endpoint error',
+        error: error.message,
+        stack: error.stack,
+      })
+    }
+  }
+
+  async uploadImage({ request, response, auth }: HttpContext) {
+    try {
+      // ✅ FIXED: Add authentication to image upload
+      await auth.authenticate()
+      const user = auth.getUserOrFail()
+
+      logger.info('Image upload request received', {
+        userId: user.id,
+        hasImage: !!request.file('image'),
+        contentType: request.header('content-type'),
+        allFiles: Object.keys(request.allFiles()),
+      })
+
+      // ✅ DEBUG: Try to get the image file directly first
+      const imageFile = request.file('image')
+      if (!imageFile) {
+        logger.warn('No image file found in request')
+        return response.status(400).send({ message: 'No image file provided' })
+      }
+
+      logger.info('Image file found', {
+        fileName: imageFile.clientName,
+        size: imageFile.size,
+        extname: imageFile.extname,
+        mimeType: imageFile.type,
+        isValid: imageFile.isValid,
+        hasErrors: imageFile.hasErrors,
+        errors: imageFile.errors,
+      })
+
+      // ✅ DEBUG: Skip validation for now to test direct upload
+      // const { image } = await request.validateUsing(uploadImageValidator)
+
+      // Use the existing uploadToCloudinary method for consistency
+      const uploadResult = await this.uploadToCloudinary(imageFile)
+
+      logger.info('Image uploaded successfully to Cloudinary', {
+        url: uploadResult.secure_url,
+        publicId: uploadResult.public_id,
+        bytes: uploadResult.bytes,
       })
 
       return response.ok({
         message: 'Image uploaded successfully',
-        imageUrl: result.secure_url,
-        public_id: result.public_id,
-        asset_id: result.asset_id,
-        bytes: result.bytes,
+        imageUrl: uploadResult.secure_url,
+        public_id: uploadResult.public_id,
+        asset_id: uploadResult.asset_id,
+        bytes: uploadResult.bytes,
       })
     } catch (error) {
-      return response.status(500).send({ message: 'Image upload failed', error: error.message })
+      logger.error('Image upload failed', {
+        error: error.message,
+        stack: error.stack,
+        userId: auth.user?.id || 'unknown',
+        errorCode: error.code,
+        errorStatus: error.status,
+        errorName: error.name,
+      })
+      return response.status(500).send({ 
+        message: 'Image upload failed', 
+        error: error.message 
+      })
     }
   }
 
@@ -713,6 +813,8 @@ export default class NotesController {
         content: note.content,
         processedContent,
         imageUrl: note.imageUrl,
+        gif_url: note.gif_url,
+        gif_slug: note.gif_slug,
         createdAt: note.createdAt,
         updatedAt: note.updatedAt,
         user: {

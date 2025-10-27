@@ -1,11 +1,10 @@
 //
-import { CheckCircle, Circle, Edit, Trash2, Target, Clock } from 'lucide-react'
+import { Circle, Edit, Trash2, Target, Clock } from 'lucide-react'
 import { Label } from '../../components/Label';
 import { Badge } from '../../components/ui/badge';
 import React from 'react'
 import { TodoPriority, TodoStatus } from '../../stores/todos_store';
 import { apiService } from '../../services/api';
-import { router } from '@inertiajs/react';
 
 interface Todo {
   id: number;
@@ -27,9 +26,9 @@ interface TodoCardProps {
   onDelete: (id: number, title: string) => void
   onToggleStatus: (id: number) => void
   onUpdate?: (id: number, updates: Partial<Todo>) => void
-  onRefresh: (page: number, perPage: number) => void
-  currentPage: number
-  perPage: number
+  onRefresh?: (page: number, perPage: number) => void
+  currentPage?: number
+  perPage?: number
   children?: React.ReactNode
 }
 
@@ -45,7 +44,7 @@ const statusColors: Record<TodoStatus, string> = {
   completed: '#10B981'
 }
 
-export function TodoCard({ todo, isEditing, onEditStart, onDelete, onToggleStatus, onUpdate, onRefresh, currentPage, perPage, children }: TodoCardProps) {
+export function TodoCard({ todo, isEditing, onEditStart, onDelete, onToggleStatus, onUpdate, children }: TodoCardProps) {
   if (isEditing) {
     return <>{children}</>
   }
@@ -53,7 +52,6 @@ export function TodoCard({ todo, isEditing, onEditStart, onDelete, onToggleStatu
   const updatePriorityStatus = async (field: 'priority' | 'status', value: any) => {
     try {
       // Optimistic update - immediately update the UI
-      const updatedTodo = { ...todo, [field]: value }
       if (onUpdate) {
         onUpdate(todo.id, { [field]: value })
       }
@@ -75,7 +73,31 @@ export function TodoCard({ todo, isEditing, onEditStart, onDelete, onToggleStatu
       if (onUpdate) {
         onUpdate(todo.id, { [field]: todo[field as keyof Todo] })
       }
-      alert(`Failed to update ${field}. Please try again. Check console for details.`);
+      
+      try {
+        // ✅ FIXED: Use SweetAlert2 instead of browser alert
+        const { default: Swal } = await import('sweetalert2')
+        await Swal.fire({
+          title: 'Update Failed',
+          text: `Failed to update ${field}. Please try again.`,
+          icon: 'error',
+          toast: true,
+          position: 'top-end',
+          showConfirmButton: false,
+          timer: 3000,
+          timerProgressBar: true,
+          background: '#2C2C2E',
+          color: '#ffffff',
+          customClass: {
+            popup: 'dark-popup',
+            title: 'dark-title'
+          }
+        })
+      } catch (swalError) {
+        console.error('Error showing SweetAlert:', swalError)
+        // If SweetAlert fails, just log to console
+        console.error(`Failed to update ${field}. Please try again.`)
+      }
     }
   };
 
@@ -196,7 +218,10 @@ export function TodoCard({ todo, isEditing, onEditStart, onDelete, onToggleStatu
               <Edit size={16} />
             </button>
             <button
-              onClick={() => onDelete(todo.id, todo.title)}
+              onClick={() => {
+                console.log('Delete button clicked for todo:', { id: todo.id, title: todo.title })
+                onDelete(todo.id, todo.title)
+              }}
               className="p-2 hover:bg-[#48484A] rounded-lg transition-colors duration-200 text-[#98989D] hover:text-red-400"
             >
               <Trash2 size={16} />

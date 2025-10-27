@@ -297,6 +297,13 @@ export default class TodosController {
         data: todo.serialize(),
       })
     } catch (error) {
+      console.error('Error in destroy method:', error)
+      console.error('Error details:', {
+        message: error.message,
+        status: error.status,
+        stack: error.stack
+      })
+      
       if (error.status === 422) {
         if (this.isInertiaRequest(request)) {
           return inertia.render('errors/404', {
@@ -532,6 +539,13 @@ export default class TodosController {
         },
       })
     } catch (error) {
+      console.error('Error in destroy method:', error)
+      console.error('Error details:', {
+        message: error.message,
+        status: error.status,
+        stack: error.stack
+      })
+      
       if (error.status === 422) {
         return response.status(400).json({
           message: 'Validation failed',
@@ -584,6 +598,10 @@ export default class TodosController {
         to: todo.isCompleted,
       })
 
+      if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
+        return response.redirect('/todos')
+      }
+
       return response.ok({
         message: 'Todo status updated successfully',
         data: {
@@ -593,6 +611,13 @@ export default class TodosController {
         },
       })
     } catch (error) {
+      console.error('Error in destroy method:', error)
+      console.error('Error details:', {
+        message: error.message,
+        status: error.status,
+        stack: error.stack
+      })
+      
       if (error.status === 422) {
         return response.status(400).json({
           message: 'Invalid todo ID',
@@ -619,20 +644,35 @@ export default class TodosController {
    */
   public async destroy({ params, request, response, session, inertia, auth }: HttpContext) {
     try {
+      console.log('Todo destroy method called with params:', params)
+      console.log('Request headers:', {
+        'x-inertia': request.header('x-inertia'),
+        'accept': request.header('accept'),
+        'x-requested-with': request.header('x-requested-with'),
+        'content-type': request.header('content-type')
+      })
+      
       await auth.authenticate() // Authenticate first
       const user = auth.getUserOrFail()
+      console.log('User authenticated:', user.id)
+      
       // Validate the ID parameter
       await request.validateUsing(todoIdValidator, { data: { id: Number(params.id) } })
+      console.log('ID validation passed:', params.id)
 
       const todo = await Todo.query()
         .where('id', params.id)
         .where('userId', user.id) // Ensure user owns the todo
         .first()
 
+      console.log('Todo found:', todo ? { id: todo.id, title: todo.title, deletedAt: todo.deletedAt } : 'null')
+
       if (!todo || todo.deletedAt) {
         const message = 'Todo not found or has already been deleted'
+        console.log('Todo not found or already deleted:', message)
 
         if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
+          console.log('Redirecting to /todos (Inertia request)')
           session.flash('notification', {
             type: 'error',
             message,
@@ -640,6 +680,7 @@ export default class TodosController {
           return response.redirect('/todos')
         }
 
+        console.log('Returning 404 JSON response')
         return response.status(404).json({ message })
       }
 
@@ -653,7 +694,10 @@ export default class TodosController {
         deletedAt: todo.deletedAt,
       })
 
+      console.log('Todo soft deleted successfully')
+
       if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
+        console.log('Redirecting to /todos (Inertia request)')
         session.flash('notification', {
           type: 'success',
           message: 'Todo deleted successfully!',
@@ -661,6 +705,7 @@ export default class TodosController {
         return response.redirect('/todos')
       }
 
+      console.log('Returning success JSON response')
       return response.ok({
         message: 'Todo deleted successfully',
         data: {
@@ -669,6 +714,13 @@ export default class TodosController {
         },
       })
     } catch (error) {
+      console.error('Error in destroy method:', error)
+      console.error('Error details:', {
+        message: error.message,
+        status: error.status,
+        stack: error.stack
+      })
+      
       if (error.status === 422) {
         if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
           return inertia.render('errors/404', {

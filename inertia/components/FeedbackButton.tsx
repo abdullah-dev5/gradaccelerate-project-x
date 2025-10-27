@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react'
-import { frontendErrorReporter } from '../services/errorReporter'
 
 interface FeedbackButtonProps {
   className?: string
@@ -11,8 +10,12 @@ export const FeedbackButton: React.FC<FeedbackButtonProps> = ({
   children 
 }) => {
   const [feedback, setFeedback] = useState<any>(null)
+  const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
+    // Only render on client
+    setIsMounted(true)
+    
     // Get feedback instance from Sentry
     const getFeedback = async () => {
       try {
@@ -36,6 +39,11 @@ export const FeedbackButton: React.FC<FeedbackButtonProps> = ({
     } catch (error) {
       console.error('Failed to open feedback form:', error)
     }
+  }
+
+  // Don't render on server to avoid hydration mismatch
+  if (!isMounted) {
+    return null
   }
 
   return (

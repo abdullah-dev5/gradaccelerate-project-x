@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
-import { allLabels, Label } from '../../components/Label';
+import { allLabels } from '../../components/Label';
 import KlipyGifPicker from './KlipyGifPicker'
 import { router } from '@inertiajs/react'
 import { motion } from 'framer-motion'
-import { FileText, Eye, Pin, Image as ImageIcon, X } from 'lucide-react'
+import { FileText, Eye, Image as ImageIcon, X } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
@@ -46,7 +46,6 @@ export default function NoteForm({
   
   // Form validation hook
   const {
-    errors,
     validateField,
     validateForm,
     clearErrors,
@@ -68,17 +67,16 @@ export default function NoteForm({
     labels: initialData.labels || [],
   })
 
+  const [imagePreview, setImagePreview] = useState(initialData.imageUrl || null)
+  const [isUploading, setIsUploading] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [removeImageFlag, setRemoveImageFlag] = useState(false)
 
   // Klipy GIF picker state
   const [showGifPicker, setShowGifPicker] = useState(false)
   const [klipyQuery, setKlipyQuery] = useState('')
   const [klipyPage, setKlipyPage] = useState(1)
-
-  const [imagePreview, setImagePreview] = useState(initialData.imageUrl || null)
-  const [isUploading, setIsUploading] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // ✅ FIXED: Get CSRF token from page props
   const { csrf } = usePage().props as any
@@ -133,15 +131,41 @@ export default function NoteForm({
     
     try {
       // Prepare data for backend - ensure proper field mapping
-      const submitData = {
+      const submitData: any = {
         title: data.title,
         content: data.content,
         pinned: data.pinned,
         imageUrl: data.imageUrl, // Include the uploaded image URL
         gif_url: data.gif_url,
         gif_slug: data.gif_slug,
-        // Ensure labels are in the correct format
-        labels: (data.labels || []).map(label => ({
+      }
+
+      // ✅ FIXED: Only include removeImage flag for updates, not for new notes
+      if (initialData.id) {
+        submitData.removeImage = removeImageFlag
+      }
+
+      // ✅ FIXED: Only include labels if they are explicitly set (not just empty array)
+      if (initialData.id) {
+        // For updates, only send labels if they are different from initial data
+        const currentLabels = (data.labels || []).map(label => ({
+          id: label.id,
+          name: label.name,
+          color: label.color
+        }))
+        const initialLabels = (initialData.labels || []).map(label => ({
+          id: label.id,
+          name: label.name,
+          color: label.color
+        }))
+        
+        // Only include labels in submission if they have changed
+        if (JSON.stringify(currentLabels) !== JSON.stringify(initialLabels)) {
+          submitData.labels = currentLabels
+        }
+      } else {
+        // For new notes, always include labels
+        submitData.labels = (data.labels || []).map(label => ({
           id: label.id,
           name: label.name,
           color: label.color
@@ -157,6 +181,7 @@ export default function NoteForm({
         await router.put(`/notes/${initialData.id}`, submitData, {
           onSuccess: () => {
             showToast('Note updated successfully!', 'success')
+            setRemoveImageFlag(false) // ✅ Reset the flag after successful update
             onSuccess({ id: initialData.id, ...submitData })
           },
           onError: (errors) => {
@@ -186,6 +211,32 @@ export default function NoteForm({
     }
   }
 
+  // ✅ DEBUG: Test upload function to debug issues
+  const testUpload = async (file: File) => {
+    console.log('Testing upload with file:', file)
+    
+    const formData = new FormData()
+    formData.append('image', file)
+    
+    try {
+      const response = await fetch('/notes/test-upload', {
+        method: 'POST',
+        headers: {
+          'X-CSRF-TOKEN': csrf,
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: formData,
+      })
+      
+      const result = await response.json()
+      console.log('Test upload result:', result)
+      return result
+    } catch (error) {
+      console.error('Test upload error:', error)
+      throw error
+    }
+  }
+
   const handleImageUpload = async (file: File) => {
     if (!file) return
 
@@ -194,25 +245,42 @@ export default function NoteForm({
       const formData = new FormData()
       formData.append('image', file)
       
+      console.log('Uploading image:', {
+        fileName: file.name,
+        size: file.size,
+        type: file.type,
+      })
+      
+      // ✅ FIXED: Use fetch with proper authentication headers
       const response = await fetch('/notes/upload-image', {
         method: 'POST',
         headers: {
           'X-CSRF-TOKEN': csrf,
+          'X-Requested-With': 'XMLHttpRequest',
         },
         body: formData,
       })
 
+      console.log('Upload response:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+      })
+
       if (response.ok) {
         const result = await response.json()
+        console.log('Upload successful:', result)
         handleChange('imageUrl', result.imageUrl)
         setImagePreview(result.imageUrl)
         showToast('Image uploaded successfully!', 'success')
       } else {
-        throw new Error('Upload failed')
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }))
+        console.error('Upload failed:', errorData)
+        throw new Error(errorData.message || `Upload failed with status ${response.status}`)
       }
     } catch (error) {
       console.error('Image upload error:', error)
-      showToast('Failed to upload image. Please try again.', 'error')
+      showToast(`Failed to upload image: ${error.message}`, 'error')
     } finally {
       setIsUploading(false)
     }
@@ -221,7 +289,14 @@ export default function NoteForm({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      handleImageUpload(file)
+      // ✅ DEBUG: Test upload first, then do real upload
+      testUpload(file).then(() => {
+        console.log('Test upload successful, proceeding with real upload')
+        handleImageUpload(file)
+      }).catch((error) => {
+        console.error('Test upload failed:', error)
+        showToast('Upload test failed - check console for details', 'error')
+      })
     }
   }
 
@@ -234,6 +309,11 @@ export default function NoteForm({
   const handleGifSelect = (gifUrl: string, gifSlug: string) => {
     handleChange('gif_url', gifUrl)
     handleChange('gif_slug', gifSlug)
+    
+    // ✅ FIXED: Remove the /klipy command from content after GIF selection
+    const updatedContent = data.content.replace(/\/klipy\s+\w+/gi, '').trim()
+    handleChange('content', updatedContent)
+    
     setShowGifPicker(false)
     showToast('GIF added to note!', 'success')
   }

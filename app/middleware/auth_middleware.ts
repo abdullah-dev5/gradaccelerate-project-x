@@ -20,7 +20,20 @@ export default class AuthMiddleware {
       guards?: (keyof Authenticators)[]
     } = {}
   ) {
-    await ctx.auth.authenticateUsing(options.guards, { loginRoute: this.redirectTo })
+    try {
+      await ctx.auth.authenticateUsing(options.guards, { loginRoute: this.redirectTo })
+    } catch (error) {
+      // Handle authentication failure for Inertia requests
+      const isInertiaRequest = ctx.request.header('x-inertia') === 'true'
+      
+      if (isInertiaRequest) {
+        // For Inertia requests, redirect to login page with Inertia headers
+        return ctx.inertia.location(this.redirectTo)
+      }
+      
+      // For API requests, throw the error (will be handled by error handler)
+      throw error
+    }
 
     // ✅ STANDARD: Add cache control headers for authenticated routes
     // This prevents browser caching of authenticated content

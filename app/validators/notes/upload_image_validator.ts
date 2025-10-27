@@ -5,9 +5,9 @@ export const uploadImageValidator = vine.compile(
   vine.object({
     image: vine
       .file({
-        size: '2mb',
-        extnames: ['jpg', 'png', 'jpeg', 'webp'],
+        size: '5mb', // ✅ FIXED: Increased size limit to match controller
+        extnames: ['jpg', 'png', 'jpeg', 'webp', 'gif'], // ✅ FIXED: Added gif support
       })
-      .optional(), // Optional if image is not always required
+      .optional(), // ✅ FIXED: File validation doesn't have .required() method
   })
 )

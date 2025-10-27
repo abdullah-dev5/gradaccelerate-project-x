@@ -22,6 +22,27 @@ export default function Show({ note }: { note: Note }) {
   const [showShareModal, setShowShareModal] = useState(false)
   const [isGeneratingShare, setIsGeneratingShare] = useState(false)
 
+  // Helper function for SweetAlert2 toasts
+  const showToast = async (title: string, text?: string, icon: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+    const { default: Swal } = await import('sweetalert2')
+    await Swal.fire({
+      title,
+      text,
+      icon,
+      toast: true,
+      position: 'top-end',
+      showConfirmButton: false,
+      timer: 3000,
+      timerProgressBar: true,
+      background: '#2C2C2E',
+      color: '#ffffff',
+      customClass: {
+        popup: 'dark-popup',
+        title: 'dark-title'
+      }
+    })
+  }
+
   const handlePin = async () => {
     try {
       const response = await fetch(`/notes/${note.id}/toggle-pin`, {
@@ -66,11 +87,11 @@ export default function Show({ note }: { note: Note }) {
       } else {
         const errorData = await response.json()
         console.error('Error generating share link:', errorData)
-        alert('Failed to generate share link')
+        showToast('Failed to generate share link', undefined, 'error')
       }
     } catch (error) {
       console.error('Error generating share link:', error)
-      alert('Failed to generate share link')
+      showToast('Failed to generate share link', undefined, 'error')
     } finally {
       setIsGeneratingShare(false)
     }
@@ -97,11 +118,11 @@ export default function Show({ note }: { note: Note }) {
       } else {
         const errorData = await response.json()
         console.error('Error revoking share link:', errorData)
-        alert('Failed to revoke share link')
+        showToast('Failed to revoke share link', undefined, 'error')
       }
     } catch (error) {
       console.error('Error revoking share link:', error)
-      alert('Failed to revoke share link')
+      showToast('Failed to revoke share link', undefined, 'error')
     }
   }
 
@@ -110,19 +131,41 @@ export default function Show({ note }: { note: Note }) {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
       try {
         await navigator.clipboard.writeText(window.location.origin + text)
-        alert('Link copied to clipboard!')
+        showToast('Link copied to clipboard!', undefined, 'success')
       } catch (error) {
         console.error('Error copying to clipboard:', error)
-        alert('Failed to copy link')
+        showToast('Failed to copy link', undefined, 'error')
       }
     } else {
-      alert('Clipboard not supported in this environment.')
+      showToast('Clipboard not supported in this environment.', undefined, 'warning')
     }
   }
 
   const handleDelete = async () => {
-    if (confirm('Are you sure you want to delete this note?')) {
-      try {
+    try {
+      // ✅ FIXED: Use SweetAlert2 instead of browser confirm
+      const { default: Swal } = await import('sweetalert2')
+      
+      const result = await Swal.fire({
+        title: 'Are you sure?',
+        text: 'You are about to delete this note. This action cannot be undone!',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444', // red-500
+        cancelButtonColor: '#6b7280', // gray-500
+        confirmButtonText: 'Yes, delete it!',
+        cancelButtonText: 'Cancel',
+        background: '#2C2C2E',
+        color: '#ffffff',
+        customClass: {
+          popup: 'dark-popup',
+          title: 'dark-title',
+          confirmButton: 'dark-confirm-button',
+          cancelButton: 'dark-cancel-button'
+        }
+      })
+
+      if (result.isConfirmed) {
         const response = await fetch(`/notes/${note.id}`, {
           method: 'DELETE',
           headers: {
@@ -138,12 +181,12 @@ export default function Show({ note }: { note: Note }) {
         } else {
           const errorData = await response.json()
           console.error('Error deleting note:', errorData)
-          alert('Failed to delete note. Please try again.')
+          showToast('Failed to delete note. Please try again.', undefined, 'error')
         }
-      } catch (error) {
-        console.error('Error deleting note:', error)
-        alert('Failed to delete note. Please try again.')
       }
+    } catch (error) {
+      console.error('Error deleting note:', error)
+      showToast('Failed to delete note. Please try again.', undefined, 'error')
     }
   }
 

@@ -149,11 +149,42 @@ export default function ProjectCard({ project, onStatusUpdate, onDelete }: Proje
 
           <button
             type="button"
-            onClick={(e) => {
+            onClick={async (e) => {
               e.preventDefault()
               e.stopPropagation()
-              if (confirm('Are you sure you want to delete this project?')) {
-                onDelete(project.id)
+              
+              try {
+                // ✅ FIXED: Use SweetAlert2 instead of browser confirm
+                const { default: Swal } = await import('sweetalert2')
+                
+                const result = await Swal.fire({
+                  title: 'Are you sure?',
+                  text: 'You are about to delete this project. This action cannot be undone!',
+                  icon: 'warning',
+                  showCancelButton: true,
+                  confirmButtonColor: '#ef4444', // red-500
+                  cancelButtonColor: '#6b7280', // gray-500
+                  confirmButtonText: 'Yes, delete it!',
+                  cancelButtonText: 'Cancel',
+                  background: '#2C2C2E',
+                  color: '#ffffff',
+                  customClass: {
+                    popup: 'dark-popup',
+                    title: 'dark-title',
+                    confirmButton: 'dark-confirm-button',
+                    cancelButton: 'dark-cancel-button'
+                  }
+                })
+
+                if (result.isConfirmed) {
+                  onDelete(project.id)
+                }
+              } catch (error) {
+                console.error('Error showing delete confirmation:', error)
+                // Fallback to browser confirm if SweetAlert2 fails
+                if (confirm('Are you sure you want to delete this project?')) {
+                  onDelete(project.id)
+                }
               }
             }}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-400/10 rounded-lg transition-all duration-200"

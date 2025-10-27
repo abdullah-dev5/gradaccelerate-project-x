@@ -9,6 +9,8 @@ interface SharedNote {
   content: string
   processedContent: string
   imageUrl: string | null
+  gif_url?: string | null
+  gif_slug?: string | null
   createdAt: string
   updatedAt: string | null
   shareUuid: string
@@ -106,6 +108,19 @@ export default function SharedNote({ note }: SharedNotePageProps) {
                   src={note.imageUrl}
                   alt="Note attachment"
                   className="max-w-full h-auto rounded-lg shadow-md border border-gray-200"
+                />
+              </div>
+            )}
+
+            {/* Note GIF */}
+            {note.gif_url && (
+              <div className="mb-6 flex justify-center">
+                <img
+                  src={note.gif_url}
+                  alt="GIF"
+                  className="rounded-lg max-h-80 border border-gray-200 shadow-md"
+                  loading="lazy"
+                  style={{ maxWidth: '100%' }}
                 />
               </div>
             )}

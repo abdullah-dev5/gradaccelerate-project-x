@@ -1,7 +1,31 @@
-import React, { useState, useEffect } from 'react'
-import { X, User, Bell, Mail, Settings } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { X, Bell, Mail, Settings } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { Switch } from './ui/switch'
+
+async function showSweetAlert(title: string, text: string, icon: 'success' | 'error' | 'warning' | 'info' = 'error') {
+  try {
+    const { default: Swal } = await import('sweetalert2')
+    await Swal.fire({
+      title,
+      text,
+      icon,
+      confirmButtonText: 'OK',
+      confirmButtonColor: icon === 'error' ? '#ef4444' : '#f59e0b',
+      background: '#2C2C2E',
+      color: '#ffffff',
+      customClass: {
+        popup: 'dark-popup',
+        title: 'dark-title',
+        confirmButton: 'dark-confirm-button'
+      }
+    })
+  } catch (swalError) {
+    console.error('Error showing SweetAlert:', swalError)
+    // Fallback to console log if SweetAlert fails
+    console.error(title, text)
+  }
+}
 
 interface PreferencesPopupProps {
   onClose: () => void
@@ -34,31 +58,17 @@ export default function PreferencesPopup({ onClose, user }: PreferencesPopupProp
     e.preventDefault()
     setIsSubmitting(true)
 
-    console.log('Sending preferences:', preferences)
-
     try {
-      const getCsrfToken = (): string => {
-        // Prefer meta tag
-        const meta = document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null
-        if (meta?.content) return meta.content.trim()
-        // Fallback: common cookie name used by many backends
-        const match = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]+)/)
-        return match ? decodeURIComponent(match[1]) : ''
-      }
+      console.log('📝 Submitting preferences:', preferences)
+      
+      const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+      console.log('🔐 CSRF Token retrieved:', csrfToken ? 'Yes' : 'No')
 
-      const getXsrfCookie = (): string => {
-        const match = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]+)/)
-        return match ? decodeURIComponent(match[1]) : ''
-      }
-
-      const doPost = async () => fetch('/user/preferences', {
+      const response = await fetch('/user/preferences', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // Send multiple common header names to satisfy middleware
-          'X-CSRF-Token': getCsrfToken(),
-          'X-CSRF-TOKEN': getCsrfToken(),
-          'X-XSRF-TOKEN': getXsrfCookie(),
+          'X-CSRF-TOKEN': csrfToken,
           'Accept': 'application/json',
           'X-Requested-With': 'XMLHttpRequest',
         },
@@ -66,37 +76,17 @@ export default function PreferencesPopup({ onClose, user }: PreferencesPopupProp
         body: JSON.stringify(preferences)
       })
 
-      let response = await doPost()
-
-      console.log('Response status:', response.status)
-
-      const contentType = response.headers.get('content-type') || ''
+      console.log('📡 Response status:', response.status)
 
       if (!response.ok) {
-        // Try to recover from CSRF/redirect by priming a GET and retrying once
-        const text = await response.text()
-        const looksHtml = (response.headers.get('content-type') || '').includes('text/html')
-        if ((response.status === 419 || response.status === 302 || looksHtml) && !text.includes('retry-done')) {
-          try {
-            await fetch('/user/preferences', { method: 'GET', credentials: 'include', headers: { 'Accept': 'text/html,*/*' } })
-            response = await doPost()
-          } catch {}
-        }
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${text.slice(0, 200)}`)
-        }
-      }
-
-      if (!contentType.includes('application/json')) {
-        const text2 = await response.text()
-        throw new Error(`Unexpected response (content-type=${contentType}). Body: ${text2.slice(0, 200)}`)
+        const errorText = await response.text()
+        console.error('❌ Error response:', errorText)
+        throw new Error(`Failed to update: ${response.status} - ${errorText.slice(0, 100)}`)
       }
 
       const result = await response.json()
-      console.log('Response data:', result)
+      console.log('✅ Success:', result)
 
-      // Show success message
-      alert('Preferences updated successfully!')
       // Update in-memory auth user so UI reflects changes immediately
       updateUser({
         emailNotificationsEnabled: preferences.emailNotificationsEnabled,
@@ -106,8 +96,12 @@ export default function PreferencesPopup({ onClose, user }: PreferencesPopupProp
       })
       onClose()
     } catch (error) {
-      console.error('Failed to update preferences:', error)
-      alert('Failed to update preferences. Please try again.')
+      console.error('❌ Failed to update preferences:', error)
+      await showSweetAlert(
+        'Failed to Update Preferences',
+        error instanceof Error ? error.message : 'Unknown error occurred',
+        'error'
+      )
     } finally {
       setIsSubmitting(false)
     }
@@ -131,14 +125,14 @@ export default function PreferencesPopup({ onClose, user }: PreferencesPopupProp
             </div>
             <div>
               <h2 className="text-xl font-bold text-white">Notification Preferences</h2>
-              <p className="text-sm text-gray-400 text-white">Manage your notification settings</p>
+              <p className="text-sm text-gray-400">Manage your notification settings</p>
             </div>
           </div>
           <button
             onClick={onClose}
             className="p-2 hover:bg-[#3A3A3C] rounded-lg transition-colors"
           >
-            <X className="w-5 h-5 text-gray-400 text-white" />
+            <X className="w-5 h-5 text-gray-400" />
           </button>
         </div>
 
@@ -157,19 +151,10 @@ export default function PreferencesPopup({ onClose, user }: PreferencesPopupProp
                   <p className="text-white font-medium">General Email Notifications</p>
                   <p className="text-sm text-gray-400">Receive general email updates</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs px-2 py-1 rounded-full ${
-                    preferences.emailNotificationsEnabled 
-                      ? 'bg-green-600 text-white' 
-                      : 'bg-gray-600 text-gray-300'
-                  }`}>
-                    {preferences.emailNotificationsEnabled ? 'Enabled' : 'Disabled'}
-                  </span>
-                  <Switch
-                    checked={preferences.emailNotificationsEnabled}
-                    onCheckedChange={(checked) => handlePreferenceChange('emailNotificationsEnabled', checked)}
-                  />
-                </div>
+                <Switch
+                  checked={preferences.emailNotificationsEnabled}
+                  onCheckedChange={(checked) => handlePreferenceChange('emailNotificationsEnabled', checked)}
+                />
               </div>
               
               <div className="flex items-center justify-between p-3 bg-[#3A3A3C] rounded-lg">
@@ -177,19 +162,10 @@ export default function PreferencesPopup({ onClose, user }: PreferencesPopupProp
                   <p className="text-white font-medium">Reminder Emails</p>
                   <p className="text-sm text-gray-400">Get email reminders for your tasks</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs px-2 py-1 rounded-full ${
-                    preferences.reminderEmailsEnabled 
-                      ? 'bg-green-600 text-white' 
-                      : 'bg-gray-600 text-gray-300'
-                  }`}>
-                    {preferences.reminderEmailsEnabled ? 'Enabled' : 'Disabled'}
-                  </span>
-                  <Switch
-                    checked={preferences.reminderEmailsEnabled}
-                    onCheckedChange={(checked) => handlePreferenceChange('reminderEmailsEnabled', checked)}
-                  />
-                </div>
+                <Switch
+                  checked={preferences.reminderEmailsEnabled}
+                  onCheckedChange={(checked) => handlePreferenceChange('reminderEmailsEnabled', checked)}
+                />
               </div>
             </div>
           </div>
@@ -207,19 +183,10 @@ export default function PreferencesPopup({ onClose, user }: PreferencesPopupProp
                   <p className="text-white font-medium">Browser Notifications</p>
                   <p className="text-sm text-gray-400">Show notifications in your browser</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs px-2 py-1 rounded-full ${
-                    preferences.webNotificationsEnabled 
-                      ? 'bg-green-600 text-white' 
-                      : 'bg-gray-600 text-gray-300'
-                  }`}>
-                    {preferences.webNotificationsEnabled ? 'Enabled' : 'Disabled'}
-                  </span>
-                  <Switch
-                    checked={preferences.webNotificationsEnabled}
-                    onCheckedChange={(checked) => handlePreferenceChange('webNotificationsEnabled', checked)}
-                  />
-                </div>
+                <Switch
+                  checked={preferences.webNotificationsEnabled}
+                  onCheckedChange={(checked) => handlePreferenceChange('webNotificationsEnabled', checked)}
+                />
               </div>
               
               <div className="flex items-center justify-between p-3 bg-[#3A3A3C] rounded-lg">
@@ -227,19 +194,10 @@ export default function PreferencesPopup({ onClose, user }: PreferencesPopupProp
                   <p className="text-white font-medium">Reminder Notifications</p>
                   <p className="text-sm text-gray-400">Get real-time reminder alerts</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className={`text-xs px-2 py-1 rounded-full ${
-                    preferences.reminderWebEnabled 
-                      ? 'bg-green-600 text-white' 
-                      : 'bg-gray-600 text-gray-300'
-                  }`}>
-                    {preferences.reminderWebEnabled ? 'Enabled' : 'Disabled'}
-                  </span>
-                  <Switch
-                    checked={preferences.reminderWebEnabled}
-                    onCheckedChange={(checked) => handlePreferenceChange('reminderWebEnabled', checked)}
-                  />
-                </div>
+                <Switch
+                  checked={preferences.reminderWebEnabled}
+                  onCheckedChange={(checked) => handlePreferenceChange('reminderWebEnabled', checked)}
+                />
               </div>
             </div>
           </div>

@@ -1,12 +1,13 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { Head, Link, router } from '@inertiajs/react'
-import { Plus, Search, Filter, Star, Archive, Trash2, ExternalLink, RefreshCw, ArrowLeft } from 'lucide-react'
+import { Plus, Search, Filter, Star, Archive, Trash2, ExternalLink, RefreshCw } from 'lucide-react'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { Badge } from '../../components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { useToast } from '../../hooks/useToast'
+import Header from '../../components/Header'
 
 interface Bookmark {
   id: number
@@ -185,43 +186,38 @@ export default function BookmarksIndex({ bookmarks, labels, filters }: Props) {
     <>
       <Head title="Bookmarks" />
       
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-        <div className="flex items-center gap-4">
-              <Link 
-                href="/dashboard" 
-                className="text-[#98989D] hover:text-white transition-colors p-4 hover:bg-[#3A3A3C] rounded-xl"
-                title="Back to Dashboard"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </Link>
-          <div>
-            <h1 className="text-3xl  font-bold text-gray-200">Bookmarks</h1>
-            <p className="text-gray-600 mt-2">Save and organize your favorite links with AI-powered features</p>
+      <Header 
+        title="Bookmarks" 
+        subtitle={`${bookmarks?.data?.length || 0} ${bookmarks?.data?.length === 1 ? 'bookmark' : 'bookmarks'} total`}
+        showBackButton={true}
+        backHref="/dashboard"
+      />
+      
+      <div className="min-h-screen bg-gradient-to-br from-[#1C1C1E] to-[#2C2C2E] pb-8">
+        <div className="container mx-auto px-4 sm:px-6 py-6">
+          {/* Add Bookmark Button */}
+          <div className="flex justify-end mb-6">
+            <Link href="/bookmarks/create">
+              <Button className="flex items-center gap-2">
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">Add Bookmark</span>
+              </Button>
+            </Link>
           </div>
-          </div>
-          <Link href="/bookmarks/create">
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Bookmark
-            </Button>
-          </Link>
-        </div>
 
         {/* Filters */}
-        <Card className="mb-6">
+        <Card className="mb-6 bg-[#2C2C2E]/50 backdrop-blur-sm border-[#3A3A3C]/50">
           <CardHeader>
             <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4" />
-              <h3 className="text-lg font-semibold">Filters & Search</h3>
+              <Filter className="w-4 h-4 text-white" />
+              <h3 className="text-lg font-semibold text-white">Filters & Search</h3>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Search */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Search</label>
                 <Input
                   placeholder="Search bookmarks..."
                   value={searchTerm}
@@ -232,7 +228,7 @@ export default function BookmarksIndex({ bookmarks, labels, filters }: Props) {
 
               {/* Status */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Status</label>
                 <Select value={selectedStatus} onValueChange={setSelectedStatus}>
                   <SelectTrigger>
                     <SelectValue placeholder="All statuses" />
@@ -247,7 +243,7 @@ export default function BookmarksIndex({ bookmarks, labels, filters }: Props) {
 
               {/* Favorite */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Favorite</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Favorite</label>
                 <Select 
                   value={selectedFavorite === null ? 'all' : selectedFavorite.toString()} 
                   onValueChange={(value) => setSelectedFavorite(value === 'all' ? null : value === 'true')}
@@ -265,7 +261,7 @@ export default function BookmarksIndex({ bookmarks, labels, filters }: Props) {
 
               {/* Sort */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Sort by</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Sort by</label>
                 <Select value={sortBy} onValueChange={setSortBy}>
                   <SelectTrigger>
                     <SelectValue />
@@ -284,7 +280,7 @@ export default function BookmarksIndex({ bookmarks, labels, filters }: Props) {
             {/* Labels filter */}
             {labels && labels.length > 0 && (
               <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Labels</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Labels</label>
                 <div className="flex flex-wrap gap-2">
                   {labels.map((label) => (
                     <button
@@ -320,22 +316,23 @@ export default function BookmarksIndex({ bookmarks, labels, filters }: Props) {
 
         {/* Bookmarks Grid */}
         {!bookmarks || !bookmarks.data || bookmarks.data.length === 0 ? (
-          <Card>
-            <CardContent className="text-center py-12">
-              <div className="text-gray-500">
-                <p className="text-lg mb-2">No bookmarks found</p>
-                <p className="mb-4">Start by adding your first bookmark!</p>
-                <Link href="/bookmarks/create">
-                  <Button>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Bookmark
-                  </Button>
-                </Link>
+          <div className="text-center py-12 sm:py-16">
+            <div className="max-w-md mx-auto px-4">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 bg-[#2C2C2E] rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
+                <Star size={48} className="text-[#98989D]" />
               </div>
-            </CardContent>
-          </Card>
+              <h3 className="text-lg sm:text-xl font-semibold text-white mb-2">No bookmarks found</h3>
+              <p className="text-sm sm:text-base text-[#98989D] mb-4 sm:mb-6">Start by adding your first bookmark!</p>
+              <Link href="/bookmarks/create">
+                <Button className="inline-flex items-center gap-2">
+                  <Plus className="w-4 h-4" />
+                  Add Bookmark
+                </Button>
+              </Link>
+            </div>
+          </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {bookmarks.data.map((bookmark) => (
               <Card key={bookmark.id} className="hover:shadow-lg transition-shadow">
                 {/* Bookmark Image */}
@@ -504,8 +501,8 @@ export default function BookmarksIndex({ bookmarks, labels, filters }: Props) {
 
         {/* Pagination */}
         {bookmarks && bookmarks.meta && bookmarks.meta.last_page > 1 && (
-          <div className="mt-8 flex justify-center">
-            <div className="flex items-center gap-2">
+          <div className="mt-6 sm:mt-8 flex justify-center">
+            <div className="flex items-center gap-2 flex-wrap">
               {Array.from({ length: bookmarks.meta.last_page }, (_, i) => i + 1).map((page) => (
                 <button
                   key={page}
@@ -517,7 +514,7 @@ export default function BookmarksIndex({ bookmarks, labels, filters }: Props) {
                       preserveScroll: true,
                     })
                   }}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  className={`w-8 h-8 sm:w-10 sm:h-10 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                     page === bookmarks.meta.current_page
                       ? 'bg-blue-600 text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -529,6 +526,7 @@ export default function BookmarksIndex({ bookmarks, labels, filters }: Props) {
             </div>
           </div>
         )}
+        </div>
       </div>
     </>
   )

@@ -2,78 +2,51 @@ import type { HttpContext } from '@adonisjs/core/http'
 import User from '#models/user'
 
 export default class UserPreferencesController {
-  async show({ auth, inertia }: HttpContext) {
-    const user = await auth.authenticate()
-    await user.refresh()
-    
-    return inertia.render('user/preferences', {
-      user: {
-        id: user.id,
-        email: user.email,
-        fullName: user.fullName,
-        emailNotificationsEnabled: user.emailNotificationsEnabled,
-        webNotificationsEnabled: user.webNotificationsEnabled,
-        reminderEmailsEnabled: user.reminderEmailsEnabled,
-        reminderWebEnabled: user.reminderWebEnabled,
-      }
-    })
-  }
-
   async update({ auth, request, response }: HttpContext) {
-    const user = await auth.authenticate()
-    
-    // Handle both JSON and form data
-    let data: any = {}
-    
-    if (request.header('content-type')?.includes('application/json')) {
-      // Handle JSON request
-      data = request.body()
-    } else {
-      // Handle form data
-      data = request.only([
-        'emailNotificationsEnabled',
-        'webNotificationsEnabled', 
-        'reminderEmailsEnabled',
-        'reminderWebEnabled'
-      ])
-    }
-
-    console.log('Received data:', data)
-    console.log('Data types:', Object.keys(data).map(key => `${key}: ${typeof data[key]}`))
-
-    // Convert string values to boolean
-    Object.keys(data).forEach(key => {
-      if (typeof data[key] === 'string') {
-        data[key] = data[key] === 'true' || data[key] === '1'
+    try {
+      console.log('🔔 Preferences update request received')
+      const user = await auth.authenticate()
+      await user.refresh()
+      
+      // Get JSON data from request
+      const data = request.body()
+      console.log('📥 Received data:', data)
+      
+      // Update only the preference fields
+      if ('emailNotificationsEnabled' in data) {
+        user.emailNotificationsEnabled = Boolean(data.emailNotificationsEnabled)
       }
-    })
+      if ('webNotificationsEnabled' in data) {
+        user.webNotificationsEnabled = Boolean(data.webNotificationsEnabled)
+      }
+      if ('reminderEmailsEnabled' in data) {
+        user.reminderEmailsEnabled = Boolean(data.reminderEmailsEnabled)
+      }
+      if ('reminderWebEnabled' in data) {
+        user.reminderWebEnabled = Boolean(data.reminderWebEnabled)
+      }
 
-    console.log('Converted data:', data)
+      console.log('💾 Saving preferences...')
+      await user.save()
+      console.log('✅ Preferences saved successfully')
 
-    user.merge(data)
-    await user.save()
-
-    console.log('User after save:', {
-      emailNotificationsEnabled: user.emailNotificationsEnabled,
-      webNotificationsEnabled: user.webNotificationsEnabled,
-      reminderEmailsEnabled: user.reminderEmailsEnabled,
-      reminderWebEnabled: user.reminderWebEnabled
-    })
-
-    // Return JSON response for AJAX requests, redirect for form submissions
-    if (request.header('accept')?.includes('application/json')) {
       return response.json({ 
         success: true, 
         message: 'Preferences updated successfully',
-        preferences: {
+        data: {
           emailNotificationsEnabled: user.emailNotificationsEnabled,
           webNotificationsEnabled: user.webNotificationsEnabled,
           reminderEmailsEnabled: user.reminderEmailsEnabled,
           reminderWebEnabled: user.reminderWebEnabled
         }
       })
+    } catch (error) {
+      console.error('❌ Error updating preferences:', error)
+      return response.status(500).json({ 
+        success: false, 
+        message: 'Failed to update preferences',
+        error: error instanceof Error ? error.message : String(error)
+      })
     }
-
-    return response.redirect().back()
   }
 }

@@ -4,7 +4,7 @@ import hash from '@adonisjs/core/services/hash'
 
 export default class UserSeeder extends BaseSeeder {
   public async run() {
-    const simplePassword = await hash.make('123456')
+    const simplePassword = await hash.make('Password123')
     const abdullahPassword = await hash.make('Alan123')
     await User.truncate(true) // 👈 Clears users table and resets auto-increment ID
     await User.createMany([

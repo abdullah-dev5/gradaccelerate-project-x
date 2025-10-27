@@ -15,16 +15,28 @@ export default class AuthController extends BaseController {
   async login({ request, response, auth, session }: HttpContext) {
     try {
       const payload = await request.validateUsing(loginValidator)
+      
+      // Check if this is an Inertia request
+      const isInertiaRequest = request.header('x-inertia') === 'true'
 
       // Find user by email (case-insensitive)
       const user = await User.query().where('email', payload.email.toLowerCase()).first()
 
       if (!user) {
-        return response.status(401).json(ApiResponse.error('Invalid credentials', 401))
+        if (isInertiaRequest) {
+          // For Inertia requests, redirect to login with flash errors
+          session.flash('errors', { general: 'User does not exist. Please check your email address or sign up.' })
+          return response.redirect('/login')
+        }
+        return response.status(401).json(ApiResponse.error('User does not exist', 401))
       }
 
       // Verify password (skip if OAuth user)
       if (!user.password) {
+        if (isInertiaRequest) {
+          session.flash('errors', { general: 'This account uses social login. Please use Google to sign in.' })
+          return response.redirect('/login')
+        }
         return response
           .status(401)
           .json(ApiResponse.error('This account uses social login. Please use that method.', 401))
@@ -32,7 +44,11 @@ export default class AuthController extends BaseController {
 
       const isValidPassword = await hash.verify(user.password, payload.password)
       if (!isValidPassword) {
-        return response.status(401).json(ApiResponse.error('Invalid credentials', 401))
+        if (isInertiaRequest) {
+          session.flash('errors', { general: 'Invalid password. Please check your password and try again.' })
+          return response.redirect('/login')
+        }
+        return response.status(401).json(ApiResponse.error('Invalid password', 401))
       }
 
       // ✅ HYBRID APPROACH: Login via session (for Inertia) with remember me support
@@ -46,10 +62,10 @@ export default class AuthController extends BaseController {
       })
 
       // ✅ HYBRID MODEL: Support both session and JWT authentication
-      const isInertiaRequest = request.header('x-inertia') === 'true'
       const acceptsJson = request.header('accept')?.includes('application/json')
+      const isFormData = request.header('content-type')?.includes('application/x-www-form-urlencoded')
 
-      if (isInertiaRequest) {
+      if (isInertiaRequest || isFormData) {
         // For Inertia requests: Session + redirect with token in session
         session.flash('success', 'Login successful!')
         session.put('jwt_token', token.value!.release()) // Store JWT in session for hybrid access
@@ -77,13 +93,42 @@ export default class AuthController extends BaseController {
         return response.redirect('/dashboard')
       }
     } catch (error) {
+      // Check if this is an Inertia request
+      const isInertiaRequest = request.header('x-inertia') === 'true'
+      
       if (error instanceof errors.E_VALIDATION_ERROR) {
+        if (isInertiaRequest) {
+          // For Inertia requests, redirect to login with flash errors
+          const errorMessages = error.messages
+          const formattedErrors: any = {}
+          
+          // Format validation errors for Inertia
+          for (const [field, messages] of Object.entries(errorMessages)) {
+            if (Array.isArray(messages) && messages.length > 0) {
+              formattedErrors[field] = messages[0].message
+            } else if (messages && typeof messages === 'object' && 'message' in messages) {
+              formattedErrors[field] = (messages as any).message
+            } else {
+              formattedErrors[field] = 'Validation failed'
+            }
+          }
+          
+          session.flash('errors', formattedErrors)
+          return response.redirect('/login')
+        }
+        
         return response
           .status(422)
           .json(ApiResponse.error('Validation failed', 422, error.messages))
       }
 
       console.error('Login error:', error)
+      
+      if (isInertiaRequest) {
+        session.flash('errors', { general: 'An error occurred during login. Please try again.' })
+        return response.redirect('/login')
+      }
+      
       return response.status(500).json(ApiResponse.error('An error occurred during login', 500))
     }
   }
@@ -96,11 +141,18 @@ export default class AuthController extends BaseController {
       const payload = await request.validateUsing(registerValidator)
       const normalizedEmail = payload.email.toLowerCase()
 
+      // Check if this is an Inertia request
+      const isInertiaRequest = request.header('x-inertia') === 'true'
+
       // Check if user already exists (case-insensitive)
       const existingUser = await User.query().where('email', normalizedEmail).first()
 
       if (existingUser) {
         if (existingUser.provider) {
+          if (isInertiaRequest) {
+            session.flash('errors', { general: 'Account already exists with social login. Please use that method.' })
+            return response.redirect('/register')
+          }
           return response
             .status(409)
             .json(
@@ -109,6 +161,10 @@ export default class AuthController extends BaseController {
                 409
               )
             )
+        }
+        if (isInertiaRequest) {
+          session.flash('errors', { email: 'This email is already registered. Please sign in.' })
+          return response.redirect('/register')
         }
         return response.status(409).json(ApiResponse.error('Email already registered.', 409))
       }
@@ -137,7 +193,10 @@ export default class AuthController extends BaseController {
       })
 
       // Set success flash message for Inertia
-      session.flash('success', 'Registration successful! Please login.')
+      if (isInertiaRequest) {
+        session.flash('success', 'Registration successful! Please sign in.')
+        return response.redirect('/login')
+      }
 
       return response.status(201).json(
         ApiResponse.success(
@@ -155,13 +214,42 @@ export default class AuthController extends BaseController {
         )
       )
     } catch (error) {
+      // Check if this is an Inertia request
+      const isInertiaRequest = request.header('x-inertia') === 'true'
+      
       if (error instanceof errors.E_VALIDATION_ERROR) {
+        if (isInertiaRequest) {
+          // For Inertia requests, redirect to register with flash errors
+          const errorMessages = error.messages
+          const formattedErrors: any = {}
+          
+          // Format validation errors for Inertia
+          for (const [field, messages] of Object.entries(errorMessages)) {
+            if (Array.isArray(messages) && messages.length > 0) {
+              formattedErrors[field] = messages[0].message
+            } else if (messages && typeof messages === 'object' && 'message' in messages) {
+              formattedErrors[field] = (messages as any).message
+            } else {
+              formattedErrors[field] = 'Validation failed'
+            }
+          }
+          
+          session.flash('errors', formattedErrors)
+          return response.redirect('/register')
+        }
+        
         return response
           .status(422)
           .json(ApiResponse.error('Validation failed', 422, error.messages))
       }
 
       console.error('Registration error:', error)
+      
+      if (isInertiaRequest) {
+        session.flash('errors', { general: 'An error occurred during registration. Please try again.' })
+        return response.redirect('/register')
+      }
+      
       return response
         .status(500)
         .json(ApiResponse.error('An error occurred during registration', 500))
@@ -173,11 +261,11 @@ export default class AuthController extends BaseController {
    */
   async me({ auth, response, session, request }: HttpContext) {
     try {
-      // Try to authenticate with either guard
+      // Try to authenticate with session guard first (for web requests)
       let user = null
 
       try {
-        await auth.authenticate()
+        await auth.use('web').authenticate()
         user = auth.user!
       } catch (error) {
         // If web guard fails, try API guard
@@ -185,43 +273,33 @@ export default class AuthController extends BaseController {
           await auth.use('api').authenticate()
           user = auth.user!
         } catch (apiError) {
-          // Check if it's an Inertia request
-          const isInertiaRequest = request.header('x-inertia') === 'true'
-
-          if (isInertiaRequest) {
-            // For Inertia requests, redirect to login page
-            return response.redirect('/login')
-          } else {
-            // For API requests, return JSON error
-            return response.status(401).json(ApiResponse.error('Invalid credentials', 401))
-          }
+          // Both guards failed - user is not authenticated
+          return response.status(401).json(ApiResponse.error('Not authenticated', 401))
         }
       }
 
       // ✅ HYBRID: Include JWT token from session if available
       const jwtToken = session.get('jwt_token')
 
-      // Check if it's an Inertia request
-      const isInertiaRequest = request.header('x-inertia') === 'true'
-
-      if (isInertiaRequest) {
-        // For Inertia requests, redirect to dashboard (user is authenticated)
-        return response.redirect('/dashboard')
-      } else {
-        // For API requests, return JSON
-        return response.json(
-          ApiResponse.success({
-            user: {
-              id: user.id,
-              fullName: user.fullName,
-              email: user.email,
-              createdAt: user.createdAt,
-              updatedAt: user.updatedAt,
-            },
-            token: jwtToken || null, // Include JWT token for hybrid auth
-          })
-        )
-      }
+      // Always return JSON for API requests (this endpoint is for API)
+      return response.json(
+        ApiResponse.success({
+          user: {
+            id: user.id,
+            fullName: user.fullName,
+            email: user.email,
+            provider: user.provider,
+            avatarUrl: user.avatarUrl,
+            emailNotificationsEnabled: user.emailNotificationsEnabled,
+            webNotificationsEnabled: user.webNotificationsEnabled,
+            reminderEmailsEnabled: user.reminderEmailsEnabled,
+            reminderWebEnabled: user.reminderWebEnabled,
+            createdAt: user.createdAt.toISO ? user.createdAt.toISO() : user.createdAt,
+            updatedAt: user.updatedAt?.toISO ? user.updatedAt.toISO() : user.updatedAt,
+          },
+          token: jwtToken || null, // Include JWT token for hybrid auth
+        })
+      )
     } catch (error) {
       // Check if it's an Inertia request
       const isInertiaRequest = request.header('x-inertia') === 'true'
@@ -289,13 +367,21 @@ export default class AuthController extends BaseController {
         sameSite: 'lax',
       })
 
-      // ✅ CRITICAL: Clear session cookie
-      response.cookie('adonis-session', null, {
+      // ✅ CRITICAL: Clear session cookie with multiple approaches
+      response.cookie('adonis-session', '', {
         expires: new Date(0),
         path: '/',
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
+      })
+      
+      // Also try clearing with different cookie names
+      response.cookie('adonis-session', '', {
+        expires: new Date(0),
+        path: '/',
+        maxAge: 0,
+        httpOnly: true,
       })
 
       // ✅ STANDARD: Handle response based on request type
@@ -303,8 +389,9 @@ export default class AuthController extends BaseController {
       const isApiRequest = request.url().startsWith('/api/')
 
       if (isInertiaRequest) {
-        // For Inertia requests, redirect to home page
-        return response.redirect('/')
+        // For Inertia requests, force a hard redirect with cache-busting
+        response.header('Location', '/?logout=success&t=' + Date.now())
+        return response.status(307).header('Clear-Site-Data', '"cache", "cookies", "storage"').redirect('/?logout=success&t=' + Date.now())
       } else if (isApiRequest) {
         // For API requests, return JSON
         return response.json(ApiResponse.success(null, 'Logged out successfully'))
@@ -981,6 +1068,10 @@ export default class AuthController extends BaseController {
         user.provider = 'google'
         user.providerId = googleUser.id
         user.avatarUrl = googleUser.avatarUrl
+        // Update fullName if not set or if Google provides a better name
+        if (!user.fullName && googleUser.name) {
+          user.fullName = googleUser.name
+        }
         await user.save()
         OAuthLogger.logStep(requestId, 'Account linking completed')
       } else {
@@ -1233,7 +1324,7 @@ export default class AuthController extends BaseController {
   /**
    * ✅ SIMPLIFIED: Basic OAuth configuration validator
    */
-  private _validateOAuthConfig(_requestId: string, request: any) {
+  private _validateOAuthConfig(request: any) {
     const configErrors = []
 
     // Only check essential environment variables
@@ -1251,11 +1342,11 @@ export default class AuthController extends BaseController {
     }
 
     if (configErrors.length > 0) {
-          console.error(`[DEBUG-${_requestId}] OAuth configuration errors:`, configErrors)
+          console.error(`OAuth configuration errors:`, configErrors)
     throw new Error(`OAuth configuration errors: ${configErrors.join(', ')}`)
   }
 
-  console.log(`[DEBUG-${_requestId}] OAuth configuration validation passed`)
+  console.log(`OAuth configuration validation passed`)
     return true
   }
 

@@ -28,3 +28,59 @@ body {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* SweetAlert2 Dark Theme Styles */
+.dark-popup {
+  background-color: #2C2C2E !important;
+  border: 1px solid #3A3A3C !important;
+  border-radius: 12px !important;
+}
+
+.dark-title {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+.dark-content {
+  color: #98989D !important;
+}
+
+.dark-confirm-button {
+  background-color: #ef4444 !important;
+  border: none !important;
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+  padding: 8px 16px !important;
+}
+
+.dark-confirm-button:hover {
+  background-color: #dc2626 !important;
+}
+
+.dark-cancel-button {
+  background-color: #6b7280 !important;
+  border: none !important;
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+  padding: 8px 16px !important;
+}
+
+.dark-cancel-button:hover {
+  background-color: #4b5563 !important;
+}
+
+/* SweetAlert2 Toast Styles */
+.swal2-toast .swal2-popup {
+  background-color: #2C2C2E !important;
+  border: 1px solid #3A3A3C !important;
+  border-radius: 8px !important;
+}
+
+.swal2-toast .swal2-title {
+  color: #ffffff !important;
+  font-weight: 500 !important;
+}
+
+.swal2-toast .swal2-content {
+  color: #98989D !important;
+}

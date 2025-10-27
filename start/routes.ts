@@ -9,7 +9,10 @@ import { middleware } from '#start/kernel'
 // ========================
 // Public Routes
 // ========================
-router.get('/', ({ inertia }) => inertia.render('home'))
+router.get('/', async ({ inertia }) => {
+  // Don't check auth - let the frontend handle it
+  return inertia.render('home')
+})
 router.get('/login', ({ inertia }) => inertia.render('auth/login'))
 router.get('/register', ({ inertia }) => inertia.render('auth/register'))
 
@@ -105,7 +108,7 @@ router
     // Reminders test page
     router.get('/reminders/test', ({ inertia }) => inertia.render('reminders/test'))
   })
-  .use(middleware.auth({ guards: ['web'] }))
+  .use(middleware.auth())
 
 // ========================
 // API Routes (CRUD Operations)
@@ -115,6 +118,7 @@ router
 router
   .group(() => {
     router.post('/', '#controllers/note_controller.store')
+    router.post('/test-upload', '#controllers/note_controller.testUpload') // ✅ DEBUG: Test endpoint
     router.post('/upload-image', '#controllers/note_controller.uploadImage')
     router.put('/:id', '#controllers/note_controller.update')
     router.delete('/:id', '#controllers/note_controller.destroy')
@@ -281,7 +285,6 @@ router
 // User preferences
 router
   .group(() => {
-    router.get('/preferences', '#controllers/user_preferences_controller.show')
     router.post('/preferences', '#controllers/user_preferences_controller.update')
   })
   .prefix('/user')

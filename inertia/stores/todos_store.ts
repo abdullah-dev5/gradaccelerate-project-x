@@ -205,7 +205,7 @@ export const useTodosStore = create<TodosState>()(
           }))
           get().applyFilters()
 
-          const response = await apiService.put<{ message: string; data: Todo }>(`/todos/${id}/edit`, updates)
+          const response = await apiService.put<{ message: string; data: Todo }>(`/todos/${id}`, updates)
           const result = response.data?.data || response.data
 
           if (result) {
@@ -230,11 +230,16 @@ export const useTodosStore = create<TodosState>()(
       },
 
       deleteTodo: async (id: number) => {
+        console.log('deleteTodo called with id:', id)
         // Get original todo for potential rollback
         const originalTodo = get().byId[id]
-        if (!originalTodo) return false
+        if (!originalTodo) {
+          console.log('No todo found with id:', id)
+          return false
+        }
 
         try {
+          console.log('Attempting to delete todo:', originalTodo.title)
           // Optimistic update
           set((state) => ({
             byId: {
@@ -244,7 +249,9 @@ export const useTodosStore = create<TodosState>()(
           }))
           get().applyFilters()
 
-          await apiService.delete(`/todos/${id}`)
+          console.log('Making API delete request to:', `/todos/${id}`)
+          const response = await apiService.delete(`/todos/${id}`)
+          console.log('Delete API response:', response)
 
           // Remove from state
           set((state) => {
@@ -256,8 +263,10 @@ export const useTodosStore = create<TodosState>()(
           })
           get().applyFilters()
 
+          console.log('Todo deleted successfully')
           return true
         } catch (error) {
+          console.error('Delete error:', error)
           // Revert optimistic update on error
           set((state) => ({
             byId: { ...state.byId, [id]: originalTodo },
@@ -265,6 +274,11 @@ export const useTodosStore = create<TodosState>()(
           get().applyFilters()
 
           const apiError = error as ApiError
+          console.error('API Error details:', {
+            message: apiError.message,
+            status: apiError.status,
+            errors: apiError.errors
+          })
           set({ error: apiError.message || 'Failed to delete todo' })
           return false
         }
@@ -427,6 +441,7 @@ export const useTodosStore = create<TodosState>()(
       },
 
       normalizeTodos: (todos: Todo[]) => {
+        console.log('normalizeTodos called with:', todos)
         const byId: Record<number, Todo> = {}
         const allIds: number[] = []
 
@@ -435,6 +450,7 @@ export const useTodosStore = create<TodosState>()(
           allIds.push(todo.id)
         })
 
+        console.log('normalizeTodos result:', { byIdKeys: Object.keys(byId), allIds })
         set({ byId, allIds })
       },
 

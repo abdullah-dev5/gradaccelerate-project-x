@@ -24,13 +24,47 @@ export default function TodoShow({ todo }: Props) {
     setIsMounted(true)
   }, [])
 
-  const handleDelete = () => {
-    if (confirm('Are you sure you want to delete this todo? This action cannot be undone.')) {
-      router.delete(`/todos/${todo.id}`, {
-        onSuccess: () => {
-          router.visit('/todos')
+  const handleDelete = async () => {
+    try {
+      // ✅ FIXED: Use SweetAlert2 instead of browser confirm
+      const { default: Swal } = await import('sweetalert2')
+      
+      const result = await Swal.fire({
+        title: 'Are you sure?',
+        text: 'You are about to delete this todo. This action cannot be undone!',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444', // red-500
+        cancelButtonColor: '#6b7280', // gray-500
+        confirmButtonText: 'Yes, delete it!',
+        cancelButtonText: 'Cancel',
+        background: '#2C2C2E',
+        color: '#ffffff',
+        customClass: {
+          popup: 'dark-popup',
+          title: 'dark-title',
+          confirmButton: 'dark-confirm-button',
+          cancelButton: 'dark-cancel-button'
         }
       })
+
+      if (result.isConfirmed) {
+        router.delete(`/todos/${todo.id}`, {
+          onSuccess: () => {
+            router.visit('/todos')
+          }
+        })
+      }
+    } catch (error) {
+      console.error('Error showing delete confirmation:', error)
+      // Fallback to browser confirm if SweetAlert2 fails
+      if (confirm('Are you sure you want to delete this todo? This action cannot be undone.')) {
+        router.delete(`/todos/${todo.id}`, {
+          onSuccess: () => {
+            router.visit('/todos')
+          }
+        })
+      }
     }
   }
 

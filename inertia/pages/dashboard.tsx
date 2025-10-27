@@ -4,8 +4,7 @@ import {
   CheckSquare, 
   FolderOpen, 
   ArrowRight,
-  Clock,
-  Settings
+  Clock
 } from 'lucide-react'
 import { Card, CardContent } from '../components/ui/card'
 import { useAuth } from '../contexts/AuthContext'
@@ -24,6 +23,14 @@ export default function Dashboard() {
   const { user } = useAuth()
   const [stats, setStats] = useState<DashboardStats>({ notes: 0, todos: 0, projects: 0, bookmarks: 0, reminders: 0 })
   const [isLoading, setIsLoading] = useState(true)
+
+  // Helper function to get display name
+  const getUserDisplayName = () => {
+    // Priority: fullName > email username > 'User'
+    if (user?.fullName) return user.fullName
+    if (user?.email) return user.email.split('@')[0]
+    return 'User'
+  }
 
   // Handle OAuth token from URL parameters
   useEffect(() => {
@@ -164,7 +171,7 @@ export default function Dashboard() {
       <div className="min-h-screen bg-[#1C1C1E] text-white">
         <Header 
           title="Dashboard" 
-          subtitle={`Welcome back, ${user?.fullName || 'User'}!`}
+          subtitle={`Welcome back, ${getUserDisplayName()}!`}
         />
 
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -326,40 +333,8 @@ export default function Dashboard() {
               </Card>
             </Link>
 
-            <Link href="/user/preferences">
-              <Card variant="dashboard" size="default">
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-semibold text-white">Preferences</h3>
-                      <p className="text-white">Manage notification settings</p>
-                    </div>
-                    <Settings className="h-5 w-5 text-white" />
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
           </div>
         </main>
-        {/* Dev-only: Sentry test button */}
-        {import.meta.env.MODE === 'development' && (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-            <button
-              className="mt-8 px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
-              onClick={async () => {
-                try {
-                  throw new Error('Frontend test error')
-                } catch (e) {
-                  const { frontendErrorReporter } = await import('../services/errorReporter')
-                  await frontendErrorReporter.captureException(e as unknown)
-                  alert('Frontend test error sent to Sentry (check Issues)')
-                }
-              }}
-            >
-              Break the world (Sentry test)
-            </button>
-          </div>
-        )}
       </div>
     </>
   )

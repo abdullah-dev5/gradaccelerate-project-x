@@ -42,8 +42,8 @@ createInertiaApp({
           <ErrorBoundary>
             <ReminderListener />
             <App {...props} />
-            <FeedbackButton className="fixed bottom-4 right-4 z-50" />
           </ErrorBoundary>
+          <FeedbackButton className="fixed bottom-4 right-4 z-50" />
         </AuthProvider>
       </ToastProvider>
     ))

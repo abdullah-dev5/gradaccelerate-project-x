@@ -6,8 +6,9 @@ const enabled = process.env.SCHEDULER_ENABLED === 'true'
 let isRunning = false
 
 function log(...args: unknown[]) {
-  // Keep logs concise; expand if needed
-  console.log('[Scheduler]', ...args)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[Scheduler]', ...args)
+  }
 }
 
 async function processAllUsersDueReminders() {
@@ -37,13 +38,19 @@ async function processAllUsersDueReminders() {
 }
 
 if (enabled) {
+  log('Scheduler enabled - running every minute')
   // Every minute
   cron.schedule('* * * * *', async () => {
     await processAllUsersDueReminders()
   })
-  log('Initialized. Schedule: every minute (SCHEDULER_ENABLED=true)')
+  
+  // Run immediately on startup (delay to ensure DB is ready)
+  setTimeout(async () => {
+    log('Running initial check for due reminders...')
+    await processAllUsersDueReminders()
+  }, 5000)
 } else {
-  log('Scheduler disabled. Set SCHEDULER_ENABLED=true to enable.')
+  console.log('[Scheduler] Disabled. Set SCHEDULER_ENABLED=true in .env to enable.')
 }
 
 

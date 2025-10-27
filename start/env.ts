@@ -78,4 +78,11 @@ export default await Env.create(new URL('../', import.meta.url), {
   SMTP_PASS: Env.schema.string.optional(),
   SMTP_FROM_EMAIL: Env.schema.string.optional(),
   SMTP_FROM_NAME: Env.schema.string.optional(),
+
+  /*
+  |----------------------------------------------------------
+  | Scheduler (reminder processing)
+  |----------------------------------------------------------
+  */
+  SCHEDULER_ENABLED: Env.schema.string.optional(),
 })
