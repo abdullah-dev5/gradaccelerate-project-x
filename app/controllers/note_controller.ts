@@ -24,10 +24,8 @@ export default class NotesController {
   }
 
   // Alias method for backward compatibility - redirect to index  
-  async indexPage(context: HttpContext) {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _ = context // Suppress unused variable warning
-    return this.index(context)
+  async indexPage(_context: HttpContext) {
+    return this.index(_context)
   }
 
   async index({ request, inertia, response, auth }: HttpContext) {
