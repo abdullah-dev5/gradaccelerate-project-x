@@ -20,4 +20,17 @@ export default defineConfig({
       '~/': `${getDirname(import.meta.url)}/inertia/`,
     },
   },
+
+  /**
+   * Server configuration for production
+   */
+  server: {
+    host: '0.0.0.0',
+    allowedHosts: [
+      'gradaccelerate-project-x-production.up.railway.app',
+      '.railway.app',
+      'localhost',
+      '127.0.0.1',
+    ],
+  },
 })
