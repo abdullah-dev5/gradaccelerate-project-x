@@ -23,8 +23,10 @@ export default class NotesController {
     return request.header('x-inertia') === 'true'
   }
 
-  // Alias method for backward compatibility - redirect to index
+  // Alias method for backward compatibility - redirect to index  
   async indexPage(context: HttpContext) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _ = context // Suppress unused variable warning
     return this.index(context)
   }
 

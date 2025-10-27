@@ -4,6 +4,11 @@ import { test } from '@japa/runner'
 test.group('Notes Show', () => {
   let createdNote: Note | null
   
+  // Setup before tests
+  test.beforeEach(async () => {
+    // Initialize if needed
+  })
+  
   test.afterEach(async () => {
     if (createdNote) {
       await createdNote.delete()
