@@ -1,6 +1,13 @@
 {
+  "version": 2,
   "buildCommand": "npm run build:deploy",
-  "framework": null,
-  "outputDirectory": "build"
+  "outputDirectory": "build/public",
+  "installCommand": "npm install",
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ]
 }
 
