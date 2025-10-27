@@ -32,7 +32,7 @@ router.post('/logout', '#controllers/auth_controller.logout')
 
 // OAuth Routes (Google)
 router.get('/auth/google/redirect', '#controllers/auth_controller.googleRedirect')
-router.get('/google/callback', '#controllers/auth_controller.googleCallback')
+router.get('/auth/google/callback', '#controllers/auth_controller.googleCallback')
 
 // Debug route (development only)
 if (process.env.NODE_ENV === 'development') {
