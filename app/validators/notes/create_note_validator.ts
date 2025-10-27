@@ -43,8 +43,6 @@ export const createNoteValidator = vine.compile(
   })
 )
 
-
-
 /**
  * ✅ ENHANCED: Note ID validator with proper error messages
  */

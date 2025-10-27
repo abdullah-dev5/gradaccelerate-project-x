@@ -26,8 +26,10 @@ export class PusherService {
 
     // Check if Pusher credentials are available
     const pusherKey = document.querySelector('meta[name="pusher-key"]')?.getAttribute('content')
-    const pusherCluster = document.querySelector('meta[name="pusher-cluster"]')?.getAttribute('content')
-    
+    const pusherCluster = document
+      .querySelector('meta[name="pusher-cluster"]')
+      ?.getAttribute('content')
+
     if (!pusherKey || !pusherCluster) {
       console.warn('Pusher credentials not found. Real-time notifications disabled.')
       return
@@ -40,9 +42,10 @@ export class PusherService {
         authEndpoint: '/pusher/auth',
         auth: {
           headers: {
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-          }
-        }
+            'X-CSRF-TOKEN':
+              document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+          },
+        },
       })
 
       this.pusher.connection.bind('connected', () => {
@@ -56,7 +59,6 @@ export class PusherService {
       this.pusher.connection.bind('error', (error: any) => {
         console.error('[Pusher] Connection error:', error)
       })
-
     } catch (error) {
       console.error('Failed to initialize Pusher:', error)
     }
@@ -77,7 +79,7 @@ export class PusherService {
     try {
       const channelName = `private-user.${userId}`
       this.channel = this.pusher.subscribe(channelName)
-      
+
       this.channel.bind('pusher:subscription_succeeded', () => {
         console.log('[Pusher] Subscribed to', channelName)
       })
@@ -85,7 +87,7 @@ export class PusherService {
       this.channel.bind('pusher:subscription_error', (error: any) => {
         console.error('[Pusher] Subscription error for', channelName, error)
       })
-      
+
       this.channel.bind('reminder.triggered', (data: any) => {
         this.handleReminderNotification(data)
       })
@@ -94,7 +96,6 @@ export class PusherService {
       this.channel.bind('reminder.created', () => {})
       this.channel.bind('reminder.updated', () => {})
       this.channel.bind('reminder.deleted', () => {})
-
     } catch (error) {
       console.error('[Pusher] Failed to subscribe to user channel:', error)
     }
@@ -102,14 +103,16 @@ export class PusherService {
 
   private handleReminderNotification(data: any) {
     const { reminder } = data
-    
+
     // Show browser notification
     if (reminder.channels && reminder.channels.includes('web')) {
-      import('./notificationService').then(({ notificationService }) => {
-        notificationService.showReminderNotification(reminder)
-      }).catch(err => {
-        console.error('[Pusher] Failed to show notification:', err)
-      })
+      import('./notificationService')
+        .then(({ notificationService }) => {
+          notificationService.showReminderNotification(reminder)
+        })
+        .catch((err) => {
+          console.error('[Pusher] Failed to show notification:', err)
+        })
     }
 
     // Dispatch a DOM event so pages can react (toasts, UI updates)

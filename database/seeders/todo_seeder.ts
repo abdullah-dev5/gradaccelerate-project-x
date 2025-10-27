@@ -23,7 +23,7 @@ export default class TodoSeeder extends BaseSeeder {
     for (const todoData of todos) {
       const todo = await Todo.create(todoData)
       const randomLabels = labelIds.sort(() => 0.5 - Math.random()).slice(0, 2)
-      const labelData = randomLabels.map(id => labels.find(l => l.id === id)).filter(Boolean)
+      const labelData = randomLabels.map((id) => labels.find((l) => l.id === id)).filter(Boolean)
       await todo.merge({ labels: labelData }).save()
     }
   }

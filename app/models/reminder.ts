@@ -51,5 +51,3 @@ export default class Reminder extends BaseModel {
   @column.dateTime()
   declare deletedAt: DateTime | null
 }
-
-

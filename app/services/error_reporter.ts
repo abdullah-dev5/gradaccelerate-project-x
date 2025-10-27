@@ -5,7 +5,7 @@
 
 type ReportContext = {
   user?: { id?: number | string; email?: string | null } | null
-  request?: { 
+  request?: {
     url?: string
     method?: string
     headers?: Record<string, any>
@@ -28,7 +28,9 @@ class ErrorReporter {
 
   async init(): Promise<void> {
     if (this.initialized) return
-    const dsn = process.env.SENTRY_DSN || "https://9111231d5f7846b9b013fa8a5ed9476f@o4510069713403905.ingest.de.sentry.io/4510069725659216"
+    const dsn =
+      process.env.SENTRY_DSN ||
+      'https://9111231d5f7846b9b013fa8a5ed9476f@o4510069713403905.ingest.de.sentry.io/4510069725659216'
     if (!dsn) {
       this.initialized = true
       return
@@ -51,13 +53,12 @@ class ErrorReporter {
           // Filter out development errors in production
           if (process.env.NODE_ENV === 'production' && event.exception) {
             const error = event.exception.values?.[0]
-            if (error?.value?.includes('ECONNREFUSED') || 
-                error?.value?.includes('ENOTFOUND')) {
+            if (error?.value?.includes('ECONNREFUSED') || error?.value?.includes('ENOTFOUND')) {
               return null // Don't send network errors in production
             }
           }
           return event
-        }
+        },
       })
     } catch (e) {
       // If sentry not installed, just no-op
@@ -70,40 +71,40 @@ class ErrorReporter {
   async captureException(error: unknown, ctx?: ReportContext): Promise<void> {
     if (!this.initialized) await this.init()
     if (!this.sentry) return
-    
+
     try {
       this.sentry.withScope((scope: any) => {
         // Set user context
         if (ctx?.user) {
           scope.setUser(ctx.user)
         }
-        
+
         // Set tags for categorization
         if (ctx?.tags) {
           Object.entries(ctx.tags).forEach(([k, v]) => scope.setTag(k, v))
         }
-        
+
         // Set extra context
         if (ctx?.extras) {
           Object.entries(ctx.extras).forEach(([k, v]) => scope.setExtra(k, v))
         }
-        
+
         // Set request context
         if (ctx?.request) {
           scope.setContext('request', ctx.request)
         }
-        
+
         // Add performance metrics if available
         if (this.performanceMetrics.size > 0) {
           scope.setContext('performance', Object.fromEntries(this.performanceMetrics))
         }
-        
+
         // Set fingerprint for better grouping
         if (error instanceof Error) {
           const fingerprint = this.generateFingerprint(error, ctx)
           scope.setFingerprint(fingerprint)
         }
-        
+
         this.sentry.captureException(error)
       })
     } catch (reportingError) {
@@ -112,19 +113,23 @@ class ErrorReporter {
     }
   }
 
-  async captureMessage(message: string, level: 'info' | 'warning' | 'error' = 'info', ctx?: ReportContext): Promise<void> {
+  async captureMessage(
+    message: string,
+    level: 'info' | 'warning' | 'error' = 'info',
+    ctx?: ReportContext
+  ): Promise<void> {
     if (!this.initialized) await this.init()
     if (!this.sentry) return
-    
+
     try {
       this.sentry.withScope((scope: any) => {
         scope.setLevel(level)
-        
+
         if (ctx?.user) scope.setUser(ctx.user)
         if (ctx?.tags) Object.entries(ctx.tags).forEach(([k, v]) => scope.setTag(k, v))
         if (ctx?.extras) Object.entries(ctx.extras).forEach(([k, v]) => scope.setExtra(k, v))
         if (ctx?.request) scope.setContext('request', ctx.request)
-        
+
         this.sentry.captureMessage(message)
       })
     } catch (reportingError) {
@@ -135,14 +140,14 @@ class ErrorReporter {
   async startTransaction(name: string, operation: string): Promise<any> {
     if (!this.initialized) await this.init()
     if (!this.sentry) return null
-    
+
     try {
       return this.sentry.startTransaction({
         name,
         op: operation,
         tags: {
-          environment: process.env.NODE_ENV || 'development'
-        }
+          environment: process.env.NODE_ENV || 'development',
+        },
       })
     } catch (error) {
       console.error('Failed to start Sentry transaction:', error)
@@ -150,9 +155,12 @@ class ErrorReporter {
     }
   }
 
-  async finishTransaction(transaction: any, status: 'ok' | 'cancelled' | 'unknown_error' | 'internal_error' = 'ok'): Promise<void> {
+  async finishTransaction(
+    transaction: any,
+    status: 'ok' | 'cancelled' | 'unknown_error' | 'internal_error' = 'ok'
+  ): Promise<void> {
     if (!transaction || !this.sentry) return
-    
+
     try {
       transaction.setStatus(status)
       transaction.finish()
@@ -161,35 +169,39 @@ class ErrorReporter {
     }
   }
 
-  async recordPerformance(operation: string, duration: number, metadata?: Record<string, any>): Promise<void> {
+  async recordPerformance(
+    operation: string,
+    duration: number,
+    metadata?: Record<string, any>
+  ): Promise<void> {
     this.performanceMetrics.set(operation, duration)
-    
+
     if (metadata) {
       Object.entries(metadata).forEach(([key, value]) => {
         this.performanceMetrics.set(`${operation}.${key}`, value)
       })
     }
-    
+
     // Send performance data to Sentry
     await this.captureMessage(`Performance: ${operation}`, 'info', {
       extras: {
         duration,
-        ...metadata
+        ...metadata,
       },
       tags: {
-        type: 'performance'
-      }
+        type: 'performance',
+      },
     })
   }
 
   private generateFingerprint(error: Error, ctx?: ReportContext): string[] {
     const fingerprint = [error.name, error.message]
-    
+
     // Add route-specific fingerprinting
     if (ctx?.tags?.route) {
       fingerprint.push(ctx.tags.route)
     }
-    
+
     // Add error type specific fingerprinting
     if (error.message.includes('UNIQUE constraint')) {
       fingerprint.push('unique-constraint')
@@ -198,7 +210,7 @@ class ErrorReporter {
     } else if (error.message.includes('NOT NULL')) {
       fingerprint.push('not-null')
     }
-    
+
     return fingerprint
   }
 
@@ -209,7 +221,7 @@ class ErrorReporter {
     } catch (error) {
       await this.captureException(error, {
         tags: { context: context || 'async-wrapper' },
-        extras: { function: fn.name || 'anonymous' }
+        extras: { function: fn.name || 'anonymous' },
       })
       return null
     }
@@ -222,7 +234,7 @@ class ErrorReporter {
     } catch (error) {
       this.captureException(error, {
         tags: { context: context || 'sync-wrapper' },
-        extras: { function: fn.name || 'anonymous' }
+        extras: { function: fn.name || 'anonymous' },
       })
       return null
     }
@@ -230,5 +242,3 @@ class ErrorReporter {
 }
 
 export const errorReporter = new ErrorReporter()
-
-

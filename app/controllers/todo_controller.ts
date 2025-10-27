@@ -301,9 +301,9 @@ export default class TodosController {
       console.error('Error details:', {
         message: error.message,
         status: error.status,
-        stack: error.stack
+        stack: error.stack,
       })
-      
+
       if (error.status === 422) {
         if (this.isInertiaRequest(request)) {
           return inertia.render('errors/404', {
@@ -543,9 +543,9 @@ export default class TodosController {
       console.error('Error details:', {
         message: error.message,
         status: error.status,
-        stack: error.stack
+        stack: error.stack,
       })
-      
+
       if (error.status === 422) {
         return response.status(400).json({
           message: 'Validation failed',
@@ -615,9 +615,9 @@ export default class TodosController {
       console.error('Error details:', {
         message: error.message,
         status: error.status,
-        stack: error.stack
+        stack: error.stack,
       })
-      
+
       if (error.status === 422) {
         return response.status(400).json({
           message: 'Invalid todo ID',
@@ -649,13 +649,13 @@ export default class TodosController {
         'x-inertia': request.header('x-inertia'),
         'accept': request.header('accept'),
         'x-requested-with': request.header('x-requested-with'),
-        'content-type': request.header('content-type')
+        'content-type': request.header('content-type'),
       })
-      
+
       await auth.authenticate() // Authenticate first
       const user = auth.getUserOrFail()
       console.log('User authenticated:', user.id)
-      
+
       // Validate the ID parameter
       await request.validateUsing(todoIdValidator, { data: { id: Number(params.id) } })
       console.log('ID validation passed:', params.id)
@@ -665,7 +665,10 @@ export default class TodosController {
         .where('userId', user.id) // Ensure user owns the todo
         .first()
 
-      console.log('Todo found:', todo ? { id: todo.id, title: todo.title, deletedAt: todo.deletedAt } : 'null')
+      console.log(
+        'Todo found:',
+        todo ? { id: todo.id, title: todo.title, deletedAt: todo.deletedAt } : 'null'
+      )
 
       if (!todo || todo.deletedAt) {
         const message = 'Todo not found or has already been deleted'
@@ -718,9 +721,9 @@ export default class TodosController {
       console.error('Error details:', {
         message: error.message,
         status: error.status,
-        stack: error.stack
+        stack: error.stack,
       })
-      
+
       if (error.status === 422) {
         if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
           return inertia.render('errors/404', {

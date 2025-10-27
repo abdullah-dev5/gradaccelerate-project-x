@@ -37,7 +37,7 @@ export default class HttpExceptionHandler extends ExceptionHandler {
       return ctx.response.status(422).json({
         message: 'Validation failed',
         errors: (error as any).messages,
-        code: 'VALIDATION_ERROR'
+        code: 'VALIDATION_ERROR',
       })
     }
 
@@ -45,12 +45,12 @@ export default class HttpExceptionHandler extends ExceptionHandler {
     if (error instanceof Exception) {
       const statusCode = error.status
       const message = error.message || this.getDefaultMessage(statusCode)
-      
+
       if (ctx.request.accepts(['json'])) {
         return ctx.response.status(statusCode).json({
           message,
           code: this.getErrorCode(statusCode),
-          status: statusCode
+          status: statusCode,
         })
       }
     }
@@ -61,7 +61,7 @@ export default class HttpExceptionHandler extends ExceptionHandler {
       if (ctx.request.accepts(['json'])) {
         return ctx.response.status(400).json({
           message: dbError.message,
-          code: 'DATABASE_ERROR'
+          code: 'DATABASE_ERROR',
         })
       }
     }
@@ -78,37 +78,37 @@ export default class HttpExceptionHandler extends ExceptionHandler {
   async report(error: unknown, ctx: HttpContext) {
     try {
       const { errorReporter } = await import('#services/error_reporter')
-      
+
       // Determine error severity based on error type
       const severity = this.getErrorSeverity(error)
-      
+
       await errorReporter.captureException(error, {
-        user: { 
-          id: ctx?.auth?.user?.id, 
-          email: (ctx?.auth?.user as any)?.email 
+        user: {
+          id: ctx?.auth?.user?.id,
+          email: (ctx?.auth?.user as any)?.email,
         },
-        request: { 
-          url: ctx.request.url(), 
-          method: ctx.request.method(), 
+        request: {
+          url: ctx.request.url(),
+          method: ctx.request.method(),
           headers: this.sanitizeHeaders(ctx.request.headers()),
-          body: this.sanitizeRequestBody(ctx.request.body())
+          body: this.sanitizeRequestBody(ctx.request.body()),
         },
-        tags: { 
+        tags: {
           scope: 'http',
           severity,
-          route: ctx.route?.name || 'unknown'
+          route: ctx.route?.name || 'unknown',
         },
         extras: {
           userAgent: ctx.request.header('user-agent'),
           ip: ctx.request.ip(),
-          timestamp: new Date().toISOString()
-        }
+          timestamp: new Date().toISOString(),
+        },
       })
     } catch (reportingError) {
       // Log to console as fallback if error reporting fails
       console.error('Error reporting failed:', reportingError)
     }
-    
+
     return super.report(error, ctx)
   }
 
@@ -125,7 +125,7 @@ export default class HttpExceptionHandler extends ExceptionHandler {
       429: 'Too Many Requests',
       500: 'Internal Server Error',
       502: 'Bad Gateway',
-      503: 'Service Unavailable'
+      503: 'Service Unavailable',
     }
     return messages[statusCode] || 'An error occurred'
   }
@@ -143,7 +143,7 @@ export default class HttpExceptionHandler extends ExceptionHandler {
       429: 'RATE_LIMITED',
       500: 'INTERNAL_ERROR',
       502: 'BAD_GATEWAY',
-      503: 'SERVICE_UNAVAILABLE'
+      503: 'SERVICE_UNAVAILABLE',
     }
     return codes[statusCode] || 'UNKNOWN_ERROR'
   }
@@ -166,10 +166,12 @@ export default class HttpExceptionHandler extends ExceptionHandler {
    */
   private isDatabaseError(error: unknown): boolean {
     const errorMessage = error instanceof Error ? error.message : String(error)
-    return errorMessage.includes('UNIQUE constraint') ||
-           errorMessage.includes('FOREIGN KEY constraint') ||
-           errorMessage.includes('NOT NULL constraint') ||
-           errorMessage.includes('SQLITE_ERROR')
+    return (
+      errorMessage.includes('UNIQUE constraint') ||
+      errorMessage.includes('FOREIGN KEY constraint') ||
+      errorMessage.includes('NOT NULL constraint') ||
+      errorMessage.includes('SQLITE_ERROR')
+    )
   }
 
   /**
@@ -177,7 +179,7 @@ export default class HttpExceptionHandler extends ExceptionHandler {
    */
   private formatDatabaseError(error: unknown): { message: string } {
     const errorMessage = error instanceof Error ? error.message : String(error)
-    
+
     if (errorMessage.includes('UNIQUE constraint')) {
       return { message: 'This record already exists' }
     }
@@ -187,7 +189,7 @@ export default class HttpExceptionHandler extends ExceptionHandler {
     if (errorMessage.includes('NOT NULL constraint')) {
       return { message: 'Required field is missing' }
     }
-    
+
     return { message: 'Database operation failed' }
   }
 
@@ -197,13 +199,13 @@ export default class HttpExceptionHandler extends ExceptionHandler {
   private sanitizeHeaders(headers: Record<string, any>): Record<string, any> {
     const sensitiveHeaders = ['authorization', 'cookie', 'x-api-key']
     const sanitized = { ...headers }
-    
-    sensitiveHeaders.forEach(header => {
+
+    sensitiveHeaders.forEach((header) => {
       if (sanitized[header]) {
         sanitized[header] = '[REDACTED]'
       }
     })
-    
+
     return sanitized
   }
 
@@ -212,16 +214,16 @@ export default class HttpExceptionHandler extends ExceptionHandler {
    */
   private sanitizeRequestBody(body: any): any {
     if (!body || typeof body !== 'object') return body
-    
+
     const sensitiveFields = ['password', 'token', 'secret', 'apiKey']
     const sanitized = { ...body }
-    
-    sensitiveFields.forEach(field => {
+
+    sensitiveFields.forEach((field) => {
       if (sanitized[field]) {
         sanitized[field] = '[REDACTED]'
       }
     })
-    
+
     return sanitized
   }
 }

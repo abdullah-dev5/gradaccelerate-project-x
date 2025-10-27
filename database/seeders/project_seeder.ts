@@ -6,12 +6,12 @@ export default class ProjectSeeder extends BaseSeeder {
     // Get the first user or create one if none exists
     const User = (await import('#models/user')).default
     let user = await User.first()
-    
+
     if (!user) {
       user = await User.create({
         email: 'admin@example.com',
         password: 'password123',
-        name: 'Admin User'
+        name: 'Admin User',
       })
     }
 
@@ -150,7 +150,8 @@ export default class ProjectSeeder extends BaseSeeder {
       },
       {
         title: 'Enterprise Resource Planning System',
-        description: 'Comprehensive ERP system for managing business operations including inventory management, human resources, customer relationship management, and financial management with advanced reporting and analytics capabilities',
+        description:
+          'Comprehensive ERP system for managing business operations including inventory management, human resources, customer relationship management, and financial management with advanced reporting and analytics capabilities',
         status: 'in_progress',
         userId: user.id,
       },

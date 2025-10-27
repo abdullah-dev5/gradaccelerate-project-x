@@ -45,7 +45,10 @@ export class NotificationService {
     }
   }
 
-  async showNotification(title: string, options: ExtendedNotificationOptions = {}): Promise<boolean> {
+  async showNotification(
+    title: string,
+    options: ExtendedNotificationOptions = {}
+  ): Promise<boolean> {
     if (typeof window === 'undefined' || !('Notification' in window)) {
       console.warn('This browser does not support notifications')
       return false
@@ -60,27 +63,27 @@ export class NotificationService {
     }
 
     try {
-      const notification = new Notification(title, ({
+      const notification = new Notification(title, {
         // Visuals - Custom styling
         icon: '/favicon.svg',
         badge: '/favicon.svg',
         image: options.image || undefined,
-        
+
         // Language and direction
         dir: 'auto',
         lang: 'en',
-        
+
         // Behavior - Customized for better UX
-        renotify: true,  // Replace previous notifications with same tag
-        silent: false,  // Play sound
-        requireInteraction: false,  // Don't force user to dismiss (auto-dismiss after timeout)
-        
+        renotify: true, // Replace previous notifications with same tag
+        silent: false, // Play sound
+        requireInteraction: false, // Don't force user to dismiss (auto-dismiss after timeout)
+
         // Vibration pattern for mobile devices
         vibrate: [200, 100, 200, 100, 200],
-        
+
         // Merge caller options last to allow overrides
         ...options,
-      } as unknown) as NotificationOptions)
+      } as unknown as NotificationOptions)
 
       // Auto-close after 15 seconds (increased for better visibility)
       setTimeout(() => {
@@ -122,7 +125,7 @@ export class NotificationService {
     remindAt: string
   }): Promise<boolean> {
     const date = new Date(reminder.remindAt)
-    
+
     // Format date in a nicer way
     const remindTime = new Intl.DateTimeFormat('en-US', {
       weekday: 'short',
@@ -132,27 +135,27 @@ export class NotificationService {
       minute: '2-digit',
       hour12: true,
     }).format(date)
-    
+
     // Create a nicely formatted body with emojis
     const bodyLines = []
     if (reminder.message) {
       bodyLines.push(reminder.message)
     }
     bodyLines.push(`📅 Scheduled: ${remindTime}`)
-    
+
     const body = bodyLines.join('\n\n')
-    
+
     // Enhanced notification with better styling
     return await this.showNotification(`🔔 Reminder: ${reminder.title}`, {
       body: body,
       tag: `reminder-${(reminder as any).id ?? reminder.title}`,
-      data: { 
-        reminder, 
+      data: {
+        reminder,
         timestamp: Date.now(),
-        type: 'reminder'
+        type: 'reminder',
       },
       icon: '/favicon.svg',
-      badge: '/favicon.svg'
+      badge: '/favicon.svg',
     })
   }
 

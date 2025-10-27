@@ -26,56 +26,66 @@ export default class ReminderService {
 
   async processDueRemindersForUser(userId: number): Promise<ProcessResult> {
     const now = DateTime.now()
-    
+
     // Get all reminders for comparison
     const allReminders = await Reminder.query()
       .where('user_id', userId)
       .orderBy('remind_at', 'desc')
-    
+
     // Filter due reminders using DateTime comparison (in memory)
     // This ensures proper timezone handling
-    const dueReminders = allReminders.filter(reminder => {
+    const dueReminders = allReminders.filter((reminder) => {
       const reminderTime = reminder.remindAt
       if (!reminderTime) return false
-      
+
       // Compare DateTime objects
       const isDue = reminderTime <= now
-      
+
       // IMPORTANT: Convert database 0/1 to boolean
       const sentWebBool = Boolean(reminder.sentWeb)
       const sentEmailBool = Boolean(reminder.sentEmail)
-      
+
       // Check if reminder needs to be sent (either channel not sent yet)
       const needsWeb = reminder.channels.includes('web') && !sentWebBool
       const needsEmail = reminder.channels.includes('email') && !sentEmailBool
       const needsSending = needsWeb || needsEmail
-      
+
       return isDue && needsSending
     })
 
     const pusher = this.getPusher()
     if (!pusher) {
-      console.warn('[Reminder Service] Pusher not configured (missing env). Web notifications will be skipped.')
+      console.warn(
+        '[Reminder Service] Pusher not configured (missing env). Web notifications will be skipped.'
+      )
     }
     const user = await User.findOrFail(userId)
     let processed = 0
 
     for (const reminder of dueReminders) {
-      const sendWeb = reminder.channels.includes('web') && !reminder.sentWeb && (user.webNotificationsEnabled ?? true) && (user.reminderWebEnabled ?? true)
-      const sendEmail = reminder.channels.includes('email') && !reminder.sentEmail && (user.emailNotificationsEnabled ?? true) && (user.reminderEmailsEnabled ?? true)
+      const sendWeb =
+        reminder.channels.includes('web') &&
+        !reminder.sentWeb &&
+        (user.webNotificationsEnabled ?? true) &&
+        (user.reminderWebEnabled ?? true)
+      const sendEmail =
+        reminder.channels.includes('email') &&
+        !reminder.sentEmail &&
+        (user.emailNotificationsEnabled ?? true) &&
+        (user.reminderEmailsEnabled ?? true)
 
       if (sendWeb && pusher) {
         try {
-        await pusher.trigger(`private-user.${reminder.userId}`, 'reminder.triggered', {
-          reminder: {
-            id: reminder.id,
-            title: reminder.title,
-            message: reminder.message,
-            remindAt: reminder.remindAt.toISO(),
-            channels: reminder.channels
-          }
-        })
-        reminder.sentWeb = true
+          await pusher.trigger(`private-user.${reminder.userId}`, 'reminder.triggered', {
+            reminder: {
+              id: reminder.id,
+              title: reminder.title,
+              message: reminder.message,
+              remindAt: reminder.remindAt.toISO(),
+              channels: reminder.channels,
+            },
+          })
+          reminder.sentWeb = true
         } catch (pusherError) {
           console.error('[Reminder Service] Pusher trigger failed:', pusherError)
         }
@@ -101,5 +111,3 @@ export default class ReminderService {
     return { processedCount: processed }
   }
 }
-
-

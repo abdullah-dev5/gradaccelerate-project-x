@@ -78,12 +78,7 @@ export default class ErrorHandlerMiddleware {
   /**
    * Handle validation errors
    */
-      private handleValidationError(
-      error: any,
-      ctx: HttpContext,
-      isInertia: boolean,
-      isApi: boolean
-    ) {
+  private handleValidationError(error: any, ctx: HttpContext, isInertia: boolean, isApi: boolean) {
     if (isApi) {
       return ctx.response.status(422).json({
         success: false,

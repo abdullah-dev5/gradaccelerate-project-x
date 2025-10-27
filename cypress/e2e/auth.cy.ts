@@ -14,7 +14,7 @@ describe('Authentication Flow (Fixed)', () => {
 
       cy.visit('/register')
       cy.wait(2000) // Wait for hydration
-      
+
       // Fill out registration form
       cy.get('body').then(($body) => {
         if ($body.find('input[name="name"]').length > 0) {
@@ -24,10 +24,10 @@ describe('Authentication Flow (Fixed)', () => {
       cy.get('input[name="email"]').should('be.enabled').type(email)
       cy.get('input[name="password"]').should('be.enabled').type(password)
       cy.get('input[name="password_confirmation"]').should('be.enabled').type(password)
-      
+
       // Submit form
       cy.get('button[type="submit"]').should('be.enabled').click()
-      
+
       // Should redirect to dashboard or stay on register (depending on success)
       cy.url().should('match', /\/(dashboard|register)/)
     })
@@ -35,10 +35,10 @@ describe('Authentication Flow (Fixed)', () => {
     it('should show validation errors for invalid registration data', () => {
       cy.visit('/register')
       cy.wait(2000) // Wait for hydration
-      
+
       // Try to submit empty form
       cy.get('button[type="submit"]').should('be.enabled').click()
-      
+
       // Should stay on register page (validation handled by browser)
       cy.url().should('include', '/register')
     })
@@ -46,7 +46,7 @@ describe('Authentication Flow (Fixed)', () => {
     it('should show error for password mismatch', () => {
       cy.visit('/register')
       cy.wait(2000) // Wait for hydration
-      
+
       cy.get('body').then(($body) => {
         if ($body.find('input[name="name"]').length > 0) {
           cy.get('input[name="name"]').should('be.enabled').type('Test User')
@@ -55,9 +55,9 @@ describe('Authentication Flow (Fixed)', () => {
       cy.get('input[name="email"]').should('be.enabled').type('test@example.com')
       cy.get('input[name="password"]').should('be.enabled').type('password123')
       cy.get('input[name="password_confirmation"]').should('be.enabled').type('differentpassword')
-      
+
       cy.get('button[type="submit"]').should('be.enabled').click()
-      
+
       // Should stay on register page (validation handled by browser)
       cy.url().should('include', '/register')
     })
@@ -71,13 +71,13 @@ describe('Authentication Flow (Fixed)', () => {
         url: '/api/v1/auth/login',
         body: {
           email: 'test@example.com',
-          password: 'password123'
+          password: 'password123',
         },
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
         },
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([200, 401, 403])
       })
@@ -86,11 +86,11 @@ describe('Authentication Flow (Fixed)', () => {
     it('should show error for invalid credentials', () => {
       cy.visit('/login')
       cy.wait(2000) // Wait for hydration
-      
+
       cy.get('input[name="email"]').should('be.enabled').type('test@example.com')
       cy.get('input[name="password"]').should('be.enabled').type('wrongpassword')
       cy.get('button[type="submit"]').should('be.enabled').click()
-      
+
       // Should stay on login page
       cy.url().should('include', '/login')
     })
@@ -100,7 +100,7 @@ describe('Authentication Flow (Fixed)', () => {
       cy.request({
         method: 'GET',
         url: '/dashboard',
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([401, 403, 302])
       })
@@ -113,7 +113,7 @@ describe('Authentication Flow (Fixed)', () => {
       cy.request({
         method: 'POST',
         url: '/api/v1/auth/logout',
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([200, 401, 403, 404])
       })
@@ -124,7 +124,7 @@ describe('Authentication Flow (Fixed)', () => {
     it('should redirect to Google OAuth when clicking Google login', () => {
       cy.visit('/login')
       cy.wait(2000) // Wait for hydration
-      
+
       // Check if Google login button exists
       cy.get('body').then(($body) => {
         if ($body.find('[data-testid="google-login-button"]').length > 0) {

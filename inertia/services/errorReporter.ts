@@ -15,7 +15,9 @@ class FrontendErrorReporter {
 
   async init(): Promise<void> {
     if (this.initialized) return
-    const dsn = (import.meta as any).env?.VITE_SENTRY_DSN || "https://9111231d5f7846b9b013fa8a5ed9476f@o4510069713403905.ingest.de.sentry.io/4510069725659216"
+    const dsn =
+      (import.meta as any).env?.VITE_SENTRY_DSN ||
+      'https://9111231d5f7846b9b013fa8a5ed9476f@o4510069713403905.ingest.de.sentry.io/4510069725659216'
     if (!dsn) {
       this.initialized = true
       return
@@ -48,7 +50,7 @@ class FrontendErrorReporter {
             triggerLabel: 'Report a Bug',
             formTitle: 'Report a Bug',
             submitButtonLabel: 'Send Bug Report',
-            messagePlaceholder: 'What\'s the bug? What did you expect?',
+            messagePlaceholder: "What's the bug? What did you expect?",
             onFormOpen: () => {
               console.log('Feedback form opened')
             },
@@ -57,15 +59,17 @@ class FrontendErrorReporter {
             },
             onSubmitError: (error) => {
               console.error('Feedback submission failed:', error)
-            }
+            },
           }),
         ],
         beforeSend(event) {
           // Filter out development errors in production
           if ((import.meta as any).env?.MODE === 'production' && event.exception) {
             const error = event.exception.values?.[0]
-            if (error?.value?.includes('ResizeObserver loop limit exceeded') ||
-                error?.value?.includes('Non-Error promise rejection')) {
+            if (
+              error?.value?.includes('ResizeObserver loop limit exceeded') ||
+              error?.value?.includes('Non-Error promise rejection')
+            ) {
               return null // Don't send these common browser errors
             }
           }
@@ -77,7 +81,7 @@ class FrontendErrorReporter {
             return null
           }
           return breadcrumb
-        }
+        },
       })
     } catch (e) {
       this.sentry = null
@@ -89,7 +93,7 @@ class FrontendErrorReporter {
   async captureException(error: unknown, ctx?: FrontendReportContext): Promise<void> {
     if (!this.initialized) await this.init()
     if (!this.sentry) return
-    
+
     try {
       // Track error frequency
       const errorKey = this.getErrorKey(error)
@@ -105,21 +109,21 @@ class FrontendErrorReporter {
         if (ctx?.user) scope.setUser(ctx.user)
         if (ctx?.tags) Object.entries(ctx.tags).forEach(([k, v]) => scope.setTag(k, v))
         if (ctx?.extras) Object.entries(ctx.extras).forEach(([k, v]) => scope.setExtra(k, v))
-        
+
         // Add performance context
         if (this.performanceMetrics.size > 0) {
           scope.setContext('performance', Object.fromEntries(this.performanceMetrics))
         }
-        
+
         // Add error frequency
         scope.setExtra('errorCount', count + 1)
         scope.setExtra('errorKey', errorKey)
-        
+
         // Set fingerprint for better grouping
         if (error instanceof Error) {
           scope.setFingerprint(this.generateFingerprint(error, ctx))
         }
-        
+
         return scope
       })
     } catch (reportingError) {
@@ -127,10 +131,14 @@ class FrontendErrorReporter {
     }
   }
 
-  async captureMessage(message: string, level: 'info' | 'warning' | 'error' = 'info', ctx?: FrontendReportContext): Promise<void> {
+  async captureMessage(
+    message: string,
+    level: 'info' | 'warning' | 'error' = 'info',
+    ctx?: FrontendReportContext
+  ): Promise<void> {
     if (!this.initialized) await this.init()
     if (!this.sentry) return
-    
+
     try {
       this.sentry.captureMessage(message, level, (scope: any) => {
         if (ctx?.user) scope.setUser(ctx.user)
@@ -146,14 +154,14 @@ class FrontendErrorReporter {
   async startTransaction(name: string, operation: string): Promise<any> {
     if (!this.initialized) await this.init()
     if (!this.sentry) return null
-    
+
     try {
       return this.sentry.startTransaction({
         name,
         op: operation,
         tags: {
-          environment: (import.meta as any).env?.MODE || 'development'
-        }
+          environment: (import.meta as any).env?.MODE || 'development',
+        },
       })
     } catch (error) {
       console.error('Failed to start frontend Sentry transaction:', error)
@@ -161,9 +169,12 @@ class FrontendErrorReporter {
     }
   }
 
-  async finishTransaction(transaction: any, status: 'ok' | 'cancelled' | 'unknown_error' | 'internal_error' = 'ok'): Promise<void> {
+  async finishTransaction(
+    transaction: any,
+    status: 'ok' | 'cancelled' | 'unknown_error' | 'internal_error' = 'ok'
+  ): Promise<void> {
     if (!transaction || !this.sentry) return
-    
+
     try {
       transaction.setStatus(status)
       transaction.finish()
@@ -172,24 +183,28 @@ class FrontendErrorReporter {
     }
   }
 
-  async recordPerformance(operation: string, duration: number, metadata?: Record<string, any>): Promise<void> {
+  async recordPerformance(
+    operation: string,
+    duration: number,
+    metadata?: Record<string, any>
+  ): Promise<void> {
     this.performanceMetrics.set(operation, duration)
-    
+
     if (metadata) {
       Object.entries(metadata).forEach(([key, value]) => {
         this.performanceMetrics.set(`${operation}.${key}`, value)
       })
     }
-    
+
     // Send performance data to Sentry
     await this.captureMessage(`Performance: ${operation}`, 'info', {
       extras: {
         duration,
-        ...metadata
+        ...metadata,
       },
       tags: {
-        type: 'performance'
-      }
+        type: 'performance',
+      },
     })
   }
 
@@ -197,23 +212,28 @@ class FrontendErrorReporter {
     await this.captureMessage(`User Action: ${action}`, 'info', {
       extras: metadata,
       tags: {
-        type: 'user-action'
-      }
+        type: 'user-action',
+      },
     })
   }
 
-  async recordApiCall(endpoint: string, method: string, status: number, duration: number): Promise<void> {
+  async recordApiCall(
+    endpoint: string,
+    method: string,
+    status: number,
+    duration: number
+  ): Promise<void> {
     await this.captureMessage(`API Call: ${method} ${endpoint}`, 'info', {
       extras: {
         endpoint,
         method,
         status,
-        duration
+        duration,
       },
       tags: {
         type: 'api-call',
-        status: status.toString()
-      }
+        status: status.toString(),
+      },
     })
   }
 
@@ -226,12 +246,12 @@ class FrontendErrorReporter {
 
   private generateFingerprint(error: Error, ctx?: FrontendReportContext): string[] {
     const fingerprint = [error.name, error.message]
-    
+
     // Add component-specific fingerprinting
     if (ctx?.tags?.component) {
       fingerprint.push(ctx.tags.component)
     }
-    
+
     // Add error type specific fingerprinting
     if (error.message.includes('Network Error')) {
       fingerprint.push('network-error')
@@ -240,7 +260,7 @@ class FrontendErrorReporter {
     } else if (error.message.includes('ResizeObserver')) {
       fingerprint.push('resize-observer')
     }
-    
+
     return fingerprint
   }
 
@@ -251,7 +271,7 @@ class FrontendErrorReporter {
     } catch (error) {
       await this.captureException(error, {
         tags: { context: context || 'async-wrapper' },
-        extras: { function: fn.name || 'anonymous' }
+        extras: { function: fn.name || 'anonymous' },
       })
       return null
     }
@@ -264,7 +284,7 @@ class FrontendErrorReporter {
     } catch (error) {
       this.captureException(error, {
         tags: { context: context || 'sync-wrapper' },
-        extras: { function: fn.name || 'anonymous' }
+        extras: { function: fn.name || 'anonymous' },
       })
       return null
     }
@@ -282,5 +302,3 @@ class FrontendErrorReporter {
 }
 
 export const frontendErrorReporter = new FrontendErrorReporter()
-
-

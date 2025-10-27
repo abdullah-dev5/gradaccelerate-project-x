@@ -17,16 +17,16 @@ export default class GeminiAIService {
   private static async initialize() {
     try {
       console.log('🔧 [GeminiAIService] Initializing Gemini AI service...')
-      
+
       if (!this.genAI) {
         console.log('🔑 [GeminiAIService] Getting API key from env...')
         const apiKey = env.get('GOOGLE_GEMINI_API_KEY')
-        
+
         if (!apiKey) {
           console.error('❌ [GeminiAIService] Google Gemini API key not configured')
           throw new Error('Google Gemini API key not configured')
         }
-        
+
         console.log('✅ [GeminiAIService] API key found, initializing GoogleGenerativeAI...')
         this.genAI = new GoogleGenerativeAI(apiKey)
         this.model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
@@ -47,7 +47,7 @@ export default class GeminiAIService {
     try {
       console.log(`🏷️ [GeminiAIService] Generating ${maxLabels} labels for content...`)
       console.log(`📝 [GeminiAIService] Content preview: ${content.substring(0, 100)}...`)
-      
+
       await this.initialize()
 
       const prompt = `Based on the following content, generate ${maxLabels} relevant, concise labels (single words or short phrases) that would help categorize this bookmark. Focus on the main topics, themes, and content type.
@@ -60,13 +60,18 @@ Generate only the labels, one per line, without numbering or additional text. Ke
       const result = await this.model.generateContent(prompt)
       const response = await result.response
       const text = response.text()
-      
+
       console.log(`📄 [GeminiAIService] Raw AI response: ${text}`)
 
       // Parse the response and clean up
       const labels = text
         .split('\n')
-        .map((label: string) => label.trim().replace(/^[0-9.-]+/, '').trim())
+        .map((label: string) =>
+          label
+            .trim()
+            .replace(/^[0-9.-]+/, '')
+            .trim()
+        )
         .filter((label: string) => label.length > 0 && label.length < 50)
         .slice(0, maxLabels)
 
@@ -85,7 +90,7 @@ Generate only the labels, one per line, without numbering or additional text. Ke
     try {
       console.log(`📖 [GeminiAIService] Generating TL;DR summary (max ${maxLength} chars)...`)
       console.log(`📝 [GeminiAIService] Content preview: ${content.substring(0, 100)}...`)
-      
+
       await this.initialize()
 
       const prompt = `Create a concise TL;DR (Too Long; Didn't Read) summary of the following content. The summary should be informative, engaging, and no more than ${maxLength} characters.
@@ -98,7 +103,7 @@ TL;DR:`
       const result = await this.model.generateContent(prompt)
       const response = await result.response
       const text = response.text()
-      
+
       console.log(`📄 [GeminiAIService] Raw AI response: ${text}`)
 
       // Clean up the response
@@ -128,11 +133,13 @@ TL;DR:`
       console.log(`🚀 [GeminiAIService] Generating comprehensive AI content for bookmark...`)
       console.log(`🔗 [GeminiAIService] URL: ${url}`)
       console.log(`📝 [GeminiAIService] Title: ${title}`)
-      
+
       await this.initialize()
 
       const combinedContent = [title, description, content].filter(Boolean).join('. ')
-      console.log(`📄 [GeminiAIService] Combined content preview: ${combinedContent.substring(0, 150)}...`)
+      console.log(
+        `📄 [GeminiAIService] Combined content preview: ${combinedContent.substring(0, 150)}...`
+      )
 
       // Generate labels and summary in parallel
       console.log('🔄 [GeminiAIService] Generating labels and summary in parallel...')
@@ -146,7 +153,7 @@ TL;DR:`
         summary,
         confidence: 0.85, // Default confidence score
       }
-      
+
       console.log(`✅ [GeminiAIService] Generated content:`, result)
       return result
     } catch (error) {
@@ -175,7 +182,7 @@ TL;DR:`
       console.log(`🔍 [GeminiAIService] Analyzing bookmark content...`)
       console.log(`🔗 [GeminiAIService] URL: ${url}`)
       console.log(`📝 [GeminiAIService] Title: ${title}`)
-      
+
       await this.initialize()
 
       const prompt = `Analyze this bookmark and provide:
@@ -201,7 +208,7 @@ READABILITY: [easy/medium/hard]`
       const result = await this.model.generateContent(prompt)
       const response = await result.response
       const text = response.text()
-      
+
       console.log(`📄 [GeminiAIService] Raw AI analysis response: ${text}`)
 
       // Parse the response
@@ -213,22 +220,18 @@ READABILITY: [easy/medium/hard]`
         ?.map((line: string) => line.trim().substring(1).trim())
         ?.filter(Boolean) || ['Organize by topic', 'Add tags', 'Create collections']
 
-      const category = text
-        .split('CATEGORY:')[1]
-        ?.split('READABILITY:')[0]
-        ?.trim() || 'general'
+      const category = text.split('CATEGORY:')[1]?.split('READABILITY:')[0]?.trim() || 'general'
 
-      const readability = text
-        .split('READABILITY:')[1]
-        ?.trim()
-        ?.toLowerCase() as 'easy' | 'medium' | 'hard' || 'medium'
+      const readability =
+        (text.split('READABILITY:')[1]?.trim()?.toLowerCase() as 'easy' | 'medium' | 'hard') ||
+        'medium'
 
       const analysis = {
         suggestions,
         category,
         readability,
       }
-      
+
       console.log(`✅ [GeminiAIService] Analysis complete:`, analysis)
       return analysis
     } catch (error) {

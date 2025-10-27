@@ -60,19 +60,19 @@ export default class ProjectsController {
         )
 
       const projects = await query.paginate(page, 10)
-      
+
       // Debug: Log project data
       const projectData = projects.all()
       console.log('Projects fetched:', {
         total: projects.total,
         currentPage: projects.currentPage,
-        projects: projectData.map(p => ({
+        projects: projectData.map((p) => ({
           id: p.id,
           title: p.title,
           userId: p.userId,
           hasUserId: p.userId !== undefined,
-          serialized: p.serialize()
-        }))
+          serialized: p.serialize(),
+        })),
       })
 
       if (
@@ -81,7 +81,7 @@ export default class ProjectsController {
       ) {
         return inertia.render('projects/index', {
           projects: {
-            data: projectData.map(p => p.serialize()),
+            data: projectData.map((p) => p.serialize()),
             meta: {
               total: projects.total,
               per_page: projects.perPage,
@@ -99,7 +99,7 @@ export default class ProjectsController {
       }
       // API/JSON response
       return response.ok({
-        projects: projectData.map(p => p.serialize()),
+        projects: projectData.map((p) => p.serialize()),
         meta: {
           total: projects.total,
           per_page: projects.perPage,
@@ -119,7 +119,17 @@ export default class ProjectsController {
         return inertia.render('projects/index', {
           projects: {
             data: [],
-            meta: { total: 0, per_page: 10, current_page: 1, last_page: 1, first_page: 1, first_page_url: null, last_page_url: null, next_page_url: null, previous_page_url: null },
+            meta: {
+              total: 0,
+              per_page: 10,
+              current_page: 1,
+              last_page: 1,
+              first_page: 1,
+              first_page_url: null,
+              last_page_url: null,
+              next_page_url: null,
+              previous_page_url: null,
+            },
           },
           filters: { status: null, search: null },
           error: 'Failed to fetch projects',
@@ -187,7 +197,7 @@ export default class ProjectsController {
         console.log('Rendering project show page:', {
           projectId: project.id,
           serializedProject,
-          hasUserId: serializedProject.userId !== undefined
+          hasUserId: serializedProject.userId !== undefined,
         })
         return inertia.render('projects/Show', { project: serializedProject })
       }
@@ -242,7 +252,7 @@ export default class ProjectsController {
         console.log('Rendering project edit page:', {
           projectId: project.id,
           serializedProject,
-          hasUserId: serializedProject.userId !== undefined
+          hasUserId: serializedProject.userId !== undefined,
         })
         return inertia.render('projects/edit', { project: serializedProject, statusOptions })
       }

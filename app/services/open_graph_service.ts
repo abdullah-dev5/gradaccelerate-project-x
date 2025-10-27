@@ -17,7 +17,7 @@ export default class OpenGraphService {
   static async extractData(url: string): Promise<OpenGraphData> {
     try {
       console.log(`🔍 [OpenGraphService] Extracting Open Graph data from: ${url}`)
-      
+
       const { result } = await ogs({
         url,
         timeout: 10000, // 10 second timeout
@@ -46,8 +46,10 @@ export default class OpenGraphService {
       })
 
       const data = {
-        title: result.ogTitle || result.twitterTitle || result.dcTitle || result.title || 'Untitled',
-        description: result.ogDescription || result.twitterDescription || result.dcDescription || null,
+        title:
+          result.ogTitle || result.twitterTitle || result.dcTitle || result.title || 'Untitled',
+        description:
+          result.ogDescription || result.twitterDescription || result.dcDescription || null,
         imageUrl: result.ogImage?.[0]?.url || result.twitterImage?.[0]?.url || null,
         siteName: result.ogSiteName || result.twitterSite || null,
         url: result.ogUrl || result.requestUrl || url,
@@ -59,7 +61,7 @@ export default class OpenGraphService {
       return data
     } catch (error) {
       console.error('❌ [OpenGraphService] Error extracting Open Graph data:', error)
-      
+
       // Return fallback data
       const fallbackData = {
         title: 'Untitled',
@@ -70,7 +72,7 @@ export default class OpenGraphService {
         type: null,
         locale: null,
       }
-      
+
       console.log(`⚠️ [OpenGraphService] Returning fallback data:`, fallbackData)
       return fallbackData
     }
@@ -79,12 +81,14 @@ export default class OpenGraphService {
   /**
    * Validate if a URL is accessible and returns valid Open Graph data
    */
-  static async validateUrl(url: string): Promise<{ isValid: boolean; data?: OpenGraphData; error?: string }> {
+  static async validateUrl(
+    url: string
+  ): Promise<{ isValid: boolean; data?: OpenGraphData; error?: string }> {
     try {
       console.log(`🔍 [OpenGraphService] Validating URL: ${url}`)
-      
+
       const data = await this.extractData(url)
-      
+
       // Check if we got meaningful data
       if (data.title === 'Untitled' && !data.description && !data.imageUrl) {
         console.log(`❌ [OpenGraphService] No meaningful metadata found for URL: ${url}`)
@@ -114,7 +118,7 @@ export default class OpenGraphService {
   static async extractTextContent(url: string): Promise<string> {
     try {
       console.log(`📝 [OpenGraphService] Extracting text content from: ${url}`)
-      
+
       const { result } = await ogs({
         url,
         timeout: 15000,
@@ -136,8 +140,10 @@ export default class OpenGraphService {
       ].filter(Boolean)
 
       const combinedText = textParts.join('. ').substring(0, 2000) // Limit to 2000 chars for AI processing
-      
-      console.log(`✅ [OpenGraphService] Extracted text content (${combinedText.length} chars): ${combinedText.substring(0, 150)}...`)
+
+      console.log(
+        `✅ [OpenGraphService] Extracted text content (${combinedText.length} chars): ${combinedText.substring(0, 150)}...`
+      )
       return combinedText
     } catch (error) {
       console.error('❌ [OpenGraphService] Error extracting text content:', error)

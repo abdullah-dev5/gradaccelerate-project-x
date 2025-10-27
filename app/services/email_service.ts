@@ -16,7 +16,9 @@ export default class EmailService {
     this.isConfigured = !!(host && user && pass && fromEmail)
 
     if (!this.isConfigured) {
-      console.warn('[EmailService] SMTP not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM_EMAIL')
+      console.warn(
+        '[EmailService] SMTP not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM_EMAIL'
+      )
       return
     }
 
@@ -28,11 +30,14 @@ export default class EmailService {
     })
   }
 
-  async sendReminderEmail(to: string, reminder: {
-    title: string
-    message?: string | null
-    remindAt: string
-  }): Promise<boolean> {
+  async sendReminderEmail(
+    to: string,
+    reminder: {
+      title: string
+      message?: string | null
+      remindAt: string
+    }
+  ): Promise<boolean> {
     if (!this.isConfigured) {
       console.warn('[EmailService] Cannot send email - SMTP not configured')
       return false
@@ -61,7 +66,7 @@ export default class EmailService {
     remindAt: string
   }): string {
     const remindAt = new Date(reminder.remindAt).toLocaleString()
-    
+
     return `
 Reminder: ${reminder.title}
 
@@ -80,7 +85,7 @@ This reminder was sent from your GradAccelerate dashboard.
     remindAt: string
   }): string {
     const remindAt = new Date(reminder.remindAt).toLocaleString()
-    
+
     return `
 <!DOCTYPE html>
 <html>

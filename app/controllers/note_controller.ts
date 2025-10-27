@@ -62,7 +62,7 @@ export default class NotesController {
       // Always render Inertia page for browser requests (even if not X-Inertia)
       if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
         return inertia.render('notes/index', {
-          notes: notes.serialize().data.map(note => ({
+          notes: notes.serialize().data.map((note) => ({
             id: note.id,
             title: note.title,
             content: note.content,
@@ -90,7 +90,17 @@ export default class NotesController {
         }
         return inertia.render('notes/index', {
           notes: [],
-          meta: { total: 0, per_page: 10, current_page: 1, last_page: 1, first_page: 1, first_page_url: null, last_page_url: null, next_page_url: null, previous_page_url: null },
+          meta: {
+            total: 0,
+            per_page: 10,
+            current_page: 1,
+            last_page: 1,
+            first_page: 1,
+            first_page_url: null,
+            last_page_url: null,
+            next_page_url: null,
+            previous_page_url: null,
+          },
           sortOptions: { currentSort: 'created_at', currentOrder: 'desc', searchQuery: '' },
           error: 'Failed to fetch notes',
         })
@@ -115,7 +125,7 @@ export default class NotesController {
         .firstOrFail()
 
       if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
-        return inertia.render('notes/show', { 
+        return inertia.render('notes/show', {
           note: {
             id: note.id,
             title: note.title,
@@ -129,7 +139,7 @@ export default class NotesController {
             labels: note.labels,
             userId: note.userId,
             shareUuid: note.shareUuid,
-          }
+          },
         })
       }
       return response.ok(note)
@@ -502,7 +512,7 @@ export default class NotesController {
       if (this.isInertiaRequest(request)) {
         return response.redirect(`/notes/${note.id}`)
       }
-      
+
       // For API requests, return JSON response
       return response.ok({
         message: 'Note updated successfully',
@@ -526,7 +536,7 @@ export default class NotesController {
       if (this.isInertiaRequest(request)) {
         return response.redirect().back()
       }
-      
+
       // For API requests, return JSON error
       return response.status(400).send({
         message: 'Failed to update note',
@@ -550,10 +560,10 @@ export default class NotesController {
 
       return this.isInertiaRequest(request)
         ? response.redirect('/notes')
-        : response.ok({ 
-            message: 'Note moved to trash', 
+        : response.ok({
+            message: 'Note moved to trash',
             success: true,
-            noteId: noteId
+            noteId: noteId,
           })
     } catch (error) {
       return response.status(400).send({ message: 'Failed to delete note', error: error.message })
@@ -573,8 +583,8 @@ export default class NotesController {
       note.deletedAt = null
       await note.save()
 
-      return response.ok({ 
-        message: 'Note restored successfully', 
+      return response.ok({
+        message: 'Note restored successfully',
         note: {
           id: note.id,
           title: note.title,
@@ -587,7 +597,7 @@ export default class NotesController {
           gif_slug: note.gif_slug,
           labels: note.labels,
           userId: note.userId,
-        }
+        },
       })
     } catch (error) {
       return response.status(400).send({ message: 'Restore failed', error: error.message })
@@ -599,7 +609,7 @@ export default class NotesController {
       await auth.authenticate()
       const user = auth.getUserOrFail()
       const { id: noteId } = await request.validateUsing(noteIdValidator, { data: params })
-      
+
       const note = await Note.query()
         .where('id', noteId)
         .where('userId', user.id)
@@ -615,10 +625,10 @@ export default class NotesController {
       }
 
       // For API requests, return JSON
-      return response.ok({ 
+      return response.ok({
         success: true,
-        message: 'Pin status updated', 
-        note: note.serialize()
+        message: 'Pin status updated',
+        note: note.serialize(),
       })
     } catch (error) {
       if (this.isInertiaRequest(request)) {
@@ -709,9 +719,9 @@ export default class NotesController {
         errorStatus: error.status,
         errorName: error.name,
       })
-      return response.status(500).send({ 
-        message: 'Image upload failed', 
-        error: error.message 
+      return response.status(500).send({
+        message: 'Image upload failed',
+        error: error.message,
       })
     }
   }
@@ -777,7 +787,7 @@ export default class NotesController {
   async viewSharedNote({ params, request, response, inertia }: HttpContext) {
     try {
       const { token } = await request.validateUsing(shareTokenValidator, { data: params })
-      
+
       logger.info('Attempting to view shared note with token:', { token })
 
       // Find note by share UUID, ensure it's not deleted

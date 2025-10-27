@@ -19,5 +19,3 @@ export function useReminderNotifications(userId?: number) {
     }
   }, [userId])
 }
-
-

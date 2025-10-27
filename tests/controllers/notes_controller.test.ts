@@ -6,7 +6,7 @@ import Note from '#models/note'
 async function authenticateUser(client: any, user: User) {
   const loginResponse = await client.post('/api/v1/auth/login').json({
     email: user.email,
-    password: 'password123'
+    password: 'password123',
   })
   return loginResponse.cookies()[0]?.value || ''
 }
@@ -19,7 +19,7 @@ test.group('Notes Controller', (group) => {
     testUser = await User.create({
       fullName: 'Test User',
       email: `test-${Date.now()}@example.com`,
-      password: 'password123'
+      password: 'password123',
     })
   })
 
@@ -29,7 +29,10 @@ test.group('Notes Controller', (group) => {
     await testUser.delete()
   })
 
-  test('GET /api/v1/notes - should return user notes when authenticated', async ({ client, assert }) => {
+  test('GET /api/v1/notes - should return user notes when authenticated', async ({
+    client,
+    assert,
+  }) => {
     // Authenticate user
     const authCookie = await authenticateUser(client, testUser)
 
@@ -38,18 +41,17 @@ test.group('Notes Controller', (group) => {
       {
         title: 'Test Note 1',
         content: 'Content 1',
-        userId: testUser.id
+        userId: testUser.id,
       },
       {
         title: 'Test Note 2',
         content: 'Content 2',
-        userId: testUser.id
-      }
+        userId: testUser.id,
+      },
     ])
 
-    const response = await client.get('/api/v1/notes')
-      .cookie('adonis-session', authCookie)
-    
+    const response = await client.get('/api/v1/notes').cookie('adonis-session', authCookie)
+
     response.assertStatus(200)
     const body = response.body()
     assert.isArray(body.notes)
@@ -59,27 +61,28 @@ test.group('Notes Controller', (group) => {
 
   test('GET /api/v1/notes - should return 401 when not authenticated', async ({ client }) => {
     const response = await client.get('/api/v1/notes')
-    
+
     response.assertStatus(401)
     response.assertBodyContains({
-      message: 'Unauthorized'
+      message: 'Unauthorized',
     })
   })
 
   test('GET /api/v1/notes - should support pagination', async ({ client, assert }) => {
     const authCookie = await authenticateUser(client, testUser)
-    
+
     // Create 15 test notes
     const notes = Array.from({ length: 15 }, (_, i) => ({
       title: `Test Note ${i + 1}`,
       content: `Content ${i + 1}`,
-      userId: testUser.id
+      userId: testUser.id,
     }))
     await Note.createMany(notes)
 
-    const response = await client.get('/api/v1/notes?page=2&limit=10')
+    const response = await client
+      .get('/api/v1/notes?page=2&limit=10')
       .cookie('adonis-session', authCookie)
-    
+
     response.assertStatus(200)
     const body = response.body()
     assert.equal(body.notes.length, 5) // Remaining 5 notes on page 2
@@ -89,23 +92,24 @@ test.group('Notes Controller', (group) => {
 
   test('GET /api/v1/notes - should support search', async ({ client, assert }) => {
     const authCookie = await authenticateUser(client, testUser)
-    
+
     await Note.createMany([
       {
         title: 'JavaScript Tutorial',
         content: 'Learn JavaScript basics',
-        userId: testUser.id
+        userId: testUser.id,
       },
       {
         title: 'Python Guide',
         content: 'Python programming guide',
-        userId: testUser.id
-      }
+        userId: testUser.id,
+      },
     ])
 
-    const response = await client.get('/api/v1/notes?search=JavaScript')
+    const response = await client
+      .get('/api/v1/notes?search=JavaScript')
       .cookie('adonis-session', authCookie)
-    
+
     response.assertStatus(200)
     const body = response.body()
     assert.equal(body.notes.length, 1)
@@ -114,25 +118,26 @@ test.group('Notes Controller', (group) => {
 
   test('POST /api/v1/notes - should create a new note', async ({ client, assert }) => {
     const authCookie = await authenticateUser(client, testUser)
-    
+
     const noteData = {
       title: 'New Test Note',
       content: 'This is test content',
-      pinned: false
+      pinned: false,
     }
 
-    const response = await client.post('/api/v1/notes')
+    const response = await client
+      .post('/api/v1/notes')
       .cookie('adonis-session', authCookie)
       .json(noteData)
-    
+
     response.assertStatus(201)
     response.assertBodyContains({
       message: 'Note created successfully',
       note: {
         title: noteData.title,
         content: noteData.content,
-        userId: testUser.id
-      }
+        userId: testUser.id,
+      },
     })
 
     // Verify note was created in database
@@ -143,82 +148,86 @@ test.group('Notes Controller', (group) => {
 
   test('POST /api/v1/notes - should fail with invalid data', async ({ client }) => {
     const authCookie = await authenticateUser(client, testUser)
-    
+
     const invalidData = {
       title: '', // Empty title should fail
-      content: 'Some content'
+      content: 'Some content',
     }
 
-    const response = await client.post('/api/v1/notes')
+    const response = await client
+      .post('/api/v1/notes')
       .cookie('adonis-session', authCookie)
       .json(invalidData)
-    
+
     response.assertStatus(422)
     response.assertBodyContains({
       message: 'Validation failed',
       errors: {
-        title: ['The title field is required']
-      }
+        title: ['The title field is required'],
+      },
     })
   })
 
   test('GET /api/v1/notes/:id - should return specific note', async ({ client }) => {
     const authCookie = await authenticateUser(client, testUser)
-    
+
     const note = await Note.create({
       title: 'Specific Note',
       content: 'Specific content',
-      userId: testUser.id
+      userId: testUser.id,
     })
 
-    const response = await client.get(`/api/v1/notes/${note.id}`)
+    const response = await client
+      .get(`/api/v1/notes/${note.id}`)
       .cookie('adonis-session', authCookie)
-    
+
     response.assertStatus(200)
     response.assertBodyContains({
       note: {
         id: note.id,
         title: note.title,
         content: note.content,
-        userId: testUser.id
-      }
+        userId: testUser.id,
+      },
     })
   })
 
   test('GET /api/v1/notes/:id - should return 404 for non-existent note', async ({ client }) => {
     const authCookie = await authenticateUser(client, testUser)
-    
-    const response = await client.get('/api/v1/notes/99999')
-      .cookie('adonis-session', authCookie)
-    
+
+    const response = await client.get('/api/v1/notes/99999').cookie('adonis-session', authCookie)
+
     response.assertStatus(404)
     response.assertBodyContains({
-      message: 'Note not found'
+      message: 'Note not found',
     })
   })
 
-  test('GET /api/v1/notes/:id - should return 403 for note belonging to another user', async ({ client }) => {
+  test('GET /api/v1/notes/:id - should return 403 for note belonging to another user', async ({
+    client,
+  }) => {
     const authCookie = await authenticateUser(client, testUser)
-    
+
     // Create another user and their note
     const otherUser = await User.create({
       fullName: 'Other User',
       email: `other-${Date.now()}@example.com`,
-      password: 'password123'
+      password: 'password123',
     })
 
     const otherNote = await Note.create({
       title: 'Other User Note',
       content: 'Other user content',
-      userId: otherUser.id
+      userId: otherUser.id,
     })
 
-    const response = await client.get(`/api/v1/notes/${otherNote.id}`)
+    const response = await client
+      .get(`/api/v1/notes/${otherNote.id}`)
       .cookie('adonis-session', authCookie)
-    
+
     response.assertStatus(403)
     response.assertBodyContains({
-      message: 'Access denied'
+      message: 'Access denied',
     })
 
     // Clean up
@@ -228,23 +237,24 @@ test.group('Notes Controller', (group) => {
 
   test('PUT /api/v1/notes/:id - should update note', async ({ client, assert }) => {
     const authCookie = await authenticateUser(client, testUser)
-    
+
     const note = await Note.create({
       title: 'Original Title',
       content: 'Original content',
-      userId: testUser.id
+      userId: testUser.id,
     })
 
     const updateData = {
       title: 'Updated Title',
       content: 'Updated content',
-      pinned: true
+      pinned: true,
     }
 
-    const response = await client.put(`/api/v1/notes/${note.id}`)
+    const response = await client
+      .put(`/api/v1/notes/${note.id}`)
       .cookie('adonis-session', authCookie)
       .json(updateData)
-    
+
     response.assertStatus(200)
     response.assertBodyContains({
       message: 'Note updated successfully',
@@ -252,8 +262,8 @@ test.group('Notes Controller', (group) => {
         id: note.id,
         title: updateData.title,
         content: updateData.content,
-        pinned: updateData.pinned
-      }
+        pinned: updateData.pinned,
+      },
     })
 
     // Verify note was updated in database
@@ -264,19 +274,20 @@ test.group('Notes Controller', (group) => {
 
   test('DELETE /api/v1/notes/:id - should delete note', async ({ client, assert }) => {
     const authCookie = await authenticateUser(client, testUser)
-    
+
     const note = await Note.create({
       title: 'Note to Delete',
       content: 'This note will be deleted',
-      userId: testUser.id
+      userId: testUser.id,
     })
 
-    const response = await client.delete(`/api/v1/notes/${note.id}`)
+    const response = await client
+      .delete(`/api/v1/notes/${note.id}`)
       .cookie('adonis-session', authCookie)
-    
+
     response.assertStatus(200)
     response.assertBodyContains({
-      message: 'Note deleted successfully'
+      message: 'Note deleted successfully',
     })
 
     // Verify note was deleted from database
@@ -286,33 +297,35 @@ test.group('Notes Controller', (group) => {
 
   test('POST /api/v1/notes/:id/pin - should pin/unpin note', async ({ client, assert }) => {
     const authCookie = await authenticateUser(client, testUser)
-    
+
     const note = await Note.create({
       title: 'Pin Test Note',
       content: 'Testing pin functionality',
       userId: testUser.id,
-      pinned: false
+      pinned: false,
     })
 
     // Pin the note
-    const pinResponse = await client.post(`/api/v1/notes/${note.id}/pin`)
+    const pinResponse = await client
+      .post(`/api/v1/notes/${note.id}/pin`)
       .cookie('adonis-session', authCookie)
-    
+
     pinResponse.assertStatus(200)
     pinResponse.assertBodyContains({
-      message: 'Note pinned successfully'
+      message: 'Note pinned successfully',
     })
 
     await note.refresh()
     assert.isTrue(note.pinned)
 
     // Unpin the note
-    const unpinResponse = await client.post(`/api/v1/notes/${note.id}/pin`)
+    const unpinResponse = await client
+      .post(`/api/v1/notes/${note.id}/pin`)
       .cookie('adonis-session', authCookie)
-    
+
     unpinResponse.assertStatus(200)
     unpinResponse.assertBodyContains({
-      message: 'Note unpinned successfully'
+      message: 'Note unpinned successfully',
     })
 
     await note.refresh()

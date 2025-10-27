@@ -64,18 +64,20 @@ export default class Bookmark extends BaseModel {
   static active() {
     return this.query().where('status', 'active')
   }
-  
+
   static favorites() {
     return this.query().where('isFavorite', true)
   }
-  
+
   static archived() {
     return this.query().where('status', 'archived')
   }
 
   // Helper methods
   async toggleFavorite() {
-    console.log(`⭐ [Bookmark] Toggling favorite for bookmark ${this.id}: ${this.isFavorite} -> ${!this.isFavorite}`)
+    console.log(
+      `⭐ [Bookmark] Toggling favorite for bookmark ${this.id}: ${this.isFavorite} -> ${!this.isFavorite}`
+    )
     this.isFavorite = !this.isFavorite
     await this.save()
     console.log(`✅ [Bookmark] Favorite status updated for bookmark ${this.id}: ${this.isFavorite}`)
@@ -111,7 +113,9 @@ export default class Bookmark extends BaseModel {
     }
     try {
       const labels = JSON.parse(this.aiGeneratedLabels)
-      console.log(`🏷️ [Bookmark] Parsed ${labels.length} AI labels for bookmark ${this.id}: ${JSON.stringify(labels)}`)
+      console.log(
+        `🏷️ [Bookmark] Parsed ${labels.length} AI labels for bookmark ${this.id}: ${JSON.stringify(labels)}`
+      )
       return labels
     } catch (error) {
       console.error(`❌ [Bookmark] Error parsing AI labels for bookmark ${this.id}:`, error)
@@ -121,7 +125,9 @@ export default class Bookmark extends BaseModel {
 
   // Set AI-generated labels
   setParsedLabels(labels: string[]) {
-    console.log(`🏷️ [Bookmark] Setting ${labels.length} AI labels for bookmark ${this.id}: ${JSON.stringify(labels)}`)
+    console.log(
+      `🏷️ [Bookmark] Setting ${labels.length} AI labels for bookmark ${this.id}: ${JSON.stringify(labels)}`
+    )
     this.aiGeneratedLabels = JSON.stringify(labels)
   }
 }

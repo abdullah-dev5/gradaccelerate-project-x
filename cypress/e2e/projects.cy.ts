@@ -11,7 +11,7 @@ describe('Projects Management (API Only)', () => {
       cy.request({
         method: 'GET',
         url: '/api/v1/projects',
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([401, 403])
       })
@@ -24,13 +24,13 @@ describe('Projects Management (API Only)', () => {
         body: {
           name: 'Test Project',
           description: 'This is a test project',
-          status: 'active'
+          status: 'active',
         },
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
         },
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([401, 403])
       })
@@ -43,13 +43,13 @@ describe('Projects Management (API Only)', () => {
         body: {
           name: 'Updated Project',
           description: 'This is an updated project',
-          status: 'completed'
+          status: 'completed',
         },
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
         },
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([401, 403, 404])
       })
@@ -59,7 +59,7 @@ describe('Projects Management (API Only)', () => {
       cy.request({
         method: 'DELETE',
         url: '/api/v1/projects/1',
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([401, 403, 404])
       })
@@ -69,7 +69,7 @@ describe('Projects Management (API Only)', () => {
       cy.request({
         method: 'GET',
         url: '/api/v1/projects?status=active',
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([401, 403])
       })
@@ -79,7 +79,7 @@ describe('Projects Management (API Only)', () => {
       cy.request({
         method: 'GET',
         url: '/api/v1/projects?search=test',
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([401, 403])
       })
@@ -90,12 +90,12 @@ describe('Projects Management (API Only)', () => {
     it('should test projects form validation', () => {
       cy.visit('/login')
       cy.wait(2000) // Wait for hydration
-      
+
       // Test login form validation
       cy.get('input[name="email"]').should('be.enabled').type('test@example.com')
       cy.get('input[name="password"]').should('be.enabled').type('password123')
       cy.get('button[type="submit"]').should('be.enabled').click()
-      
+
       // Should stay on login page (invalid credentials)
       cy.url().should('include', '/login')
     })
@@ -110,9 +110,9 @@ describe('Projects Management (API Only)', () => {
         body: 'invalid json',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
         },
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([400, 401, 403, 422])
       })
@@ -124,7 +124,7 @@ describe('Projects Management (API Only)', () => {
         method: 'GET',
         url: '/api/v1/projects',
         timeout: 2000,
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([401, 403, 408])
       })
@@ -134,7 +134,7 @@ describe('Projects Management (API Only)', () => {
       cy.request({
         method: 'GET',
         url: '/api/v1/projects/999999',
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([401, 403, 404])
       })
@@ -144,11 +144,11 @@ describe('Projects Management (API Only)', () => {
   describe('Projects Performance Testing', () => {
     it('should measure API response times', () => {
       const startTime = Date.now()
-      
+
       cy.request({
         method: 'GET',
         url: '/api/v1/projects',
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         const responseTime = Date.now() - startTime
         expect(responseTime).to.be.lessThan(5000) // Should respond within 5 seconds
@@ -158,17 +158,17 @@ describe('Projects Management (API Only)', () => {
 
     it('should handle concurrent requests', () => {
       const requests = []
-      
+
       for (let i = 0; i < 3; i++) {
         requests.push(
           cy.request({
             method: 'GET',
             url: '/api/v1/projects',
-            failOnStatusCode: false
+            failOnStatusCode: false,
           })
         )
       }
-      
+
       cy.wrap(Promise.all(requests), { timeout: 30000 }).then((responses) => {
         responses.forEach((response) => {
           if (response && response.status) {
@@ -183,8 +183,8 @@ describe('Projects Management (API Only)', () => {
     it('should handle SQL injection attempts', () => {
       cy.request({
         method: 'GET',
-        url: '/api/v1/projects?search=\'; DROP TABLE projects; --',
-        failOnStatusCode: false
+        url: "/api/v1/projects?search='; DROP TABLE projects; --",
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([401, 403, 400])
       })
@@ -197,13 +197,13 @@ describe('Projects Management (API Only)', () => {
         body: {
           name: '<script>alert("xss")</script>',
           description: 'Test description',
-          status: 'active'
+          status: 'active',
         },
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
         },
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([401, 403, 400])
       })

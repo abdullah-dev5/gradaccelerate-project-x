@@ -45,5 +45,3 @@ test.group('ReminderService', (group) => {
     expect(fresh.sentAt).toBeDefined()
   })
 })
-
-

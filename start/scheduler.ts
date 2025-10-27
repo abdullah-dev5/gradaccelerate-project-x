@@ -29,7 +29,14 @@ async function processAllUsersDueReminders() {
         console.error('[Scheduler] Error processing user', u.id, e)
       }
     }
-    log('Run complete. Users:', users.length, 'Processed reminders:', totalProcessed, 'Duration(ms):', Date.now() - startedAt)
+    log(
+      'Run complete. Users:',
+      users.length,
+      'Processed reminders:',
+      totalProcessed,
+      'Duration(ms):',
+      Date.now() - startedAt
+    )
   } catch (e) {
     console.error('[Scheduler] Fatal error:', e)
   } finally {
@@ -43,7 +50,7 @@ if (enabled) {
   cron.schedule('* * * * *', async () => {
     await processAllUsersDueReminders()
   })
-  
+
   // Run immediately on startup (delay to ensure DB is ready)
   setTimeout(async () => {
     log('Running initial check for due reminders...')
@@ -52,8 +59,3 @@ if (enabled) {
 } else {
   console.log('[Scheduler] Disabled. Set SCHEDULER_ENABLED=true in .env to enable.')
 }
-
-
-
-
-

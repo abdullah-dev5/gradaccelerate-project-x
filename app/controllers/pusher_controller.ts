@@ -12,11 +12,11 @@ export default class PusherController {
     const channel_name = request.input('channel_name')
     const socket_id = request.input('socket_id')
 
-    console.log('Pusher auth request:', { 
-      userId: user.id, 
-      channel_name, 
+    console.log('Pusher auth request:', {
+      userId: user.id,
+      channel_name,
       socket_id,
-      expectedChannel: `private-user.${user.id}`
+      expectedChannel: `private-user.${user.id}`,
     })
 
     if (!channel_name || !socket_id) {
@@ -26,7 +26,10 @@ export default class PusherController {
 
     // Only allow user to authenticate to their own private channel
     if (channel_name !== `private-user.${user.id}`) {
-      console.log('Pusher auth: Unauthorized channel', { channel_name, expected: `private-user.${user.id}` })
+      console.log('Pusher auth: Unauthorized channel', {
+        channel_name,
+        expected: `private-user.${user.id}`,
+      })
       return response.forbidden({ error: 'Unauthorized channel' })
     }
 
@@ -44,5 +47,3 @@ export default class PusherController {
     return response.ok(authResponse)
   }
 }
-
-

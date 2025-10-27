@@ -1,11 +1,16 @@
-  import { HttpContext } from '@adonisjs/core/http'
+import { HttpContext } from '@adonisjs/core/http'
 import { inject } from '@adonisjs/core'
 import Bookmark from '#models/bookmark'
 import User from '#models/user'
 import Label from '#models/label'
 import OpenGraphService from '#services/open_graph_service'
 import GeminiAIService from '#services/gemini_ai_service'
-import { createBookmarkValidator, updateBookmarkValidator, bookmarkIdValidator, bookmarkSearchValidator } from '#validators/bookmarks/create_bookmark_validator'
+import {
+  createBookmarkValidator,
+  updateBookmarkValidator,
+  bookmarkIdValidator,
+  bookmarkSearchValidator,
+} from '#validators/bookmarks/create_bookmark_validator'
 
 @inject()
 export default class BookmarkController {
@@ -17,15 +22,24 @@ export default class BookmarkController {
       console.log('📚 [BookmarkController] Starting index method...')
       const user = auth.user!
       console.log(`👤 [BookmarkController] User: ${user.id} (${user.email})`)
-      
+
       const query = request.qs()
       console.log(`🔍 [BookmarkController] Query parameters:`, query)
 
       // Validate search parameters
       console.log('✅ [BookmarkController] Validating search parameters...')
-      const { search, sort, order, page, limit, status, isFavorite, labels } = 
+      const { search, sort, order, page, limit, status, isFavorite, labels } =
         await bookmarkSearchValidator.validate(query)
-      console.log(`✅ [BookmarkController] Validated parameters:`, { search, sort, order, page, limit, status, isFavorite, labels })
+      console.log(`✅ [BookmarkController] Validated parameters:`, {
+        search,
+        sort,
+        order,
+        page,
+        limit,
+        status,
+        isFavorite,
+        labels,
+      })
 
       // Build query
       console.log('🔨 [BookmarkController] Building database query...')
@@ -71,15 +85,17 @@ export default class BookmarkController {
       // Apply pagination
       const pageNumber = page || 1
       const limitNumber = limit || 20
-      console.log(`📄 [BookmarkController] Applying pagination: page ${pageNumber}, limit ${limitNumber}`)
+      console.log(
+        `📄 [BookmarkController] Applying pagination: page ${pageNumber}, limit ${limitNumber}`
+      )
       const bookmarks = await bookmarksQuery.paginate(pageNumber, limitNumber)
-      console.log(`✅ [BookmarkController] Retrieved ${bookmarks.total} bookmarks (showing ${bookmarks.all().length})`)
+      console.log(
+        `✅ [BookmarkController] Retrieved ${bookmarks.total} bookmarks (showing ${bookmarks.all().length})`
+      )
 
       // Get labels for filtering
       console.log('🏷️ [BookmarkController] Fetching user labels...')
-      const allLabels = await Label.query()
-        .where('user_id', user.id)
-        .orderBy('name')
+      const allLabels = await Label.query().where('user_id', user.id).orderBy('name')
       console.log(`✅ [BookmarkController] Retrieved ${allLabels.length} labels`)
 
       const responseData = {
@@ -87,7 +103,7 @@ export default class BookmarkController {
         labels: allLabels,
         filters: { search, sort, order, status, isFavorite, labels },
       }
-      
+
       console.log('✅ [BookmarkController] Rendering bookmarks index page...')
       return inertia.render('bookmarks/index', responseData)
     } catch (error) {
@@ -104,15 +120,24 @@ export default class BookmarkController {
       console.log('📚 [BookmarkController] Starting API index method...')
       const user = auth.user!
       console.log(`👤 [BookmarkController] User: ${user.id} (${user.email})`)
-      
+
       const query = request.qs()
       console.log(`🔍 [BookmarkController] API Query parameters:`, query)
 
       // Validate search parameters
       console.log('✅ [BookmarkController] Validating API search parameters...')
-      const { search, sort, order, page, limit, status, isFavorite, labels } = 
+      const { search, sort, order, page, limit, status, isFavorite, labels } =
         await bookmarkSearchValidator.validate(query)
-      console.log(`✅ [BookmarkController] API Validated parameters:`, { search, sort, order, page, limit, status, isFavorite, labels })
+      console.log(`✅ [BookmarkController] API Validated parameters:`, {
+        search,
+        sort,
+        order,
+        page,
+        limit,
+        status,
+        isFavorite,
+        labels,
+      })
 
       // Build query
       console.log('🔨 [BookmarkController] Building API database query...')
@@ -157,9 +182,13 @@ export default class BookmarkController {
       // Apply pagination
       const pageNumber = page || 1
       const limitNumber = limit || 20
-      console.log(`📄 [BookmarkController] Applying API pagination: page ${pageNumber}, limit ${limitNumber}`)
+      console.log(
+        `📄 [BookmarkController] Applying API pagination: page ${pageNumber}, limit ${limitNumber}`
+      )
       const bookmarks = await bookmarksQuery.paginate(pageNumber, limitNumber)
-      console.log(`✅ [BookmarkController] API Retrieved ${bookmarks.total} bookmarks (showing ${bookmarks.all().length})`)
+      console.log(
+        `✅ [BookmarkController] API Retrieved ${bookmarks.total} bookmarks (showing ${bookmarks.all().length})`
+      )
 
       console.log('✅ [BookmarkController] Returning API JSON response...')
       return response.json(bookmarks.toJSON())
@@ -194,19 +223,19 @@ export default class BookmarkController {
       console.log('🔍 [BookmarkController] Starting validateUrl method...')
       const { url } = request.body()
       console.log(`🔗 [BookmarkController] Validating URL: ${url}`)
-      
+
       if (!url) {
         console.log('❌ [BookmarkController] No URL provided in request body')
-        return response.status(400).json({ 
-          isValid: false, 
-          error: 'URL is required' 
+        return response.status(400).json({
+          isValid: false,
+          error: 'URL is required',
         })
       }
 
       console.log('🔍 [BookmarkController] Calling OpenGraphService.validateUrl...')
       const result = await OpenGraphService.validateUrl(url)
       console.log(`✅ [BookmarkController] URL validation result:`, result)
-      
+
       return response.json(result)
     } catch (error) {
       console.error('❌ [BookmarkController] Error in validateUrl method:', error)
@@ -226,7 +255,7 @@ export default class BookmarkController {
       console.log('💾 [BookmarkController] Starting store method...')
       const user = auth.user!
       console.log(`👤 [BookmarkController] User: ${user.id} (${user.email})`)
-      
+
       console.log('✅ [BookmarkController] Validating request body...')
       const data = await createBookmarkValidator.validate(request.body())
       console.log(`✅ [BookmarkController] Validated data:`, data)
@@ -285,7 +314,7 @@ export default class BookmarkController {
       console.log('👁️ [BookmarkController] Starting show method...')
       const user = auth.user!
       console.log(`👤 [BookmarkController] User: ${user.id} (${user.email})`)
-      
+
       console.log('✅ [BookmarkController] Validating bookmark ID...')
       const { id } = await bookmarkIdValidator.validate(params)
       console.log(`🔍 [BookmarkController] Looking for bookmark ID: ${id}`)
@@ -319,7 +348,7 @@ export default class BookmarkController {
       console.log('✏️ [BookmarkController] Starting edit method...')
       const user = auth.user!
       console.log(`👤 [BookmarkController] User: ${user.id} (${user.email})`)
-      
+
       console.log('✅ [BookmarkController] Validating bookmark ID...')
       const { id } = await bookmarkIdValidator.validate(params)
       console.log(`🔍 [BookmarkController] Looking for bookmark ID: ${id}`)
@@ -340,9 +369,7 @@ export default class BookmarkController {
 
       // Get all available labels for the user
       console.log('🏷️ [BookmarkController] Fetching user labels...')
-      const allLabels = await Label.query()
-        .where('user_id', user.id)
-        .orderBy('name')
+      const allLabels = await Label.query().where('user_id', user.id).orderBy('name')
       console.log(`✅ [BookmarkController] Retrieved ${allLabels.length} labels`)
 
       console.log('✅ [BookmarkController] Rendering bookmark edit page...')
@@ -361,11 +388,11 @@ export default class BookmarkController {
       console.log('🔄 [BookmarkController] Starting update method...')
       const user = auth.user!
       console.log(`👤 [BookmarkController] User: ${user.id} (${user.email})`)
-      
+
       console.log('✅ [BookmarkController] Validating bookmark ID...')
       const { id } = await bookmarkIdValidator.validate(params)
       console.log(`🔍 [BookmarkController] Looking for bookmark ID: ${id}`)
-      
+
       console.log('✅ [BookmarkController] Validating request body...')
       const data = await updateBookmarkValidator.validate(request.body())
       console.log(`✅ [BookmarkController] Validated update data:`, data)
@@ -420,7 +447,7 @@ export default class BookmarkController {
       console.log('🗑️ [BookmarkController] Starting destroy method...')
       const user = auth.user!
       console.log(`👤 [BookmarkController] User: ${user.id} (${user.email})`)
-      
+
       console.log('✅ [BookmarkController] Validating bookmark ID...')
       const { id } = await bookmarkIdValidator.validate(params)
       console.log(`🔍 [BookmarkController] Looking for bookmark ID: ${id}`)
@@ -464,7 +491,7 @@ export default class BookmarkController {
       console.log('⭐ [BookmarkController] Starting toggleFavorite method...')
       const user = auth.user!
       console.log(`👤 [BookmarkController] User: ${user.id} (${user.email})`)
-      
+
       console.log('✅ [BookmarkController] Validating bookmark ID...')
       const { id } = await bookmarkIdValidator.validate(params)
       console.log(`🔍 [BookmarkController] Looking for bookmark ID: ${id}`)
@@ -487,10 +514,10 @@ export default class BookmarkController {
         console.log('🔄 [BookmarkController] Toggling favorite status...')
         await bookmark.toggleFavorite()
         console.log(`✅ [BookmarkController] Favorite status updated to: ${bookmark.isFavorite}`)
-        
-        return response.json({ 
+
+        return response.json({
           message: 'Favorite status updated',
-          isFavorite: bookmark.isFavorite 
+          isFavorite: bookmark.isFavorite,
         })
       } catch (error) {
         console.error('❌ [BookmarkController] Error toggling favorite:', error)
@@ -513,7 +540,7 @@ export default class BookmarkController {
       console.log('📦 [BookmarkController] Starting archive method...')
       const user = auth.user!
       console.log(`👤 [BookmarkController] User: ${user.id} (${user.email})`)
-      
+
       console.log('✅ [BookmarkController] Validating bookmark ID...')
       const { id } = await bookmarkIdValidator.validate(params)
       console.log(`🔍 [BookmarkController] Looking for bookmark ID: ${id}`)
@@ -558,7 +585,7 @@ export default class BookmarkController {
       console.log('📖 [BookmarkController] Starting generateSummary method...')
       const user = auth.user!
       console.log(`👤 [BookmarkController] User: ${user.id} (${user.email})`)
-      
+
       console.log('✅ [BookmarkController] Validating bookmark ID...')
       const { id } = await bookmarkIdValidator.validate(params)
       console.log(`🔍 [BookmarkController] Looking for bookmark ID: ${id}`)
@@ -580,28 +607,30 @@ export default class BookmarkController {
         // Extract content for AI processing
         console.log('📝 [BookmarkController] Extracting content for AI processing...')
         const content = await OpenGraphService.extractTextContent(bookmark.url)
-        
+
         if (!content) {
           console.log('❌ [BookmarkController] No content available for summarization')
           return response.status(400).json({ error: 'No content available for summarization' })
         }
 
-        console.log(`📄 [BookmarkController] Content extracted (${content.length} chars): ${content.substring(0, 150)}...`)
+        console.log(
+          `📄 [BookmarkController] Content extracted (${content.length} chars): ${content.substring(0, 150)}...`
+        )
 
         // Generate summary using AI
         console.log('🤖 [BookmarkController] Generating summary using Gemini AI...')
         const summary = await GeminiAIService.generateSummary(content)
         console.log(`✅ [BookmarkController] AI summary generated: ${summary}`)
-        
+
         // Update bookmark with AI summary
         console.log('💾 [BookmarkController] Updating bookmark with AI summary...')
         bookmark.aiGeneratedSummary = summary
         await bookmark.save()
         console.log('✅ [BookmarkController] Bookmark updated with AI summary')
 
-        return response.json({ 
+        return response.json({
           summary,
-          message: 'Summary generated successfully' 
+          message: 'Summary generated successfully',
         })
       } catch (error) {
         console.error('❌ [BookmarkController] Error generating summary:', error)
@@ -624,7 +653,7 @@ export default class BookmarkController {
       console.log('🏷️ [BookmarkController] Starting regenerateLabels method...')
       const user = auth.user!
       console.log(`👤 [BookmarkController] User: ${user.id} (${user.email})`)
-      
+
       console.log('✅ [BookmarkController] Validating bookmark ID...')
       const { id } = await bookmarkIdValidator.validate(params)
       console.log(`🔍 [BookmarkController] Looking for bookmark ID: ${id}`)
@@ -646,28 +675,30 @@ export default class BookmarkController {
         // Extract content for AI processing
         console.log('📝 [BookmarkController] Extracting content for AI processing...')
         const content = await OpenGraphService.extractTextContent(bookmark.url)
-        
+
         if (!content) {
           console.log('❌ [BookmarkController] No content available for label generation')
           return response.status(400).json({ error: 'No content available for label generation' })
         }
 
-        console.log(`📄 [BookmarkController] Content extracted (${content.length} chars): ${content.substring(0, 150)}...`)
+        console.log(
+          `📄 [BookmarkController] Content extracted (${content.length} chars): ${content.substring(0, 150)}...`
+        )
 
         // Generate labels using AI
         console.log('🤖 [BookmarkController] Generating labels using Gemini AI...')
         const labels = await GeminiAIService.generateLabels(content)
         console.log(`✅ [BookmarkController] AI labels generated: ${JSON.stringify(labels)}`)
-        
+
         // Update bookmark with AI labels
         console.log('💾 [BookmarkController] Updating bookmark with AI labels...')
         bookmark.setParsedLabels(labels)
         await bookmark.save()
         console.log('✅ [BookmarkController] Bookmark updated with AI labels')
 
-        return response.json({ 
+        return response.json({
           labels,
-          message: 'Labels regenerated successfully' 
+          message: 'Labels regenerated successfully',
         })
       } catch (error) {
         console.error('❌ [BookmarkController] Error regenerating labels:', error)
@@ -687,8 +718,10 @@ export default class BookmarkController {
    */
   private async generateAIContentAsync(bookmark: Bookmark, openGraphData: any) {
     try {
-      console.log(`🤖 [BookmarkController] Starting background AI content generation for bookmark: ${bookmark.id}`)
-      
+      console.log(
+        `🤖 [BookmarkController] Starting background AI content generation for bookmark: ${bookmark.id}`
+      )
+
       // Generate AI content in background
       const aiContent = await GeminiAIService.generateBookmarkContent(
         bookmark.url,
@@ -706,35 +739,46 @@ export default class BookmarkController {
       await bookmark.save()
       console.log(`✅ [BookmarkController] Bookmark ${bookmark.id} updated with AI content`)
     } catch (error) {
-      console.error(`❌ [BookmarkController] Error generating AI content for bookmark ${bookmark.id}:`, error)
+      console.error(
+        `❌ [BookmarkController] Error generating AI content for bookmark ${bookmark.id}:`,
+        error
+      )
     }
   }
 
   private async attachLabels(bookmark: Bookmark, labelData: any[]) {
     try {
-      console.log(`🏷️ [BookmarkController] Attaching ${labelData.length} labels to bookmark ${bookmark.id}...`)
-      const labelIds = labelData.map(label => label.id)
+      console.log(
+        `🏷️ [BookmarkController] Attaching ${labelData.length} labels to bookmark ${bookmark.id}...`
+      )
+      const labelIds = labelData.map((label) => label.id)
       console.log(`🏷️ [BookmarkController] Label IDs: ${JSON.stringify(labelIds)}`)
-      
+
       // Use the many-to-many relationship methods
       await bookmark.related('labels').attach(labelIds)
       console.log(`✅ [BookmarkController] Labels attached successfully to bookmark ${bookmark.id}`)
     } catch (error) {
-      console.error(`❌ [BookmarkController] Error attaching labels to bookmark ${bookmark.id}:`, error)
+      console.error(
+        `❌ [BookmarkController] Error attaching labels to bookmark ${bookmark.id}:`,
+        error
+      )
     }
   }
 
   private async updateLabels(bookmark: Bookmark, labelData: any[]) {
     try {
       console.log(`🏷️ [BookmarkController] Updating labels for bookmark ${bookmark.id}...`)
-      const labelIds = labelData.map(label => label.id)
+      const labelIds = labelData.map((label) => label.id)
       console.log(`🏷️ [BookmarkController] New label IDs: ${JSON.stringify(labelIds)}`)
-      
+
       // Use the many-to-many relationship sync method
       await bookmark.related('labels').sync(labelIds)
       console.log(`✅ [BookmarkController] Labels updated successfully for bookmark ${bookmark.id}`)
     } catch (error) {
-      console.error(`❌ [BookmarkController] Error updating labels for bookmark ${bookmark.id}:`, error)
+      console.error(
+        `❌ [BookmarkController] Error updating labels for bookmark ${bookmark.id}:`,
+        error
+      )
     }
   }
 }

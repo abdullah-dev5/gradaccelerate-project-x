@@ -11,7 +11,7 @@ describe('Bookmarks Management (API Only)', () => {
       cy.request({
         method: 'GET',
         url: '/api/v1/bookmarks',
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([401, 403])
       })
@@ -25,13 +25,13 @@ describe('Bookmarks Management (API Only)', () => {
           url: 'https://example.com',
           title: 'Test Bookmark',
           description: 'This is a test bookmark',
-          is_favorite: false
+          is_favorite: false,
         },
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
         },
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([401, 403])
       })
@@ -45,13 +45,13 @@ describe('Bookmarks Management (API Only)', () => {
           url: 'https://updated-example.com',
           title: 'Updated Bookmark',
           description: 'This is an updated bookmark',
-          is_favorite: true
+          is_favorite: true,
         },
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
         },
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([401, 403, 404])
       })
@@ -61,7 +61,7 @@ describe('Bookmarks Management (API Only)', () => {
       cy.request({
         method: 'DELETE',
         url: '/api/v1/bookmarks/1',
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([401, 403, 404])
       })
@@ -71,7 +71,7 @@ describe('Bookmarks Management (API Only)', () => {
       cy.request({
         method: 'GET',
         url: '/api/v1/bookmarks?favorites=true',
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([401, 403])
       })
@@ -81,7 +81,7 @@ describe('Bookmarks Management (API Only)', () => {
       cy.request({
         method: 'GET',
         url: '/api/v1/bookmarks?search=test',
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([401, 403])
       })
@@ -92,12 +92,12 @@ describe('Bookmarks Management (API Only)', () => {
     it('should test bookmarks form validation', () => {
       cy.visit('/login')
       cy.wait(2000) // Wait for hydration
-      
+
       // Test login form validation
       cy.get('input[name="email"]').should('be.enabled').type('test@example.com')
       cy.get('input[name="password"]').should('be.enabled').type('password123')
       cy.get('button[type="submit"]').should('be.enabled').click()
-      
+
       // Should stay on login page (invalid credentials)
       cy.url().should('include', '/login')
     })
@@ -112,9 +112,9 @@ describe('Bookmarks Management (API Only)', () => {
         body: 'invalid json',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
         },
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([400, 401, 403, 422])
       })
@@ -126,7 +126,7 @@ describe('Bookmarks Management (API Only)', () => {
         method: 'GET',
         url: '/api/v1/bookmarks',
         timeout: 2000,
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([401, 403, 408])
       })
@@ -136,7 +136,7 @@ describe('Bookmarks Management (API Only)', () => {
       cy.request({
         method: 'GET',
         url: '/api/v1/bookmarks/999999',
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([401, 403, 404])
       })
@@ -146,11 +146,11 @@ describe('Bookmarks Management (API Only)', () => {
   describe('Bookmarks Performance Testing', () => {
     it('should measure API response times', () => {
       const startTime = Date.now()
-      
+
       cy.request({
         method: 'GET',
         url: '/api/v1/bookmarks',
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         const responseTime = Date.now() - startTime
         expect(responseTime).to.be.lessThan(5000) // Should respond within 5 seconds
@@ -160,17 +160,17 @@ describe('Bookmarks Management (API Only)', () => {
 
     it('should handle concurrent requests', () => {
       const requests = []
-      
+
       for (let i = 0; i < 3; i++) {
         requests.push(
           cy.request({
             method: 'GET',
             url: '/api/v1/bookmarks',
-            failOnStatusCode: false
+            failOnStatusCode: false,
           })
         )
       }
-      
+
       cy.wrap(Promise.all(requests), { timeout: 30000 }).then((responses) => {
         responses.forEach((response) => {
           if (response && response.status) {
@@ -185,8 +185,8 @@ describe('Bookmarks Management (API Only)', () => {
     it('should handle SQL injection attempts', () => {
       cy.request({
         method: 'GET',
-        url: '/api/v1/bookmarks?search=\'; DROP TABLE bookmarks; --',
-        failOnStatusCode: false
+        url: "/api/v1/bookmarks?search='; DROP TABLE bookmarks; --",
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([401, 403, 400])
       })
@@ -200,13 +200,13 @@ describe('Bookmarks Management (API Only)', () => {
           url: 'https://example.com',
           title: '<script>alert("xss")</script>',
           description: 'Test description',
-          is_favorite: false
+          is_favorite: false,
         },
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
         },
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([401, 403, 400])
       })
@@ -220,13 +220,13 @@ describe('Bookmarks Management (API Only)', () => {
           url: 'not-a-valid-url',
           title: 'Test Bookmark',
           description: 'Test description',
-          is_favorite: false
+          is_favorite: false,
         },
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
         },
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([401, 403, 400, 422])
       })

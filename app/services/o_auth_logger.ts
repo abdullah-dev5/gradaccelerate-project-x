@@ -31,7 +31,6 @@ export default class OAuthLogger {
   }
 
   static logSuccess(data: Omit<OAuthLogData, 'success'>) {
-
     console.log(`[OAUTH-${data.requestId}] ✅ SUCCESS:`, {
       action: data.action,
       userId: data.userId,
@@ -48,7 +47,6 @@ export default class OAuthLogger {
   }
 
   static logError(data: Omit<OAuthLogData, 'success'> & { error: string; stack?: string }) {
-
     console.error(`[OAUTH-${data.requestId}] ❌ ERROR:`, {
       action: data.action,
       error: data.error,

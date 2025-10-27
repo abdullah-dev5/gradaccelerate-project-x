@@ -81,7 +81,14 @@ export const useNotesStore = create<NotesState>()(
       },
 
       // Data fetching methods
-      fetchNotes: async (page = 1, perPage = 10, search?: string, labels?: number[], sortBy?: string, sortOrder?: string) => {
+      fetchNotes: async (
+        page = 1,
+        perPage = 10,
+        search?: string,
+        labels?: number[],
+        sortBy?: string,
+        sortOrder?: string
+      ) => {
         try {
           set({ isLoading: true, error: null })
 
@@ -105,7 +112,7 @@ export const useNotesStore = create<NotesState>()(
           // Handle both direct response and wrapped response
           let notes: Note[]
           let meta: any = {}
-          
+
           if (Array.isArray(response.data)) {
             // Direct array response
             notes = response.data
@@ -122,7 +129,7 @@ export const useNotesStore = create<NotesState>()(
           }
 
           // Ensure all notes have the required fields, including GIF data
-          const normalizedNotes = notes.map(note => ({
+          const normalizedNotes = notes.map((note) => ({
             id: note.id,
             title: note.title,
             content: note.content,
@@ -183,7 +190,7 @@ export const useNotesStore = create<NotesState>()(
           set({ isLoading: true, error: null })
 
           const response = await apiService.post<Note>('/notes', noteData)
-          
+
           // Handle both direct response and wrapped response
           let newNote: Note
           if (response.data && 'id' in response.data) {
@@ -244,7 +251,7 @@ export const useNotesStore = create<NotesState>()(
           }
 
           const response = await apiService.put<Note>(`/notes/${id}`, updates)
-          
+
           // Handle both direct response and wrapped response
           let updatedNote: Note
           if (response.data && 'id' in response.data) {
@@ -346,13 +353,13 @@ export const useNotesStore = create<NotesState>()(
           set((state) => ({
             byId: { ...state.byId, [id]: { ...currentNote, pinned: !currentNote.pinned } },
           }))
-          
+
           // Apply filters to update the view
           get().applyFilters()
 
           // Make API call
           const response = await apiService.patch(`/notes/${id}/pin`)
-          
+
           if (response.success) {
             return true
           } else {

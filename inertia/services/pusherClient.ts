@@ -28,29 +28,27 @@ export function getPusherClient() {
     activityTimeout: 60000,
     pongTimeout: 30000,
   })
-  
+
   // Add connection event listeners for debugging
   client.connection.bind('connecting', () => {
     console.info('[Pusher] Connecting...')
   })
-  
+
   client.connection.bind('connected', () => {
     console.info('[Pusher] Connected')
   })
-  
+
   client.connection.bind('disconnected', () => {
     console.warn('[Pusher] Disconnected')
   })
-  
+
   client.connection.bind('error', (error: any) => {
     console.error('[Pusher] Connection error:', error)
   })
-  
+
   client.connection.bind('state_change', (states: any) => {
     console.info('[Pusher] State changed:', states.previous, '->', states.current)
   })
-  
+
   return client
 }
-
-

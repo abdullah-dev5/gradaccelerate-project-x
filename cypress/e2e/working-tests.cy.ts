@@ -31,13 +31,13 @@ describe('Working E2E Tests', () => {
         url: '/api/auth/login',
         body: {
           email: 'test@example.com',
-          password: 'wrongpassword'
+          password: 'wrongpassword',
         },
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
         },
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([401, 422])
         expect(response.body).to.exist
@@ -48,7 +48,7 @@ describe('Working E2E Tests', () => {
       cy.request({
         method: 'GET',
         url: '/weather',
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         expect(typeof response.status).to.equal('number')
         expect(response.body).to.exist
@@ -58,7 +58,7 @@ describe('Working E2E Tests', () => {
     it('should test registration API endpoint', () => {
       const timestamp = Date.now()
       const email = `apitest${timestamp}@example.com`
-      
+
       cy.request({
         method: 'POST',
         url: '/api/auth/register',
@@ -66,13 +66,13 @@ describe('Working E2E Tests', () => {
           name: 'API Test User',
           email: email,
           password: 'password123',
-          password_confirmation: 'password123'
+          password_confirmation: 'password123',
         },
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
         },
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([200, 422])
         expect(response.body).to.exist
@@ -85,18 +85,18 @@ describe('Working E2E Tests', () => {
       cy.visit('/login')
       // Wait for hydration to complete
       cy.wait(2000)
-      
+
       // Check if form fields are enabled
       cy.get('input[name="email"]').should('be.enabled')
       cy.get('input[name="password"]').should('be.enabled')
-      
+
       // Test form interaction
       cy.get('input[name="email"]').type('test@example.com')
       cy.get('input[name="email"]').should('have.value', 'test@example.com')
-      
+
       cy.get('input[name="password"]').type('password123')
       cy.get('input[name="password"]').should('have.value', 'password123')
-      
+
       // Verify submit button is clickable
       cy.get('button[type="submit"]').should('be.enabled')
     })
@@ -105,18 +105,18 @@ describe('Working E2E Tests', () => {
       cy.visit('/register')
       // Wait for hydration to complete
       cy.wait(2000)
-      
+
       // Check if form fields are enabled
       cy.get('input[name="email"]').should('be.enabled')
       cy.get('input[name="password"]').should('be.enabled')
-      
+
       // Test form interaction
       cy.get('input[name="email"]').type('test@example.com')
       cy.get('input[name="email"]').should('have.value', 'test@example.com')
-      
+
       cy.get('input[name="password"]').type('password123')
       cy.get('input[name="password"]').should('have.value', 'password123')
-      
+
       // Verify submit button is clickable
       cy.get('button[type="submit"]').should('be.enabled')
     })
@@ -128,7 +128,7 @@ describe('Working E2E Tests', () => {
       cy.request({
         method: 'GET',
         url: '/dashboard',
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([401, 302])
       })
@@ -137,7 +137,7 @@ describe('Working E2E Tests', () => {
       cy.request({
         method: 'GET',
         url: '/notes',
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([401, 302])
       })
@@ -146,7 +146,7 @@ describe('Working E2E Tests', () => {
       cy.request({
         method: 'GET',
         url: '/todos',
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([401, 302])
       })
@@ -178,7 +178,7 @@ describe('Working E2E Tests', () => {
       cy.request({
         method: 'GET',
         url: '/non-existent-page',
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([404, 500])
       })
@@ -189,7 +189,7 @@ describe('Working E2E Tests', () => {
       cy.request({
         method: 'GET',
         url: '/api/invalid-endpoint',
-        failOnStatusCode: false
+        failOnStatusCode: false,
       }).then((response) => {
         expect(response.status).to.be.oneOf([404, 500])
       })
@@ -199,22 +199,26 @@ describe('Working E2E Tests', () => {
   describe('Performance', () => {
     it('should load pages within reasonable time', () => {
       const startTime = Date.now()
-      
+
       cy.visit('/')
-      cy.get('body').should('be.visible').then(() => {
-        const loadTime = Date.now() - startTime
-        expect(loadTime).to.be.lessThan(10000) // Should load within 10 seconds
-      })
+      cy.get('body')
+        .should('be.visible')
+        .then(() => {
+          const loadTime = Date.now() - startTime
+          expect(loadTime).to.be.lessThan(10000) // Should load within 10 seconds
+        })
     })
 
     it('should load login page within reasonable time', () => {
       const startTime = Date.now()
-      
+
       cy.visit('/login')
-      cy.get('body').should('be.visible').then(() => {
-        const loadTime = Date.now() - startTime
-        expect(loadTime).to.be.lessThan(10000) // Should load within 10 seconds
-      })
+      cy.get('body')
+        .should('be.visible')
+        .then(() => {
+          const loadTime = Date.now() - startTime
+          expect(loadTime).to.be.lessThan(10000) // Should load within 10 seconds
+        })
     })
   })
 
@@ -222,8 +226,8 @@ describe('Working E2E Tests', () => {
     it('should work with different user agents', () => {
       cy.visit('/', {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
       })
       cy.get('body').should('be.visible')
     })
@@ -231,8 +235,9 @@ describe('Working E2E Tests', () => {
     it('should work with Chrome user agent', () => {
       cy.visit('/', {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        },
       })
       cy.get('body').should('be.visible')
     })

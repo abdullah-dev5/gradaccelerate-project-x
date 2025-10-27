@@ -90,7 +90,14 @@ export const useTodosStore = create<TodosState>()(
       },
 
       // Data fetching methods
-      fetchTodos: async (page = 1, perPage = 10, search?: string, labels?: number[], statuses?: TodoStatus[], priorities?: TodoPriority[]) => {
+      fetchTodos: async (
+        page = 1,
+        perPage = 10,
+        search?: string,
+        labels?: number[],
+        statuses?: TodoStatus[],
+        priorities?: TodoPriority[]
+      ) => {
         try {
           set({ isLoading: true, error: null })
 
@@ -127,7 +134,9 @@ export const useTodosStore = create<TodosState>()(
               currentPage: page,
               perPage,
               total: response.meta?.total || response.data?.meta?.total || todos.length,
-              hasMore: (response.meta?.current_page || response.data?.meta?.current_page || page) < (response.meta?.last_page || response.data?.meta?.last_page || 1),
+              hasMore:
+                (response.meta?.current_page || response.data?.meta?.current_page || page) <
+                (response.meta?.last_page || response.data?.meta?.last_page || 1),
             },
           })
 
@@ -168,7 +177,10 @@ export const useTodosStore = create<TodosState>()(
         try {
           set({ isLoading: true, error: null })
 
-          const response = await apiService.post<{ message: string; data: Todo }>('/todos', todoData)
+          const response = await apiService.post<{ message: string; data: Todo }>(
+            '/todos',
+            todoData
+          )
           const newTodo = response.data?.data || response.data
 
           if (newTodo) {
@@ -205,7 +217,10 @@ export const useTodosStore = create<TodosState>()(
           }))
           get().applyFilters()
 
-          const response = await apiService.put<{ message: string; data: Todo }>(`/todos/${id}`, updates)
+          const response = await apiService.put<{ message: string; data: Todo }>(
+            `/todos/${id}`,
+            updates
+          )
           const result = response.data?.data || response.data
 
           if (result) {
@@ -277,7 +292,7 @@ export const useTodosStore = create<TodosState>()(
           console.error('API Error details:', {
             message: apiError.message,
             status: apiError.status,
-            errors: apiError.errors
+            errors: apiError.errors,
           })
           set({ error: apiError.message || 'Failed to delete todo' })
           return false
@@ -308,11 +323,11 @@ export const useTodosStore = create<TodosState>()(
           console.log('Sending PATCH request to:', `/todos/${id}/complete`)
           const response = await apiService.patch(`/todos/${id}/complete`)
           console.log('API response:', response)
-          
+
           return true
         } catch (error) {
           console.error('Error in toggleStatus:', error)
-          
+
           // Revert optimistic update on error
           const revertedTodo = get().byId[id]
           if (revertedTodo) {

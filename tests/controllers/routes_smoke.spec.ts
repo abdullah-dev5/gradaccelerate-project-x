@@ -17,5 +17,3 @@ test.group('Routes Smoke', () => {
     response.assertHeader('location', '/login')
   })
 })
-
-

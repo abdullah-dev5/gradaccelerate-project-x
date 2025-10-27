@@ -10,7 +10,7 @@ export default class LabelController {
   async index({ auth, response }: HttpContext) {
     try {
       const user = auth.user!
-      
+
       const labels = await Label.query()
         .where('user_id', user.id)
         .orderBy('name')

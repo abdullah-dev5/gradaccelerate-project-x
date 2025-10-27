@@ -17,13 +17,13 @@ export default class ReminderController {
     try {
       await auth.authenticate()
       const user = auth.getUserOrFail()
-    const page = Number(request.input('page', 1))
+      const page = Number(request.input('page', 1))
       const limit = Number(request.input('limit', 50))
 
-    const reminders = await Reminder.query()
-      .where('user_id', user.id)
-      .orderBy('remind_at', 'asc')
-      .paginate(page, limit)
+      const reminders = await Reminder.query()
+        .where('user_id', user.id)
+        .orderBy('remind_at', 'asc')
+        .paginate(page, limit)
 
       // Always render Inertia page for browser requests
       if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
@@ -64,11 +64,11 @@ export default class ReminderController {
         })
         return inertia.render('reminders/index', {
           reminders: normalized,
-          user: user.serialize()
+          user: user.serialize(),
         })
       }
 
-    return response.ok(reminders)
+      return response.ok(reminders)
     } catch (error) {
       // Handle authentication errors
       if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
@@ -79,11 +79,13 @@ export default class ReminderController {
           error: error.message || 'Failed to fetch reminders',
         })
       }
-      
+
       if (error.message?.includes('Unauthorized') || error.code === 'E_UNAUTHORIZED_ACCESS') {
         return response.unauthorized({ message: 'Unauthorized', error: error.message })
       }
-      return response.status(500).send({ message: 'Failed to fetch reminders', error: error.message })
+      return response
+        .status(500)
+        .send({ message: 'Failed to fetch reminders', error: error.message })
     }
   }
 
@@ -111,51 +113,56 @@ export default class ReminderController {
         }
       }
 
-    const payload = await request.validateUsing(CreateReminderValidator)
+      const payload = await request.validateUsing(CreateReminderValidator)
 
-    console.log('[Reminder API] Create payload (raw):', payload)
-    const parsedCreate = DateTime.fromISO(payload.remindAt)
-    console.log('[Reminder API] Parsed incoming ISO ->', parsedCreate.toISO(), 'offset (minutes):', parsedCreate.offset)
+      console.log('[Reminder API] Create payload (raw):', payload)
+      const parsedCreate = DateTime.fromISO(payload.remindAt)
+      console.log(
+        '[Reminder API] Parsed incoming ISO ->',
+        parsedCreate.toISO(),
+        'offset (minutes):',
+        parsedCreate.offset
+      )
 
-    const reminder = await Reminder.create({
-      userId: user.id,
-      title: payload.title,
-      message: payload.message ?? null,
-      // Store as-is (with timezone info)
-      remindAt: parsedCreate,
-      channels: payload.channels ?? ['web'],
-      sentWeb: false,
-      sentEmail: false,
-      sentAt: null,
-    })
-    console.log('[Reminder API] Created reminder stored:', reminder.remindAt.toISO())
+      const reminder = await Reminder.create({
+        userId: user.id,
+        title: payload.title,
+        message: payload.message ?? null,
+        // Store as-is (with timezone info)
+        remindAt: parsedCreate,
+        channels: payload.channels ?? ['web'],
+        sentWeb: false,
+        sentEmail: false,
+        sentAt: null,
+      })
+      console.log('[Reminder API] Created reminder stored:', reminder.remindAt.toISO())
 
-    // Emit realtime event so clients can log/view the newly created reminder immediately
-    try {
-      if (process.env.PUSHER_APP_ID) {
-        const pusher = new Pusher({
-          appId: process.env.PUSHER_APP_ID!,
-          key: process.env.PUSHER_APP_KEY!,
-          secret: process.env.PUSHER_APP_SECRET!,
-          cluster: process.env.PUSHER_CLUSTER!,
-          useTLS: true,
-        })
-        await pusher.trigger(`private-user.${user.id}`, 'reminder.created', {
-          reminder: {
-            id: reminder.id,
-            title: reminder.title,
-            message: reminder.message,
-            remindAt: reminder.remindAt.toISO(),
-            channels: reminder.channels,
-          },
-        })
-        console.log('[Reminder API] Emitted reminder.created for user', user.id)
-      } else {
-        console.warn('[Reminder API] Pusher env not configured; reminder.created not emitted')
+      // Emit realtime event so clients can log/view the newly created reminder immediately
+      try {
+        if (process.env.PUSHER_APP_ID) {
+          const pusher = new Pusher({
+            appId: process.env.PUSHER_APP_ID!,
+            key: process.env.PUSHER_APP_KEY!,
+            secret: process.env.PUSHER_APP_SECRET!,
+            cluster: process.env.PUSHER_CLUSTER!,
+            useTLS: true,
+          })
+          await pusher.trigger(`private-user.${user.id}`, 'reminder.created', {
+            reminder: {
+              id: reminder.id,
+              title: reminder.title,
+              message: reminder.message,
+              remindAt: reminder.remindAt.toISO(),
+              channels: reminder.channels,
+            },
+          })
+          console.log('[Reminder API] Emitted reminder.created for user', user.id)
+        } else {
+          console.warn('[Reminder API] Pusher env not configured; reminder.created not emitted')
+        }
+      } catch (e) {
+        console.error('[Reminder API] Failed to emit reminder.created', e)
       }
-    } catch (e) {
-      console.error('[Reminder API] Failed to emit reminder.created', e)
-    }
 
       // Proper response handling for Inertia
       if (this.isInertiaRequest(request)) {
@@ -203,7 +210,9 @@ export default class ReminderController {
         return response.badRequest({ message: 'Validation failed', errors: error.messages })
       }
 
-      return response.status(500).send({ message: 'Failed to create reminder', error: error.message })
+      return response
+        .status(500)
+        .send({ message: 'Failed to create reminder', error: error.message })
     }
   }
 
@@ -221,25 +230,32 @@ export default class ReminderController {
         }
       }
 
-    const payload = await request.validateUsing(UpdateReminderValidator)
+      const payload = await request.validateUsing(UpdateReminderValidator)
 
-    const reminder = await Reminder.query()
-      .where('user_id', user.id)
-      .where('id', params.id)
-      .firstOrFail()
+      const reminder = await Reminder.query()
+        .where('user_id', user.id)
+        .where('id', params.id)
+        .firstOrFail()
 
-    if (payload.title !== undefined) reminder.title = payload.title
-    if (payload.message !== undefined) reminder.message = payload.message
-    if (payload.remindAt !== undefined) {
-      const parsedUpdate = DateTime.fromISO(payload.remindAt)
-      console.log('[Reminder API] Update payload remindAt (raw):', payload.remindAt)
-      console.log('[Reminder API] Update parsed incoming ISO ->', parsedUpdate.toISO(), 'offset (minutes):', parsedUpdate.offset, 'as UTC ->', parsedUpdate.toUTC().toISO())
-      // Frontend sends UTC ISO. Parse and keep UTC.
-      reminder.remindAt = parsedUpdate.toUTC()
-    }
-    if (payload.channels !== undefined) reminder.channels = payload.channels
+      if (payload.title !== undefined) reminder.title = payload.title
+      if (payload.message !== undefined) reminder.message = payload.message
+      if (payload.remindAt !== undefined) {
+        const parsedUpdate = DateTime.fromISO(payload.remindAt)
+        console.log('[Reminder API] Update payload remindAt (raw):', payload.remindAt)
+        console.log(
+          '[Reminder API] Update parsed incoming ISO ->',
+          parsedUpdate.toISO(),
+          'offset (minutes):',
+          parsedUpdate.offset,
+          'as UTC ->',
+          parsedUpdate.toUTC().toISO()
+        )
+        // Frontend sends UTC ISO. Parse and keep UTC.
+        reminder.remindAt = parsedUpdate.toUTC()
+      }
+      if (payload.channels !== undefined) reminder.channels = payload.channels
 
-    await reminder.save()
+      await reminder.save()
 
       // Proper response handling for Inertia
       if (this.isInertiaRequest(request)) {
@@ -275,7 +291,9 @@ export default class ReminderController {
         return response.badRequest({ message: 'Validation failed', errors: error.messages })
       }
 
-      return response.status(500).send({ message: 'Failed to update reminder', error: error.message })
+      return response
+        .status(500)
+        .send({ message: 'Failed to update reminder', error: error.message })
     }
   }
 
@@ -297,7 +315,7 @@ export default class ReminderController {
         .where('user_id', user.id)
         .where('id', params.id)
         .firstOrFail()
-      
+
       await reminder.delete()
 
       // Proper response handling for Inertia
@@ -318,7 +336,9 @@ export default class ReminderController {
         return response.unauthorized({ message: 'Unauthorized', error: error.message })
       }
 
-      return response.status(500).send({ message: 'Failed to delete reminder', error: error.message })
+      return response
+        .status(500)
+        .send({ message: 'Failed to delete reminder', error: error.message })
     }
   }
 
@@ -332,7 +352,11 @@ export default class ReminderController {
     } catch (error) {
       // Do not fail the request due to Pusher/network errors; report processed count 0
       console.error('[Reminder API] Trigger failed:', error)
-      return response.status(200).send({ processed: 0, message: 'Processed with warnings', error: String(error?.message || error) })
+      return response.status(200).send({
+        processed: 0,
+        message: 'Processed with warnings',
+        error: String(error?.message || error),
+      })
     }
   }
 
@@ -370,5 +394,3 @@ export default class ReminderController {
     return response.ok({ ok: true, message: `Email sent to ${to}` })
   }
 }
-
-

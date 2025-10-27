@@ -22,7 +22,13 @@ const config: Config = {
   collectCoverage: true,
 
   // An array of glob patterns indicating a set of files for which coverage information should be collected
-  // collectCoverageFrom: undefined,
+  collectCoverageFrom: [
+    'inertia/**/*.{ts,tsx,js,jsx}',
+    '!inertia/**/*.d.ts',
+    '!inertia/**/*.test.{ts,tsx}',
+    '!inertia/**/*.spec.{ts,tsx}',
+    '!inertia/**/*.stories.{ts,tsx}',
+  ],
 
   // The directory where Jest should output its coverage files
   coverageDirectory: 'coverage',
@@ -36,15 +42,17 @@ const config: Config = {
   coverageProvider: 'v8',
 
   // A list of reporter names that Jest uses when writing coverage reports
-  // coverageReporters: [
-  //   "json",
-  //   "text",
-  //   "lcov",
-  //   "clover"
-  // ],
+  coverageReporters: ['text', 'lcov', 'clover', 'json'],
 
   // An object that configures minimum threshold enforcement for coverage results
-  // coverageThreshold: undefined,
+  coverageThreshold: {
+    global: {
+      branches: 50,
+      functions: 50,
+      lines: 50,
+      statements: 50,
+    },
+  },
 
   // A path to a custom dependency extractor
   // dependencyExtractor: undefined,
@@ -82,14 +90,7 @@ const config: Config = {
   // ],
 
   // An array of file extensions your modules use
-  moduleFileExtensions: [
-    "ts",
-    "tsx",
-    "js",
-    "jsx",
-    "json",
-    "node"
-  ],
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
 
   // A map from regular expressions to module names or to arrays of module names that allow to stub out resources with a single module
   moduleNameMapper: {
@@ -132,14 +133,12 @@ const config: Config = {
 
   // A list of paths to directories that Jest should use to search for files in
   roots: ['<rootDir>/tests'],
-  testMatch: [
-    '<rootDir>/tests/**/*.(spec|test).ts?(x)'
-  ],
+  testMatch: ['<rootDir>/tests/**/*.(spec|test).ts?(x)'],
   testPathIgnorePatterns: [
     '<rootDir>/tests/controllers/',
     '<rootDir>/tests/integration/',
     '<rootDir>/tests/unit/',
-    '<rootDir>/tests/services/reminder_service.spec.ts'
+    '<rootDir>/tests/services/reminder_service.spec.ts',
   ],
 
   // Allows you to use a custom runner instead of Jest's default test runner

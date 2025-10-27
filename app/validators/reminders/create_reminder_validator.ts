@@ -8,5 +8,3 @@ export default vine.compile(
     channels: vine.array(vine.enum(['web', 'email'] as const)).minLength(1),
   })
 )
-
-
