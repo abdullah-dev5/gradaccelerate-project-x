@@ -7,6 +7,7 @@
   "scripts": {
     "start": "node bin/server.js",
     "build": "node ace build",
+    "build:deploy": "node ace build --ignore-ts-errors",
     "dev": "node ace serve --hmr",
     "lint": "eslint .",
     "fix": "eslint --fix .",

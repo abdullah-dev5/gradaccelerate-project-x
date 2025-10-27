@@ -1,10 +1,10 @@
 import Note from '#models/note'
 import { test } from '@japa/runner'
-import { afterEach } from 'node:test'
 
 test.group('Notes Show', () => {
   let createdNote: Note | null
-  afterEach(async () => {
+  
+  test.afterEach(async () => {
     if (createdNote) {
       await createdNote.delete()
     }

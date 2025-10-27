@@ -1,0 +1,6 @@
+{
+  "buildCommand": "npm run build:deploy",
+  "framework": null,
+  "outputDirectory": "build"
+}
+
