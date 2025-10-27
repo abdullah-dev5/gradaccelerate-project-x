@@ -1,5 +1,5 @@
 [build]
-# Railway will run: npm ci then npm run build
+buildCommand = "npm run build"
 
 [deploy]
 startCommand = "node build/bin/server.js"
