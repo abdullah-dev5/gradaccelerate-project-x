@@ -1,228 +1,173 @@
-# GradAccelerate Project X
+# GradAccelerate Project
 
-A full-stack productivity application built with AdonisJS and Inertia.js (React).
+A modern full-stack application built with AdonisJS, React, and Inertia.js.
 
 ## 🚀 Features
 
-- **Authentication**: Secure login and registration with OAuth support
-- **Todos**: Manage tasks with labels and priorities
-- **Projects**: Organize work by projects
-- **Notes**: Rich markdown note-taking
-- **Bookmarks**: Save and organize web links
-- **Reminders**: Scheduled reminders and notifications
-- **Weather**: Real-time weather information
-- **AI Integration**: Gemini AI for smart assistance
+- **Notes Management**: Create, edit, and organize your notes efficiently
+- **Project Tracking**: Track your projects and associated notes
+- **Bookmarks**: Save and manage your bookmarks
+- **Search & Filter**: Advanced search capabilities across all content
+- **Real-time Updates**: Live notifications for important events
+- **User Authentication**: Secure authentication with Google OAuth
+- **Beautiful UI**: Modern, responsive design
 
 ## 🛠️ Tech Stack
 
-### Backend
-- **AdonisJS 6**: Node.js MVC framework
-- **SQLite**: Database
-- **TypeScript**: Type-safe development
-- **Japa**: Testing framework
-- **Vite**: Asset bundling
+- **Backend**: AdonisJS 6
+- **Frontend**: React 18 + TypeScript
+- **Styling**: TailwindCSS
+- **Database**: SQLite
+- **Testing**: Jest, Japa
+- **CI/CD**: GitHub Actions
+- **Deployment**: Railway
 
-### Frontend
-- **React 19**: UI library
-- **TypeScript**: Type safety
-- **Inertia.js**: SPA framework
-- **Tailwind CSS**: Styling
-- **Radix UI**: Component library
-- **Framer Motion**: Animations
+## 📦 Installation
 
-### Testing
-- **Jest**: Frontend unit tests
-- **Cypress**: E2E testing
-- **Japa**: Backend tests
+```bash
+# Clone the repository
+git clone https://github.com/abdullah-dev5/gradaccelerate-project-x.git
 
-### DevOps
-- **GitHub Actions**: CI/CD pipeline
-- **ESLint**: Code linting
-- **Prettier**: Code formatting
+# Navigate to the project
+cd gradaccelerate-project-x
 
-## 📦 Project Structure
+# Install dependencies
+npm install
 
+# Copy environment file
+cp .env.example .env
+
+# Generate app key
+node ace generate:key
+
+# Run migrations
+node ace migration:run
+
+# Start development server
+npm run dev
 ```
-├── app/
-│   ├── controllers/      # API controllers
-│   ├── models/          # Database models
-│   ├── services/        # Business logic
-│   ├── middleware/      # HTTP middleware
-│   └── validators/      # Request validation
-├── inertia/            # Frontend (React)
-│   ├── app/            # App entry points
-│   ├── components/     # React components
-│   ├── pages/          # Page components
-│   └── stores/         # State management
-├── database/           # Migrations & seeders
-├── config/             # Configuration files
-├── tests/              # Test files
-└── cypress/           # E2E tests
-```
-
-## 🚦 CI/CD Pipeline
-
-[![CI/CD Pipeline](https://github.com/your-username/your-repo/actions/workflows/ci.yml/badge.svg)](https://github.com/your-username/your-repo/actions)
-
-This project has an automated CI/CD pipeline that runs on every push and pull request:
-
-- ✅ **Linting**: ESLint code quality checks
-- ✅ **Type Checking**: TypeScript type validation
-- ✅ **Unit Tests**: Frontend (Jest) and Backend (Japa) tests
-- ✅ **E2E Tests**: Cypress end-to-end tests (release branches only)
-- ✅ **Build**: Production build verification
-- ✅ **Deploy**: Automatic deployment to staging/production
-
-### Branch Strategy
-
-- **feature/***: Lint, type check, unit tests, build
-- **release/***: All checks + E2E tests
-- **staging**: All checks + auto-deploy to staging
-- **main**: All checks + auto-deploy to production
-
-For detailed documentation, see [CI/CD README](.github/CICD_README.md).
-
-## 🏃 Getting Started
-
-### Prerequisites
-
-- Node.js 18+
-- npm or yarn
-- SQLite
-
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/your-username/gradaccelerate-project-x.git
-   cd gradaccelerate-project-x
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Set up environment variables**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
-
-4. **Run migrations**
-   ```bash
-   node ace migration:run
-   ```
-
-5. **Seed database (optional)**
-   ```bash
-   node ace db:seed
-   ```
-
-6. **Start development server**
-   ```bash
-   npm run dev
-   ```
-
-Visit `http://localhost:3333` in your browser.
 
 ## 🧪 Testing
 
-### Run All Tests
 ```bash
+# Run all tests
 npm test
-```
 
-### Run Specific Test Suites
-```bash
-npm run test:frontend  # Frontend unit tests
-npm run test:backend  # Backend tests
-npm run test:e2e      # E2E tests (requires server)
-```
+# Frontend tests only
+npm run test:frontend
 
-### Run with Coverage
-```bash
+# Backend tests only
+npm run test:backend
+
+# E2E tests
+npm run test:e2e
+
+# With coverage
 npm run test:coverage
 ```
 
-## 🔨 Development Commands
+## 🏗️ Building for Production
 
 ```bash
-# Development
-npm run dev           # Start dev server with HMR
-npm start            # Start production server
-npm run build        # Build for production
+# Build the application
+npm run build
 
-# Code Quality
-npm run lint         # Check for linting issues
-npm run fix          # Auto-fix linting issues
-npm run typecheck    # TypeScript type checking
-
-# Testing
-npm test             # Run all tests
-npm run test:e2e     # Run E2E tests
-npm run test:e2e:open  # Open Cypress UI
+# Start production server
+npm run start
 ```
 
-## 📚 Documentation
+## 🔧 Configuration
 
-- [CI/CD Setup Guide](CICD_SETUP_GUIDE.md) - Complete setup instructions
-- [CI/CD Pipeline Documentation](.github/CICD_README.md) - Pipeline details
-- [Bookmark Module Readme](BOOKMARK_MODULE_README.md) - Bookmark feature docs
-- [E2E Testing Guide](E2E_TESTING_README.md) - E2E testing instructions
-- [Reminder Setup Guide](REMINDER_NOTIFICATION_SETUP.md) - Reminders configuration
-- [Error Tracking Guide](ERROR_TRACKING_GUIDE.md) - Error monitoring
+### Environment Variables
 
-## 🔐 Environment Variables
-
-Required environment variables:
+Create a `.env` file in the root directory:
 
 ```env
-# App
-APP_KEY=
-APP_URL=http://localhost:3333
+NODE_ENV=development
+PORT=3333
+APP_KEY=your-secret-key
+HOST=localhost
+LOG_LEVEL=info
+SESSION_DRIVER=cookie
 
-# Database
-DB_DATABASE=database/app.sqlite
+# Google OAuth
+GOOGLE_CLIENT_ID=your-client-id
+GOOGLE_CLIENT_SECRET=your-client-secret
+GOOGLE_REDIRECT_URI=http://localhost:3333/auth/google/callback
 
-# Auth
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
+# Optional: Cloudinary for image uploads
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
 
-# Gemini AI
-GEMINI_API_KEY=
+# Optional: Pusher for real-time features
+PUSHER_APP_ID=
+PUSHER_APP_KEY=
+PUSHER_APP_SECRET=
+PUSHER_CLUSTER=
 
-# Email
+# Optional: Google Gemini AI
+GOOGLE_GEMINI_API_KEY=
+
+# Optional: SMTP for emails
 SMTP_HOST=
 SMTP_PORT=
 SMTP_USER=
-SMTP_PASSWORD=
+SMTP_PASS=
+```
 
-# Other services...
+## 📁 Project Structure
+
+```
+gradaccelerate-project-x/
+├── app/
+│   ├── controllers/     # Route controllers
+│   ├── models/         # Database models
+│   ├── services/       # Business logic services
+│   └── ...
+├── database/           # Database files and migrations
+├── inertia/           # React components
+├── resources/         # Frontend resources (JS/CSS)
+├── tests/             # Test files
+├── public/            # Static assets
+└── .github/           # CI/CD workflows
+```
+
+## 🚀 Deployment
+
+The application is deployed on Railway. The deployment is automatically triggered on push to the main branch.
+
+### Railway Configuration
+
+The project uses `railway.toml` for deployment configuration:
+
+```toml
+[build]
+buildCommand = "npm run build"
+
+[deploy]
+startCommand = "node build/bin/server.js"
 ```
 
 ## 🤝 Contributing
 
-1. Create a feature branch (`git checkout -b feature/amazing-feature`)
-2. Commit your changes (`git commit -m 'Add amazing feature'`)
-3. Push to the branch (`git push origin feature/amazing-feature`)
-4. Open a Pull Request
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
 ## 📝 License
 
-This project is private and unlicensed.
+This project is licensed under the MIT License.
 
 ## 👥 Authors
 
-- Your Name - Initial work
+- Abdullah
 
 ## 🙏 Acknowledgments
 
-- AdonisJS team for the amazing framework
-- Inertia.js for seamless SPA experience
-- All contributors and open-source maintainers
-
----
-
-**Note**: Update the badge URL in this README with your actual GitHub repository path.
-
+- AdonisJS Team
+- Inertia.js Contributors
+- React Team
+- TailwindCSS Team
