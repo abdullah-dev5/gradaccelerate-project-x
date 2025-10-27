@@ -16,7 +16,7 @@ export default class OAuthSecurityMiddleware {
     response.header('Referrer-Policy', 'strict-origin-when-cross-origin')
 
     // For OAuth callback routes, add additional security
-    if (request.url().includes('/google/callback')) {
+    if (request.url().includes('/auth/google/callback')) {
       // Validate the request origin (optional but recommended)
       const origin = request.header('origin')
       const referer = request.header('referer')

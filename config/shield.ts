@@ -27,7 +27,7 @@ const shieldConfig = defineConfig({
       '/pusher/auth', // ✅ Pusher private channel auth expects raw JSON, bypass CSRF
       '/reminders/trigger', // Allow manual trigger without CSRF complexities
       '/auth/google/redirect', // OAuth redirect doesn't need CSRF
-      '/google/callback', // OAuth callback doesn't need CSRF
+      '/auth/google/callback', // OAuth callback doesn't need CSRF
       '/api/auth/login', // API endpoints handled separately
       '/api/auth/register',
       '/api/auth/logout',
