@@ -2,5 +2,5 @@
 buildCommand = "npm run build"
 
 [deploy]
-startCommand = "NODE_ENV=production node build/bin/server.js"
+startCommand = "cd build && NODE_ENV=production node bin/ace.js migration:run && node bin/server.js"
 
