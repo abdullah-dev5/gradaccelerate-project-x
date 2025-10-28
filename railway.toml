@@ -2,6 +2,5 @@
 buildCommand = "npm run build"
 
 [deploy]
-startCommand = "node build/bin/server.js"
-environment = "NODE_ENV=production"
+startCommand = "NODE_ENV=production node build/bin/server.js"
 
