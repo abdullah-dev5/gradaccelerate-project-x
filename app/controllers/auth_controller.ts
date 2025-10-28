@@ -78,11 +78,13 @@ export default class AuthController extends BaseController {
         session.flash('success', 'Login successful!')
         session.put('jwt_token', token.value!.release()) // Store JWT in session for hybrid access
         
-        // Use Inertia helper if available, otherwise simple redirect
-        if (inertia) {
-          return response.redirect('/dashboard')
+        // For Inertia POST requests, we need to return x-inertia-location header
+        if (isInertiaRequest) {
+          response.header('x-inertia-location', '/dashboard')
+          return response.status(409).send('Redirecting...')
         }
         
+        // For regular form submissions
         return response.redirect('/dashboard')
       } else if (acceptsJson) {
         // For API requests: Return JWT token
