@@ -32,5 +32,15 @@ export default defineConfig({
       'localhost',
       '127.0.0.1',
     ],
+    // Disable HMR in production
+    hmr: process.env.NODE_ENV === 'development' ? {} : false,
+  },
+
+  /**
+   * Build configuration for production
+   */
+  build: {
+    // Disable source maps in production for better performance
+    sourcemap: process.env.NODE_ENV === 'development',
   },
 })

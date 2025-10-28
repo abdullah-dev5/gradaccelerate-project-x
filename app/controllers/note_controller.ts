@@ -23,7 +23,7 @@ export default class NotesController {
     return request.header('x-inertia') === 'true'
   }
 
-  // Alias method for backward compatibility - redirect to index  
+  // Alias method for backward compatibility - redirect to index
   async indexPage(_context: HttpContext) {
     return this.index(_context)
   }
