@@ -715,7 +715,7 @@ export default class AuthController extends BaseController {
       // Test basic credential format
       const clientIdValid = clientId && clientId.includes('.apps.googleusercontent.com')
       const clientSecretValid = clientSecret && clientSecret.length > 10
-      const redirectUriValid = redirectUri && redirectUri.includes('localhost:3333')
+      const redirectUriValid = redirectUri && (redirectUri.includes('localhost') || redirectUri.includes('railway.app') || redirectUri.startsWith('https://'))
 
       return response.json({
         success: true,
