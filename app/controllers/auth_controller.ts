@@ -12,7 +12,7 @@ export default class AuthController extends BaseController {
   /**
    * ✅ IMPROVED: Login with hybrid approach (session + JWT)
    */
-  async login({ request, response, auth, session }: HttpContext) {
+  async login({ request, response, auth, session, inertia }: HttpContext) {
     try {
       const payload = await request.validateUsing(loginValidator)
 
@@ -77,7 +77,12 @@ export default class AuthController extends BaseController {
         // For Inertia requests: Session + redirect with token in session
         session.flash('success', 'Login successful!')
         session.put('jwt_token', token.value!.release()) // Store JWT in session for hybrid access
-        // Simple redirect for Inertia
+        
+        // Use Inertia helper if available, otherwise simple redirect
+        if (inertia) {
+          return response.redirect('/dashboard')
+        }
+        
         return response.redirect('/dashboard')
       } else if (acceptsJson) {
         // For API requests: Return JWT token
