@@ -1,4 +1,5 @@
 import { defineConfig } from '@adonisjs/cors'
+import env from '#start/env'
 
 /**
  * Configuration options to tweak the CORS policy. The following
@@ -8,7 +9,12 @@ import { defineConfig } from '@adonisjs/cors'
  */
 const corsConfig = defineConfig({
   enabled: true,
-  origin: ['http://127.0.0.1:3333', 'http://localhost:3333'],
+  origin: [
+    env.get('APP_URL', ''),
+    'http://127.0.0.1:3333',
+    'http://localhost:3333',
+    'https://gradaccelerate-project-x-production.up.railway.app',
+  ].filter(Boolean),
   methods: ['GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   headers: true,
   exposeHeaders: [],

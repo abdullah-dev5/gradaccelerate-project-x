@@ -7,17 +7,17 @@ const dbConfig = defineConfig({
     sqlite: {
       client: 'sqlite3',
       connection: {
-        filename: app.makePath('database', 'app.sqlite'), // Better location
+        filename: app.makePath('database', 'app.sqlite'),
       },
       useNullAsDefault: true,
       migrations: {
         naturalSort: true,
-        paths: ['./database/migrations'], // Explicit migration path
+        paths: ['./database/migrations'],
       },
       seeders: {
-        paths: ['./database/seeders'], // Add seeders path
+        paths: ['./database/seeders'],
       },
-    }, // This closing bracket was missing
+    },
   },
 })
 
