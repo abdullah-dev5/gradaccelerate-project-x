@@ -3,7 +3,8 @@ import { createInertiaApp } from '@inertiajs/react'
 import { AuthProvider } from '../contexts/AuthContext'
 import { ToastProvider } from '../contexts/ToastContext'
 import ErrorBoundary from '../components/ErrorBoundary'
-import { frontendErrorReporter } from '../services/errorReporter'
+// Avoid initializing browser-only services during SSR
+// import { frontendErrorReporter } from '../services/errorReporter'
 
 export default function render(page: any) {
   return createInertiaApp({
@@ -14,7 +15,6 @@ export default function render(page: any) {
       return pages[`../pages/${name}.tsx`]
     },
     setup: ({ App, props }) => {
-      void frontendErrorReporter.init()
       return (
         <ToastProvider>
           <AuthProvider>

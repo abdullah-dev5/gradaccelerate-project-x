@@ -15,6 +15,11 @@ class FrontendErrorReporter {
 
   async init(): Promise<void> {
     if (this.initialized) return
+    // Do not initialize on the server (SSR) to avoid window/DOM references
+    if (typeof window === 'undefined') {
+      this.initialized = true
+      return
+    }
     const dsn =
       (import.meta as any).env?.VITE_SENTRY_DSN ||
       'https://9111231d5f7846b9b013fa8a5ed9476f@o4510069713403905.ingest.de.sentry.io/4510069725659216'
