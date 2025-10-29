@@ -3,6 +3,11 @@ import ReminderService from '#services/reminder_service'
 import User from '#models/user'
 
 const enabled = process.env.SCHEDULER_ENABLED === 'true'
+// Disable scheduler automatically during CLI (ace) runs or tests unless explicitly enabled
+const isCli = process.argv.some((a) => typeof a === 'string' && a.includes('ace'))
+const isTest = process.env.NODE_ENV === 'test'
+const isExplicitlyDisabled = process.env.DISABLE_SCHEDULER === 'true'
+const shouldEnable = enabled && !isCli && !isTest && !isExplicitlyDisabled
 let isRunning = false
 
 function log(...args: unknown[]) {
@@ -44,7 +49,7 @@ async function processAllUsersDueReminders() {
   }
 }
 
-if (enabled) {
+if (shouldEnable) {
   log('Scheduler enabled - running every minute')
   // Every minute
   cron.schedule('* * * * *', async () => {
@@ -57,5 +62,7 @@ if (enabled) {
     await processAllUsersDueReminders()
   }, 5000)
 } else {
-  console.log('[Scheduler] Disabled. Set SCHEDULER_ENABLED=true in .env to enable.')
+  console.log(
+    '[Scheduler] Disabled. Set SCHEDULER_ENABLED=true to enable (skipped if running ace/test or DISABLE_SCHEDULER=true).'
+  )
 }
