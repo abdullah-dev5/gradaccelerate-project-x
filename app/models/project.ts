@@ -16,7 +16,7 @@ export default class Project extends BaseModel {
   @column()
   declare status: 'pending' | 'in_progress' | 'completed'
 
-  @column()
+  @column({ columnName: 'user_id' })
   declare userId: number
 
   @belongsTo(() => User)

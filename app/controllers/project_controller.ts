@@ -48,8 +48,8 @@ export default class ProjectsController {
       const search = request.input('search')
 
       const query = Project.query()
-        .where('userId', user.id)
-        .orderBy('createdAt', 'desc')
+        .where('user_id', user.id)
+        .orderBy('created_at', 'desc')
         .if(status, (statusQuery) => statusQuery.where('status', status))
         .if(search, (searchQuery) =>
           searchQuery.where((builder) => {
@@ -185,7 +185,7 @@ export default class ProjectsController {
       // Find project by ID and ensure user has access
       const project = await Project.query()
         .where('id', projectId)
-        .where('userId', user.id)
+        .where('user_id', user.id)
         .firstOrFail()
 
       // Check if it's an Inertia request (web page)
@@ -292,7 +292,7 @@ export default class ProjectsController {
       const user = auth.getUserOrFail()
       const project = await Project.query()
         .where('id', params.id)
-        .where('userId', user.id) // Ensure user owns the project
+        .where('user_id', user.id) // Ensure user owns the project
         .firstOrFail()
 
       const payload = await request.validateUsing(projectValidator)
@@ -317,7 +317,7 @@ export default class ProjectsController {
       const user = auth.getUserOrFail()
       const project = await Project.query()
         .where('id', params.id)
-        .where('userId', user.id) // Ensure user owns the project
+        .where('user_id', user.id) // Ensure user owns the project
         .firstOrFail()
 
       await project.delete()
@@ -339,7 +339,7 @@ export default class ProjectsController {
       const user = auth.getUserOrFail()
       const project = await Project.query()
         .where('id', params.id)
-        .where('userId', user.id) // Ensure user owns the project
+        .where('user_id', user.id) // Ensure user owns the project
         .firstOrFail()
 
       const { status } = await request.validateUsing(projectStatusValidator)
