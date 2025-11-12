@@ -1,7 +1,7 @@
-import { DateTime } from 'luxon'
 import { BaseModel, column } from '@adonisjs/lucid/orm'
+import { DateTime } from 'luxon'
 
-export default class Note extends BaseModel {
+export default class Project extends BaseModel {
   @column({ isPrimary: true })
   declare id: number
 
@@ -9,13 +9,14 @@ export default class Note extends BaseModel {
   declare title: string
 
   @column()
-  declare content: string
+  declare description: string
 
   @column()
-  declare pinned: boolean
+  declare status: 'pending' | 'in_progress' | 'completed'
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
+
   @column.dateTime({ autoCreate: true, autoUpdate: true })
-  declare updatedAt: DateTime | null
-} 
+  declare updatedAt: DateTime
+}
