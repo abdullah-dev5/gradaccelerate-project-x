@@ -35,20 +35,22 @@
   @stack('dumper')
   @inertiaHead()
 
-  <!-- Vite React Refresh preamble for dev to avoid plugin-react preamble error -->
-  <script type="module">
-    try {
-      const RefreshRuntime = await import('/@react-refresh')
-      RefreshRuntime.default.injectIntoGlobalHook(window)
-      window.$RefreshReg$ = () => {}
-      window.$RefreshSig$ = () => (type) => type
-      window.__vite_plugin_react_preamble_installed__ = true
-    } catch (e) {
-      // Not in dev server (no-op in prod)
-    }
-  </script>
-  <!-- Vite HMR client (safe in dev, no-op in prod build) -->
-  <script type="module" src="/@vite/client"></script>
+  @if(!page.props.isProduction)
+    <!-- Vite React Refresh preamble for dev to avoid plugin-react preamble error -->
+    <script type="module">
+      try {
+        const RefreshRuntime = await import('/@react-refresh')
+        RefreshRuntime.default.injectIntoGlobalHook(window)
+        window.$RefreshReg$ = () => {}
+        window.$RefreshSig$ = () => (type) => type
+        window.__vite_plugin_react_preamble_installed__ = true
+      } catch (e) {
+        // Not in dev server (no-op in prod)
+      }
+    </script>
+    <!-- Vite HMR client (development only) -->
+    <script type="module" src="/@vite/client"></script>
+  @endif
 
   @vite(['inertia/app/app.tsx', `inertia/pages/${page.component}.tsx`])
 </head>

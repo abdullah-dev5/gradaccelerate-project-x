@@ -1,5 +1,6 @@
 import { defineConfig } from '@adonisjs/inertia'
 import env from '#start/env'
+import app from '@adonisjs/core/services/app'
 import type { InferSharedProps } from '@adonisjs/inertia/types'
 
 const inertiaConfig = defineConfig({
@@ -35,6 +36,7 @@ const inertiaConfig = defineConfig({
     csrf: (ctx) => ctx.request.csrfToken,
     pusherKey: () => env.get('PUSHER_APP_KEY') || '',
     pusherCluster: () => env.get('PUSHER_CLUSTER') || '',
+    isProduction: () => app.inProduction,
   },
 
   /**
