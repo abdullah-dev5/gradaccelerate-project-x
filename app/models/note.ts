@@ -1,8 +1,8 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, beforeDelete } from '@adonisjs/lucid/orm'
-import type { BelongsTo } from '@adonisjs/lucid/types/relations'
-// label logic removed
+import { BaseModel, column, belongsTo, manyToMany, beforeDelete } from '@adonisjs/lucid/orm'
+import type { BelongsTo, ManyToMany } from '@adonisjs/lucid/types/relations'
 import User from './user.js'
+import Label from './label.js'
 import cloudinary from '#config/cloudinary'
 import { Exception } from '@adonisjs/core/exceptions'
 
@@ -10,7 +10,7 @@ export default class Note extends BaseModel {
   @column({ isPrimary: true })
   declare id: number
 
-  @column()
+  @column({ columnName: 'user_id' })
   declare userId: number
 
   @column()
@@ -22,33 +22,32 @@ export default class Note extends BaseModel {
   @column()
   declare pinned: boolean
 
-  @column()
+  @column({ columnName: 'gif_url' })
   declare gif_url: string | null
 
-  @column()
+  @column({ columnName: 'gif_slug' })
   declare gif_slug: string | null // Added for tracking
 
-  @column()
+  @column({ columnName: 'image_url' })
   declare imageUrl: string | null
 
-  @column()
+  @column({ columnName: 'image_public_id' })
   declare imagePublicId: string | null
 
   @column({ columnName: 'share_uuid' })
   declare shareUuid: string | null
 
-  @column.dateTime()
+  @column.dateTime({ columnName: 'deleted_at' })
   declare deletedAt: DateTime | null
 
   @belongsTo(() => User)
   declare user: BelongsTo<typeof User>
 
-  @column({
-    consume: (value) => (typeof value === 'string' ? JSON.parse(value) : value),
-    prepare: (value) => (value ? JSON.stringify(value) : null),
-    serialize: (value) => value,
+  @manyToMany(() => Label, {
+    pivotTable: 'label_note',
+    pivotTimestamps: true,
   })
-  declare labels: { id: number; name: string; color?: string }[] | null
+  declare labels: ManyToMany<typeof Label>
 
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime

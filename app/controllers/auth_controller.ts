@@ -278,6 +278,8 @@ export default class AuthController extends BaseController {
 
   /**
    * ✅ IMPROVED: Get authenticated user info (supports both guards)
+   * Returns 200 with null user if not authenticated (instead of 401)
+   * This prevents console errors when checking auth status on public pages
    */
   async me({ auth, response, session, request }: HttpContext) {
     try {
@@ -294,7 +296,13 @@ export default class AuthController extends BaseController {
           user = auth.user!
         } catch (apiError) {
           // Both guards failed - user is not authenticated
-          return response.status(401).json(ApiResponse.error('Not authenticated', 401))
+          // Return 200 with null user instead of 401 to prevent console errors
+          return response.json(
+            ApiResponse.success({
+              user: null,
+              token: null,
+            })
+          )
         }
       }
 
@@ -321,16 +329,14 @@ export default class AuthController extends BaseController {
         })
       )
     } catch (error) {
-      // Check if it's an Inertia request
-      const isInertiaRequest = request.header('x-inertia') === 'true'
-
-      if (isInertiaRequest) {
-        // For Inertia requests, redirect to login page
-        return response.redirect('/login')
-      } else {
-        // For API requests, return JSON error
-        return response.status(401).json(ApiResponse.error('Invalid credentials', 401))
-      }
+      // If any unexpected error occurs, return null user instead of error
+      console.error('AuthController.me error:', error)
+      return response.json(
+        ApiResponse.success({
+          user: null,
+          token: null,
+        })
+      )
     }
   }
 

@@ -1,7 +1,8 @@
-import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
-import type { BelongsTo } from '@adonisjs/lucid/types/relations'
+import { BaseModel, column, belongsTo, manyToMany } from '@adonisjs/lucid/orm'
+import type { BelongsTo, ManyToMany } from '@adonisjs/lucid/types/relations'
 
 import User from './user.js'
+import Label from './label.js'
 import { DateTime } from 'luxon'
 
 export default class Todo extends BaseModel {
@@ -29,12 +30,12 @@ export default class Todo extends BaseModel {
   @belongsTo(() => User)
   declare user: BelongsTo<typeof User>
 
-  @column({
-    consume: (value) => (typeof value === 'string' ? JSON.parse(value) : value),
-    prepare: (value) => (value ? JSON.stringify(value) : null),
-    serialize: (value) => value,
+  @manyToMany(() => Label, {
+    pivotTable: 'label_todo',
+    pivotTimestamps: true,
   })
-  declare labels: { id: number; name: string; color?: string }[] | null
+  declare labels: ManyToMany<typeof Label>
+
   public static softDelete = true
 
   @column.dateTime({ autoCreate: true })
@@ -43,6 +44,6 @@ export default class Todo extends BaseModel {
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
 
-  @column.dateTime()
+  @column.dateTime({ columnName: 'deleted_at' })
   declare deletedAt: DateTime | null
 }

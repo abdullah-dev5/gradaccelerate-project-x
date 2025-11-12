@@ -8,7 +8,7 @@ export default class Bookmark extends BaseModel {
   @column({ isPrimary: true })
   declare id: number
 
-  @column()
+  @column({ columnName: 'user_id' })
   declare userId: number
 
   @column()
@@ -20,25 +20,25 @@ export default class Bookmark extends BaseModel {
   @column()
   declare description: string | null
 
-  @column()
+  @column({ columnName: 'image_url' })
   declare imageUrl: string | null
 
-  @column()
+  @column({ columnName: 'site_name' })
   declare siteName: string | null
 
-  @column()
+  @column({ columnName: 'ai_generated_labels' })
   declare aiGeneratedLabels: string | null // JSON string of AI-generated labels
 
-  @column()
+  @column({ columnName: 'ai_generated_summary' })
   declare aiGeneratedSummary: string | null // TL;DR summary
 
-  @column()
+  @column({ columnName: 'is_favorite' })
   declare isFavorite: boolean
 
   @column()
   declare status: 'active' | 'archived' | 'deleted'
 
-  @column.dateTime()
+  @column.dateTime({ columnName: 'deleted_at' })
   declare deletedAt: DateTime | null
 
   @column.dateTime({ autoCreate: true })

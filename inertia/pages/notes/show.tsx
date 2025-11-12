@@ -297,9 +297,17 @@ export default function Show({ note }: { note: Note }) {
 
             {/* Meta information */}
             <div className="mt-6 pt-4 border-t border-[#3A3A3C] text-sm text-gray-400">
-              <p>Created: {new Date(note.createdAt).toLocaleDateString()}</p>
+              <p>Created: {new Date(note.createdAt).toLocaleDateString('en-US', {
+                month: 'numeric',
+                day: 'numeric',
+                year: 'numeric'
+              })}</p>
               {note.updatedAt && (
-                <p>Updated: {new Date(note.updatedAt).toLocaleDateString()}</p>
+                <p>Updated: {new Date(note.updatedAt).toLocaleDateString('en-US', {
+                  month: 'numeric',
+                  day: 'numeric',
+                  year: 'numeric'
+                })}</p>
               )}
             </div>
           </motion.div>

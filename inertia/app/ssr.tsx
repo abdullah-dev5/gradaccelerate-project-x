@@ -1,10 +1,20 @@
+import React from 'react'
 import ReactDOMServer from 'react-dom/server'
 import { createInertiaApp } from '@inertiajs/react'
-import { AuthProvider } from '../contexts/AuthContext'
+import { AuthProvider, useAuth } from '../contexts/AuthContext'
 import { ToastProvider } from '../contexts/ToastContext'
 import ErrorBoundary from '../components/ErrorBoundary'
+import { FeedbackButton } from '../components/FeedbackButton'
+import { useReminderNotifications } from '../hooks/useReminderNotifications'
 // Avoid initializing browser-only services during SSR
 // import { frontendErrorReporter } from '../services/errorReporter'
+
+// ReminderListener component (same as client-side for consistency)
+const ReminderListener: React.FC = () => {
+  const { user } = useAuth()
+  useReminderNotifications(user?.id)
+  return null
+}
 
 export default function render(page: any) {
   return createInertiaApp({
@@ -19,8 +29,10 @@ export default function render(page: any) {
         <ToastProvider>
           <AuthProvider>
             <ErrorBoundary>
+              <ReminderListener />
               <App {...props} />
             </ErrorBoundary>
+            <FeedbackButton className="fixed bottom-4 right-4 z-50" />
           </AuthProvider>
         </ToastProvider>
       )

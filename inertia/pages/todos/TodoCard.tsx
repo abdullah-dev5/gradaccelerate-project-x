@@ -205,7 +205,11 @@ export function TodoCard({ todo, isEditing, onEditStart, onDelete, onToggleStatu
               </p>
             )}
             <p className="text-xs text-[#6D6D70] mt-2">
-              Created {new Date(todo.createdAt).toLocaleDateString()}
+              Created {new Date(todo.createdAt).toLocaleDateString('en-US', {
+                month: 'numeric',
+                day: 'numeric',
+                year: 'numeric'
+              })}
             </p>
           </div>
           

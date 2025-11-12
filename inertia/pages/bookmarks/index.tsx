@@ -489,7 +489,11 @@ export default function BookmarksIndex({ bookmarks, labels, filters }: Props) {
                         </a>
                       </span>
                       <span>
-                        {new Date(bookmark.createdAt).toLocaleDateString()}
+                        {new Date(bookmark.createdAt).toLocaleDateString('en-US', {
+                          month: 'numeric',
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}
                       </span>
                     </div>
                   </div>

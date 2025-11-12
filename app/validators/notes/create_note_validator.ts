@@ -9,7 +9,19 @@ export const createNoteValidator = vine.compile(
   vine.object({
     title: vine.string().trim().minLength(1).maxLength(255).escape(),
 
-    content: vine.string().trim().maxLength(10000).escape().optional(),
+    content: vine
+      .any()
+      .transform((value) => {
+        if (value === null || value === undefined || value === '') {
+          return undefined
+        }
+        const trimmed = String(value).trim()
+        if (trimmed.length > 10000) {
+          return trimmed.substring(0, 10000)
+        }
+        return trimmed || undefined
+      })
+      .optional(),
 
     pinned: vine.boolean().optional(),
 
@@ -57,7 +69,22 @@ export const noteIdValidator = vine.compile(
  */
 export const noteSearchValidator = vine.compile(
   vine.object({
-    search: vine.string().trim().maxLength(100).optional(),
+    search: vine
+      .any()
+      .transform((value) => {
+        if (value === null || value === undefined || value === '') {
+          return undefined
+        }
+        const trimmed = String(value).trim()
+        if (trimmed.length === 0) {
+          return undefined
+        }
+        if (trimmed.length > 100) {
+          return trimmed.substring(0, 100)
+        }
+        return trimmed
+      })
+      .optional(),
 
     sort: vine.enum(['created_at', 'updated_at', 'title', 'pinned']).optional(),
 

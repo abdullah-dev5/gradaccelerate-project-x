@@ -60,9 +60,12 @@ export default function Login() {
   // Show SweetAlert for flash errors from server and set inline errors
   useEffect(() => {
     const showErrorAlert = async () => {
-      console.log('🔍 Login Page: Flash errors detected:', flashErrors)
+      // Only log if flashErrors actually exist and have content
+      if (flashErrors && Object.keys(flashErrors).length > 0) {
+        console.log('🔍 Login Page: Flash errors detected:', flashErrors)
+      }
       
-      if (flashErrors) {
+      if (flashErrors && Object.keys(flashErrors).length > 0) {
         // Merge flash errors with existing errors
         setErrors((prevErrors: any) => ({ ...prevErrors, ...flashErrors }))
         

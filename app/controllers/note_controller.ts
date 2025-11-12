@@ -23,6 +23,21 @@ export default class NotesController {
     return request.header('x-inertia') === 'true'
   }
 
+  /**
+   * Helper to serialize labels from relationship
+   */
+  private serializeLabels(labels: any): { id: number; name: string; color?: string }[] {
+    if (!labels) return []
+    if (Array.isArray(labels)) {
+      return labels.map((label) => ({
+        id: label.id,
+        name: label.name,
+        color: label.color || null,
+      }))
+    }
+    return []
+  }
+
   // Alias method for backward compatibility - redirect to index
   async indexPage(_context: HttpContext) {
     return this.index(_context)
@@ -44,7 +59,7 @@ export default class NotesController {
       const query = Note.query()
         .where('userId', user.id)
         .whereNull('deleted_at')
-        // .preload('labels') // label logic removed
+        .preload('labels')
         .orderBy('pinned', 'desc')
 
       if (search) {
@@ -62,7 +77,7 @@ export default class NotesController {
       // Always render Inertia page for browser requests (even if not X-Inertia)
       if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
         return inertia.render('notes/index', {
-          notes: notes.serialize().data.map((note) => ({
+          notes: notes.all().map((note) => ({
             id: note.id,
             title: note.title,
             content: note.content,
@@ -72,7 +87,7 @@ export default class NotesController {
             imageUrl: note.imageUrl,
             gif_url: note.gif_url,
             gif_slug: note.gif_slug,
-            labels: note.labels,
+            labels: this.serializeLabels(note.labels),
             userId: note.userId,
           })),
           meta: notes.getMeta(),
@@ -121,7 +136,7 @@ export default class NotesController {
         .where('id', noteId)
         .where('userId', user.id)
         .whereNull('deleted_at')
-        // .preload('labels') // label logic removed
+        .preload('labels')
         .firstOrFail()
 
       if (this.isInertiaRequest(request) || request.header('accept')?.includes('text/html')) {
@@ -136,7 +151,7 @@ export default class NotesController {
             imageUrl: note.imageUrl,
             gif_url: note.gif_url,
             gif_slug: note.gif_slug,
-            labels: note.labels,
+            labels: this.serializeLabels(note.labels),
             userId: note.userId,
             shareUuid: note.shareUuid,
           },
@@ -189,7 +204,7 @@ export default class NotesController {
             imageUrl: note.imageUrl,
             gif_url: note.gif_url,
             gif_slug: note.gif_slug,
-            labels: note.labels,
+            labels: this.serializeLabels(note.labels),
             userId: note.userId,
           },
         })
@@ -254,7 +269,7 @@ export default class NotesController {
         imagePublicId: null, // Will be set if we need to upload a new image
         gif_url: payload.gif_url || null,
         gif_slug: payload.gif_slug || null,
-        labels: payload.labels || null, // ✅ FIXED: Handle undefined labels
+        // Labels are handled via relationship, not as a column
       }
 
       // Debug: log noteData before create
@@ -297,6 +312,16 @@ export default class NotesController {
           userId: user.id, // Double-check user_id is set
         })
 
+        // Attach labels via relationship if provided
+        if (payload.labels && Array.isArray(payload.labels) && payload.labels.length > 0) {
+          const labelIds = payload.labels.map((label: any) => label.id).filter(Boolean)
+          if (labelIds.length > 0) {
+            await note.related('labels').attach(labelIds)
+            // Reload note with labels
+            await note.load('labels')
+          }
+        }
+
         logger.info('DEBUG NOTE CREATED SUCCESSFULLY', {
           noteId: note.id,
           userId: note.userId,
@@ -323,6 +348,13 @@ export default class NotesController {
         return response.redirect('/notes')
       } else {
         // For API requests, return JSON with complete note data
+        // Serialize labels from relationship
+        const labels = note.labels ? note.labels.map((label) => ({
+          id: label.id,
+          name: label.name,
+          color: label.color,
+        })) : []
+        
         return response.created({
           message: 'Note created successfully',
           note: {
@@ -335,7 +367,7 @@ export default class NotesController {
             imageUrl: note.imageUrl,
             gif_url: note.gif_url,
             gif_slug: note.gif_slug,
-            labels: note.labels,
+            labels: labels,
             userId: note.userId,
           },
         })
@@ -445,7 +477,11 @@ export default class NotesController {
       const user = auth.getUserOrFail()
       const { id: noteId } = await request.validateUsing(noteIdValidator, { data: params })
       const payload = await request.validateUsing(updateNoteValidator)
-      const note = await Note.query().where('id', noteId).where('userId', user.id).firstOrFail()
+      const note = await Note.query()
+        .where('id', noteId)
+        .where('userId', user.id)
+        .preload('labels')
+        .firstOrFail()
 
       const updateData: Partial<Note> = {
         title: payload.title ?? note.title,
@@ -455,8 +491,7 @@ export default class NotesController {
         // ✅ FIXED: Handle GIF removal properly - only update if explicitly provided
         gif_url: payload.gif_url !== undefined ? payload.gif_url : note.gif_url,
         gif_slug: payload.gif_slug !== undefined ? payload.gif_slug : note.gif_slug,
-        // ✅ FIXED: Only update labels if they are explicitly provided and not null
-        labels: payload.labels !== undefined ? payload.labels : note.labels,
+        // Labels are handled via relationship, not as a column
       }
 
       // Handle GIF tracking if new GIF is provided
@@ -508,6 +543,19 @@ export default class NotesController {
       note.merge(updateData)
       await note.save()
 
+      // Update labels via relationship if provided
+      if (payload.labels !== undefined) {
+        if (Array.isArray(payload.labels) && payload.labels.length > 0) {
+          const labelIds = payload.labels.map((label: any) => label.id).filter(Boolean)
+          await note.related('labels').sync(labelIds)
+        } else {
+          // Empty array means remove all labels
+          await note.related('labels').detach()
+        }
+        // Reload note with labels
+        await note.load('labels')
+      }
+
       // For Inertia requests, redirect to the note show page
       if (this.isInertiaRequest(request)) {
         return response.redirect(`/notes/${note.id}`)
@@ -526,7 +574,7 @@ export default class NotesController {
           imageUrl: note.imageUrl,
           gif_url: note.gif_url,
           gif_slug: note.gif_slug,
-          labels: note.labels,
+          labels: this.serializeLabels(note.labels),
           userId: note.userId,
         },
       })
@@ -578,6 +626,7 @@ export default class NotesController {
       const note = await Note.query()
         .where('id', noteId)
         .where('userId', user.id) // Ensure user owns the note
+        .preload('labels')
         .firstOrFail()
 
       note.deletedAt = null
@@ -595,7 +644,7 @@ export default class NotesController {
           imageUrl: note.imageUrl,
           gif_url: note.gif_url,
           gif_slug: note.gif_slug,
-          labels: note.labels,
+          labels: this.serializeLabels(note.labels),
           userId: note.userId,
         },
       })
@@ -893,6 +942,7 @@ export default class NotesController {
         .where('id', noteId)
         .where('userId', user.id)
         .whereNull('deleted_at')
+        .preload('labels')
         .firstOrFail()
 
       // Remove share UUID
@@ -917,7 +967,7 @@ export default class NotesController {
           imageUrl: note.imageUrl,
           gif_url: note.gif_url,
           gif_slug: note.gif_slug,
-          labels: note.labels,
+          labels: this.serializeLabels(note.labels),
           userId: note.userId,
         },
       })
@@ -1039,7 +1089,11 @@ export default class NotesController {
 
       const { gif_url: gifUrl, gif_slug: gifSlug } = request.only(['gif_url', 'gif_slug'])
 
-      const note = await Note.query().where('id', params.id).where('userId', user.id).firstOrFail()
+      const note = await Note.query()
+        .where('id', params.id)
+        .where('userId', user.id)
+        .preload('labels')
+        .firstOrFail()
 
       note.gif_url = gifUrl
       note.gif_slug = gifSlug
@@ -1065,7 +1119,7 @@ export default class NotesController {
         imageUrl: note.imageUrl,
         gif_url: note.gif_url,
         gif_slug: note.gif_slug,
-        labels: note.labels,
+        labels: this.serializeLabels(note.labels),
         userId: note.userId,
       })
     } catch (error) {
@@ -1085,7 +1139,11 @@ export default class NotesController {
       await auth.authenticate()
       const user = auth.getUserOrFail()
 
-      const note = await Note.query().where('id', params.id).where('userId', user.id).firstOrFail()
+      const note = await Note.query()
+        .where('id', params.id)
+        .where('userId', user.id)
+        .preload('labels')
+        .firstOrFail()
 
       note.gif_url = null
       note.gif_slug = null
@@ -1101,7 +1159,7 @@ export default class NotesController {
         imageUrl: note.imageUrl,
         gif_url: note.gif_url,
         gif_slug: note.gif_slug,
-        labels: note.labels,
+        labels: this.serializeLabels(note.labels),
         userId: note.userId,
       })
     } catch (error) {

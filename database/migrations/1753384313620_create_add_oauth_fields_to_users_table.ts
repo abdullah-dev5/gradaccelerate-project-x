@@ -4,15 +4,39 @@ export default class extends BaseSchema {
   protected tableName = 'users'
 
   async up() {
-    this.schema.alterTable(this.tableName, (table) => {
-      // OAuth provider fields
-      table.string('provider').nullable() // 'google', 'github', etc.
-      table.string('provider_id').nullable() // OAuth provider's user ID
-      table.string('avatar_url').nullable() // User's profile picture from OAuth provider
+    // Use schema's connection
+    const knex = (this.schema as any).client
+    
+    // Check which columns already exist
+    const columnsResult = await knex.raw(`PRAGMA table_info(${this.tableName})`)
+    const columns = Array.isArray(columnsResult) && columnsResult[0] ? columnsResult[0] : columnsResult
+    const columnNames = Array.isArray(columns) ? columns.map((col: any) => col.name) : []
 
-      // Make password nullable for OAuth users
-      table.string('password').nullable().alter()
-    })
+    // Helper function to add column if it doesn't exist
+    const addColumnIfNotExists = async (
+      columnName: string,
+      columnDef: string
+    ) => {
+      try {
+        if (!columnNames.includes(columnName)) {
+          await knex.raw(
+            `ALTER TABLE ${this.tableName} ADD COLUMN ${columnName} ${columnDef}`
+          )
+        }
+      } catch (error: any) {
+        if (!String(error?.message || '').includes('duplicate column name')) {
+          throw error
+        }
+      }
+    }
+
+    // Add OAuth columns only if they don't exist
+    await addColumnIfNotExists('provider', 'VARCHAR(20) NULL')
+    await addColumnIfNotExists('provider_id', 'VARCHAR(255) NULL')
+    await addColumnIfNotExists('avatar_url', 'VARCHAR(255) NULL')
+
+    // Note: SQLite doesn't support changing column nullability directly
+    // The password column nullability is handled in create_users_table migration
   }
 
   async down() {
@@ -20,9 +44,6 @@ export default class extends BaseSchema {
       table.dropColumn('provider')
       table.dropColumn('provider_id')
       table.dropColumn('avatar_url')
-
-      // Revert password to not nullable (this might cause issues if OAuth users exist)
-      table.string('password').notNullable().alter()
     })
   }
 }

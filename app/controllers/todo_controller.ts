@@ -208,9 +208,18 @@ export default class TodosController {
 
       const todo = await Todo.create({
         ...todoData,
-        labels,
         userId: user.id, // Set the authenticated user as owner
+        // Labels are handled via relationship, not as a column
       })
+
+      // Attach labels via relationship if provided
+      if (labels && Array.isArray(labels) && labels.length > 0) {
+        const labelIds = labels.map((label: any) => label.id).filter(Boolean)
+        if (labelIds.length > 0) {
+          await todo.related('labels').attach(labelIds)
+          await todo.load('labels')
+        }
+      }
 
       logger.info('Todo created successfully', { todoId: todo.id, title: todo.title })
 
@@ -367,7 +376,7 @@ export default class TodosController {
 
       const payload = await request.validateUsing(updateTodoValidator)
 
-      const { labels = [], ...updateData } = payload
+      const { labels, ...updateData } = payload
 
       // Debug logging
       logger.info('Update payload received:', {
@@ -385,7 +394,7 @@ export default class TodosController {
       if (updateData.isCompleted !== undefined) fieldsToUpdate.isCompleted = updateData.isCompleted
       if (updateData.priority !== undefined) fieldsToUpdate.priority = updateData.priority
       if (updateData.status !== undefined) fieldsToUpdate.status = updateData.status
-      if (labels !== undefined) fieldsToUpdate.labels = labels
+      // Labels are handled via relationship, not as a column
 
       logger.info('Fields to update:', { fieldsToUpdate })
 
@@ -393,6 +402,18 @@ export default class TodosController {
       if (Object.keys(fieldsToUpdate).length > 0) {
         todo.merge(fieldsToUpdate)
         await todo.save()
+      }
+
+      // Update labels via relationship if provided
+      if (labels !== undefined) {
+        if (Array.isArray(labels) && labels.length > 0) {
+          const labelIds = labels.map((label: any) => label.id).filter(Boolean)
+          await todo.related('labels').sync(labelIds)
+        } else {
+          // Empty array means remove all labels
+          await todo.related('labels').detach()
+        }
+        await todo.load('labels')
       }
 
       logger.info('Todo updated successfully', {

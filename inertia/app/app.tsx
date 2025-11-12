@@ -2,6 +2,7 @@
 /// <reference path="../../config/inertia.ts" />
 
 import '../css/app.css';
+import React from 'react'
 import { hydrateRoot } from 'react-dom/client'
 import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from '@adonisjs/inertia/helpers'
@@ -13,6 +14,13 @@ import { frontendErrorReporter } from '../services/errorReporter'
 import { useReminderNotifications } from '../hooks/useReminderNotifications'
 
 const appName = import.meta.env.VITE_APP_NAME || 'AdonisJS'
+
+// Move ReminderListener outside setup to prevent recreation on each render
+const ReminderListener: React.FC = () => {
+  const { user } = useAuth()
+  useReminderNotifications(user?.id)
+  return null
+}
 
 createInertiaApp({
   progress: { color: '#5468FF' },
@@ -29,12 +37,6 @@ createInertiaApp({
   setup({ el, App, props }) {
     // Initialize frontend error reporter (no-op when DSN missing)
     void frontendErrorReporter.init()
-    
-    const ReminderListener: React.FC = () => {
-      const { user } = useAuth()
-      useReminderNotifications(user?.id)
-      return null
-    }
 
     hydrateRoot(el, (
       <ToastProvider>
@@ -47,6 +49,5 @@ createInertiaApp({
         </AuthProvider>
       </ToastProvider>
     ))
-    
   },
 });

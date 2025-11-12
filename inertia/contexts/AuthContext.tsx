@@ -96,18 +96,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             localStorage.removeItem('auth_user')
           }
         } else if (response.status === 401) {
+          // 401 is expected when not authenticated - silently handle it
           setUser(null)
           setToken(null)
           localStorage.removeItem('auth_token')
           localStorage.removeItem('auth_user')
         } else {
+          // Only log non-401 errors
+          console.warn('AuthProvider: Unexpected error checking auth status:', response.status)
           setUser(null)
           setToken(null)
           localStorage.removeItem('auth_token')
           localStorage.removeItem('auth_user')
         }
       } catch (error) {
-        console.warn('AuthProvider: Error checking auth status:', error)
+        // Only log network errors, not expected 401s
+        if (error instanceof TypeError && error.message.includes('fetch')) {
+          console.warn('AuthProvider: Network error checking auth status:', error)
+        }
         // On error, clear local state
         setUser(null)
         setToken(null)

@@ -3,8 +3,31 @@ import vine from '@vinejs/vine'
 
 export const updateNoteValidator = vine.compile(
   vine.object({
-    title: vine.string().trim().minLength(1).maxLength(255).optional(),
-    content: vine.string().optional(),
+    title: vine
+      .any()
+      .transform((value) => {
+        if (value === null || value === undefined || value === '') {
+          return undefined
+        }
+        const trimmed = String(value).trim()
+        if (trimmed.length === 0) {
+          return undefined
+        }
+        if (trimmed.length > 255) {
+          return trimmed.substring(0, 255)
+        }
+        return trimmed
+      })
+      .optional(),
+    content: vine
+      .any()
+      .transform((value) => {
+        if (value === null || value === undefined) {
+          return undefined
+        }
+        return String(value)
+      })
+      .optional(),
     pinned: vine.boolean().optional(),
     imageUrl: vine.string().url().optional().nullable(), // For existing image URL
     image: vine

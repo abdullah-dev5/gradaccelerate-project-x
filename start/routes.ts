@@ -33,6 +33,8 @@ router.post('/logout', '#controllers/auth_controller.logout')
 // OAuth Routes (Google)
 router.get('/auth/google/redirect', '#controllers/auth_controller.googleRedirect')
 router.get('/auth/google/callback', '#controllers/auth_controller.googleCallback')
+// Also support /google/callback for compatibility with Google OAuth console configuration
+router.get('/google/callback', '#controllers/auth_controller.googleCallback')
 
 // Debug route (development only)
 if (process.env.NODE_ENV === 'development') {
@@ -65,10 +67,13 @@ if (process.env.NODE_ENV === 'development') {
   })
 }
 
-// Protected auth routes
+// Auth routes
+// /me is public (returns null user if not authenticated to prevent console errors)
+router.get('/api/auth/me', '#controllers/auth_controller.me')
+
+// Logout requires authentication
 router
   .group(() => {
-    router.get('/me', '#controllers/auth_controller.me')
     router.post('/logout', '#controllers/auth_controller.logout')
   })
   .prefix('/api/auth')
@@ -104,9 +109,6 @@ router
     router.get('/bookmarks/create', '#controllers/bookmark_controller.create')
     router.get('/bookmarks/:id', '#controllers/bookmark_controller.show')
     router.get('/bookmarks/:id/edit', '#controllers/bookmark_controller.edit')
-
-    // Reminders test page
-    router.get('/reminders/test', ({ inertia }) => inertia.render('reminders/test'))
   })
   .use(middleware.auth())
 

@@ -321,7 +321,11 @@ export default function BookmarkShow({ bookmark }: Props) {
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">Created</span>
                     <span className="text-sm text-gray-600">
-                      {new Date(bookmark.createdAt).toLocaleDateString()}
+                      {new Date(bookmark.createdAt).toLocaleDateString('en-US', {
+                        month: 'numeric',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}
                     </span>
                   </div>
                 </div>
